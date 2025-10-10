@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lean Production Line Simulator</title>
+    
+    <!-- External CSS -->
+    <link rel="stylesheet" href="styles.css">
+    
+    <!-- Chart.js and dependencies -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/1.2.1/chartjs-plugin-zoom.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <div class="main-card">
+            <h1>Lean Production Line Simulator - Parallel Machines</h1>
+
+            <div class="control-panel">
+                <div class="controls-row">
+                    <div class="button-group">
+                        <button id="startBtn" class="btn btn--primary"><span class="btn-icon">▶</span>Start</button>
+                        <button id="pauseBtn" class="btn btn--secondary" disabled><span class="btn-icon">⏸</span>Pause</button>
+                        <button id="resetBtn" class="btn btn--outline"><span class="btn-icon">⏹</span>Reset</button>
+                        <button id="stepBtn" class="btn btn--secondary"><span class="btn-icon">➡️</span>Step</button>
+                    </div>
+                    <div class="input-group">
+                        <label class="form-label">Constant WIP:</label>
+                        <input id="wipInput" type="number" class="form-control input-small" min="1" max="1000" value="9">
+                    </div>
+                    <div class="input-group">
+                        <label class="form-label">Speed:</label>
+                        <input id="speedRange" type="range" class="speed-slider" min="1" max="200" step="1" value="10">
+                        <span id="speedDisplay" class="speed-display">1.0x</span>
+                    </div>
+                    <div class="input-group">
+                        <label class="form-label">Log Step (sec):</label>
+                        <select id="logStepInput" class="form-control input-small">
+                            <option value="1">1</option>
+                            <option value="5" selected>5</option>
+                            <option value="10">10</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label class="form-label">Zoom Window (sec):</label>
+                        <input id="zoomWindowInput" type="number" class="form-control input-small" min="10" value="300">
+                    </div>
+                    <div class="input-group">
+                        <label class="form-label">Warm-up (sec):</label>
+                        <input id="warmupPeriodInput" type="number" class="form-control input-small" min="0" value="0">
+                    </div>
+                </div>
+
+                <div class="metrics-grid">
+                    <div class="metric-card"><div id="currentTime" class="metric-value time">0</div><div class="metric-label">Time (sec)</div></div>
+                    <div class="metric-card"><div id="completedPieces" class="metric-value completed">0</div><div class="metric-label">Completed</div></div>
+                    <div class="metric-card"><div id="throughputRate" class="metric-value throughput">0</div><div class="metric-label">Parts/hour</div></div>
+                    <div class="metric-card"><div id="wipInLine" class="metric-value wip">0</div><div class="metric-label">WIP in Line</div></div>
+                    <div class="metric-card"><div id="waitingQueue" class="metric-value queue">9</div><div class="metric-label">Waiting Queue</div></div>
+                    <div class="metric-card"><div id="avgLeadTime" class="metric-value leadtime">0.0</div><div class="metric-label">Avg Lead Time (sec)</div></div>
+                </div>
+                <div id="convergenceIndicator" style="display: none; text-align: center;">Indicatore Convergenza</div>
+            </div>
+
+            <div class="production-line">
+                <h3>Production Line</h3>
+                <div id="movingPartsContainer"></div>
+                
+                <div class="line-container">
+                    <div class="queue-container">
+                        <div class="queue-box" id="inputQueueBox">
+                            <div class="queue-label">IN</div>
+                        </div>
+                        <div class="queue-count">
+                            <span id="queueCount">9</span>
+                        </div>
+                    </div>
+                    <div class="arrow"></div>
+
+                    <div class="station-container">
+                        <div id="station1" class="station status-free">
+                            <div class="station-id">S1</div>
+                            <div id="station1Piece" class="piece-id"></div>
+                            <div id="station1Time" class="remaining-time"></div>
+                        </div>
+                        <div class="station-info">
+                            <div id="station1DurationDisplay" class="duration-display">5.0s</div>
+                            <div id="station1Status" class="status-display">free</div>
+                        </div>
+                    </div>
+                    <div class="arrow"></div>
+
+                    <div class="buffer-container">
+                        <div id="buffer1" class="buffer">
+                            <div class="buffer-id">B1</div>
+                            <div id="buffer1Count" class="buffer-count">0/2</div>
+                        </div>
+                        <div id="buffer1Fill" class="buffer-fill">0%</div>
+                    </div>
+                    <div class="arrow"></div>
+
+                    <div class="station-container">
+                        <div id="station2" class="station status-free">
+                            <div class="station-id">S2</div>
+                            <div id="station2Piece" class="piece-id"></div>
+                            <div id="station2Time" class="remaining-time"></div>
+                        </div>
+                        <div class="station-info">
+                            <div id="station2DurationDisplay" class="duration-display">4.0s</div>
+                            <div id="station2Status" class="status-display">free</div>
+                        </div>
+                    </div>
+                    <div class="arrow"></div>
+
+                    <div class="buffer-container">
+                        <div id="buffer2" class="buffer">
+                            <div class="buffer-id">B2</div>
+                            <div id="buffer2Count" class="buffer-count">0/2</div>
+                        </div>
+                        <div id="buffer2Fill" class="buffer-fill">0%</div>
+                    </div>
+                    <div class="arrow"></div>
+
+                    <div class="station-container">
+                        <div id="station3" class="station status-free">
+                            <div class="station-id">S3</div>
+                            <div id="station3Piece" class="piece-id"></div>
+                            <div id="station3Time" class="remaining-time"></div>
+                        </div>
+                        <div class="station-info">
+                            <div id="station3DurationDisplay" class="duration-display">6.0s</div>
+                            <div id="station3Status" class="status-display">free</div>
+                        </div>
+                    </div>
+                    <div class="arrow"></div>
+
+                    <div class="buffer-container">
+                        <div id="buffer3" class="buffer">
+                            <div class="buffer-id">B3</div>
+                            <div id="buffer3Count" class="buffer-count">0/2</div>
+                        </div>
+                        <div id="buffer3Fill" class="buffer-fill">0%</div>
+                    </div>
+                    <div class="arrow"></div>
+
+                    <div class="station-container">
+                        <div id="station4" class="station status-free">
+                            <div class="station-id">S4</div>
+                            <div id="station4Piece" class="piece-id"></div>
+                            <div id="station4Time" class="remaining-time"></div>
+                        </div>
+                        <div class="station-info">
+                            <div id="station4DurationDisplay" class="duration-display">3.0s</div>
+                            <div id="station4Status" class="status-display">free</div>
+                        </div>
+                    </div>
+                    <div class="arrow"></div>
+
+                    <div class="buffer-container">
+                        <div id="buffer4" class="buffer">
+                            <div class="buffer-id">B4</div>
+                            <div id="buffer4Count" class="buffer-count">0/2</div>
+                        </div>
+                        <div id="buffer4Fill" class="buffer-fill">0%</div>
+                    </div>
+                    <div class="arrow"></div>
+
+                    <div class="station-container">
+                        <div id="station5" class="station status-free">
+                            <div class="station-id">S5</div>
+                            <div id="station5Piece" class="piece-id"></div>
+                            <div id="station5Time" class="remaining-time"></div>
+                        </div>
+                        <div class="station-info">
+                            <div id="station5DurationDisplay" class="duration-display">5.0s</div>
+                            <div id="station5Status" class="status-display">free</div>
+                        </div>
+                    </div>
+                    <div class="arrow"></div>
+
+                    <div class="output-container">
+                        <div class="output-box" id="outputBox">
+                            <div class="output-label">OUT</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="charts-grid">
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <h3 class="chart-title">📈 Throughput Rate (Parts/Hour)</h3>
+                        <div class="button-group">
+                            <button class="btn btn--outline btn--sm zoom-recent-btn" data-chart="throughputChart">Recent Zoom</button>
+                            <button class="btn btn--outline btn--sm zoom-all-btn" data-chart="throughputChart">Full Zoom</button>
+                        </div>
+                    </div>
+                    <div class="chart-container" style="position: relative; height: 250px;">
+                        <canvas id="throughputChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <h3 class="chart-title">📊 Work in Process (WIP)</h3>
+                        <div class="button-group">
+                            <button class="btn btn--outline btn--sm zoom-recent-btn" data-chart="wipChart">Recent Zoom</button>
+                            <button class="btn btn--outline btn--sm zoom-all-btn" data-chart="wipChart">Full Zoom</button>
+                        </div>
+                    </div>
+                    <div class="chart-container" style="position: relative; height: 250px;">
+                        <canvas id="wipChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <h3 class="chart-title">⏱️ Lead Time Trend (seconds)</h3>
+                        <div class="button-group">
+                            <button class="btn btn--outline btn--sm zoom-recent-btn" data-chart="leadTimeChart">Recent Zoom</button>
+                            <button class="btn btn--outline btn--sm zoom-all-btn" data-chart="leadTimeChart">Full Zoom</button>
+                        </div>
+                    </div>
+                    <div class="chart-container" style="position: relative; height: 250px;">
+                        <canvas id="leadTimeChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <h3 class="chart-title">📊 Lead Time Distribution (Histogram)</h3>
+                    </div>
+                    <div class="chart-container" style="position: relative; height: 250px;">
+                        <canvas id="leadTimeHistogram"></canvas>
+                    </div>
+                </div>
+
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <h3 class="chart-title">🔬 Little's Law: WIP vs Throughput</h3>
+                    </div>
+                    <div class="chart-container" style="position: relative; height: 250px;">
+                        <canvas id="littlesLawChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <h3 class="chart-title">📊 Cumulative Throughput: S1 vs S5</h3>
+                        <div class="button-group">
+                            <button class="btn btn--outline btn--sm zoom-recent-btn" data-chart="cumulativeThroughputChart">Recent Zoom</button>
+                            <button class="btn btn--outline btn--sm zoom-all-btn" data-chart="cumulativeThroughputChart">Full Zoom</button>
+                        </div>
+                    </div>
+                    <div class="chart-container" style="position: relative; height: 250px;">
+                        <canvas id="cumulativeThroughputChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="gantt-panel">
+                <h3>🗓️ Machine Activity Gantt Chart</h3>
+                <div class="gantt-controls">
+                    <label class="form-label">Time Window (sec):</label>
+                    <input id="ganttWindowInput" type="number" class="form-control input-small" min="10" max="500" value="100">
+                    <span class="gantt-info">Chart updates automatically during simulation</span>
+                </div>
+                <div class="gantt-container" id="ganttContainer">
+                    <canvas id="ganttChart"></canvas>
+                </div>
+            </div>
+
+            <div class="legend-panel">
+                <h3>Station States Legend:</h3>
+                <div class="legend-items">
+                    <div class="legend-item"><div class="legend-color status-free"></div><span>Free</span></div>
+                    <div class="legend-item"><div class="legend-color status-occupied"></div><span>Occupied (processing)</span></div>
+                    <div class="legend-item"><div class="legend-color status-blocked"></div><span>Blocked (downstream buffer full)</span></div>
+                </div>
+                <h4>Utilization Metrics:</h4>
+                <div class="legend-items">
+                    <div class="legend-item"><strong>Occupied %:</strong> Time with piece (processing + blocked)</div>
+                    <div class="legend-item"><strong>Processing %:</strong> Time actively processing (excluding blocked time)</div>
+                </div>
+                <h4>Parallel Machines:</h4>
+                <div class="legend-items">
+                    <div class="legend-item"><strong>"2/3"</strong> means 2 machines busy out of 3 total machines in the station</div>
+                </div>
+            </div>
+
+            <div class="config-panel">
+                <h3 class="config-title">⚙️ Station Configuration</h3>
+                <div class="stations-config">
+                    <!-- Station 1 -->
+                    <div class="station-config-card">
+                        <label class="station-label">Station 1</label>
+                        <div class="param-group" style="gap: 4px; margin-bottom: 8px;">
+                            <label class="form-label-small">Parallel Machines</label>
+                            <input id="station1Parallel" type="number" class="form-control station-input" min="1" max="10" value="1">
+                        </div>
+                        <div class="param-group" style="gap: 4px; margin-bottom: 8px;">
+                            <label class="form-label-small">Batch Size (parts)</label>
+                            <input id="station1Batch" type="number" class="form-control station-input" min="1" max="100" value="1">
+                        </div>
+                        <div class="param-group" style="gap: 4px; margin-bottom: 8px;">
+                            <label class="form-label-small">OEE (0.0 - 1.0)</label>
+                            <input id="station1OEE" type="number" class="form-control station-input" min="0.01" max="1.0" step="0.01" value="1.0">
+                        </div>
+                        <select id="station1Dist" class="form-control station-input">
+                            <option value="deterministic" selected>Deterministic</option>
+                            <option value="normal">Normal</option>
+                            <option value="exponential">Exponential</option>
+                            <option value="uniform">Uniform</option>
+                            <option value="triangular">Triangular</option>
+                        </select>
+                        <div id="station1Params">
+                            <div class="param-group" data-dist="deterministic exponential normal">
+                                <label class="form-label-small">Mean (sec)</label>
+                                <input id="station1Mean" type="number" class="form-control station-input" min="1" max="120" value="5">
+                            </div>
+                            <div class="param-group hidden" data-dist="normal">
+                                <label class="form-label-small">Variance</label>
+                                <input id="station1Variance" type="number" class="form-control station-input" min="0" max="100" value="1">
+                            </div>
+                            <div class="param-group hidden" data-dist="uniform triangular">
+                                <label class="form-label-small">Min (sec)</label>
+                                <input id="station1Min" type="number" class="form-control station-input" min="1" max="120" value="2">
+                            </div>
+                            <div class="param-group hidden" data-dist="uniform triangular">
+                                <label class="form-label-small">Max (sec)</label>
+                                <input id="station1Max" type="number" class="form-control station-input" min="1" max="120" value="8">
+                            </div>
+                            <div class="param-group hidden" data-dist="triangular">
+                                <label class="form-label-small">Mode (sec)</label>
+                                <input id="station1Mode" type="number" class="form-control station-input" min="1" max="120" value="5">
+                            </div>
+                        </div>
+                        <div class="utilization-metrics">
+                            <div id="station1Occupied" class="utilization-occupied">0.0% Occupied</div>
+                            <div id="station1Processing" class="utilization-processing">0.0% Processing</div>
+                        </div>
+                    </div>
+
+                    <!-- Station 2 -->
+                    <div class="station-config-card">
+                        <label class="station-label">Station 2</label>
+                        <div class="param-group" style="gap: 4px; margin-bottom: 8px;">
+                            <label class="form-label-small">Parallel Machines</label>
+                            <input id="station2Parallel" type="number" class="form-control station-input" min="1" max="10" value="1">
+                        </div>
+                        <div class="param-group" style="gap: 4px; margin-bottom: 8px;">
+                            <label class="form-label-small">Batch Size (parts)</label>
+                            <input id="station2Batch" type="number" class="form-control station-input" min="1" max="100" value="1">
+                        </div>
+                        <div class="param-group" style="gap: 4px; margin-bottom: 8px;">
+                            <label class="form-label-small">OEE (0.0 - 1.0)</label>
+                            <input id="station2OEE" type="number" class="form-control station-input" min="0.01" max="1.0" step="0.01" value="1.0">
+                        </div>
+                        <select id="station2Dist" class="form-control station-input">
+                            <option value="deterministic" selected>Deterministic</option>
+                            <option value="normal">Normal</option>
+                            <option value="exponential">Exponential</option>
+                            <option value="uniform">Uniform</option>
+                            <option value="triangular">Triangular</option>
+                        </select>
+                        <div id="station2Params">
+                            <div class="param-group" data-dist="deterministic exponential normal">
+                                <label class="form-label-small">Mean (sec)</label>
+                                <input id="station2Mean" type="number" class="form-control station-input" min="1" max="120" value="4">
+                            </div>
+                            <div class="param-group hidden" data-dist="normal">
+                                <label class="form-label-small">Variance</label>
+                                <input id="station2Variance" type="number" class="form-control station-input" min="0" max="100" value="1">
+                            </div>
+                            <div class="param-group hidden" data-dist="uniform triangular">
+                                <label class="form-label-small">Min (sec)</label>
+                                <input id="station2Min" type="number" class="form-control station-input" min="1" max="120" value="2">
+                            </div>
+                            <div class="param-group hidden" data-dist="uniform triangular">
+                                <label class="form-label-small">Max (sec)</label>
+                                <input id="station2Max" type="number" class="form-control station-input" min="1" max="120" value="6">
+                            </div>
+                            <div class="param-group hidden" data-dist="triangular">
+                                <label class="form-label-small">Mode (sec)</label>
+                                <input id="station2Mode" type="number" class="form-control station-input" min="1" max="120" value="4">
+                            </div>
+                        </div>
+                        <div class="utilization-metrics">
+                            <div id="station2Occupied" class="utilization-occupied">0.0% Occupied</div>
+                            <div id="station2Processing" class="utilization-processing">0.0% Processing</div>
+                        </div>
+                    </div>
+
+                    <!-- Station 3 -->
+                    <div class="station-config-card">
+                        <label class="station-label">Station 3</label>
+                        <div class="param-group" style="gap: 4px; margin-bottom: 8px;">
+                            <label class="form-label-small">Parallel Machines</label>
+                            <input id="station3Parallel" type="number" class="form-control station-input" min="1" max="10" value="1">
+                        </div>
+                        <div class="param-group" style="gap: 4px; margin-bottom: 8px;">
+                            <label class="form-label-small">Batch Size (parts)</label>
+                            <input id="station3Batch" type="number" class="form-control station-input" min="1" max="100" value="1">
+                        </div>
+                        <div class="param-group" style="gap: 4px; margin-bottom: 8px;">
+                            <label class="form-label-small">OEE (0.0 - 1.0)</label>
+                            <input id="station3OEE" type="number" class="form-control station-input" min="0.01" max="1.0" step="0.01" value="1.0">
+                        </div>
+                        <select id="station3Dist" class="form-control station-input">
+                            <option value="deterministic" selected>Deterministic</option>
+                            <option value="normal">Normal</option>
+                            <option value="exponential">Exponential</option>
+                            <option value="uniform">Uniform</option>
+                            <option value="triangular">Triangular</option>
+                        </select>
+                        <div id="station3Params">
+                            <div class="param-group" data-dist="deterministic exponential normal">
+                                <label class="form-label-small">Mean (sec)</label>
+                                <input id="station3Mean" type="number" class="form-control station-input" min="1" max="120" value="6">
+                            </div>
+                            <div class="param-group hidden" data-dist="normal">
+                                <label class="form-label-small">Variance</label>
+                                <input id="station3Variance" type="number" class="form-control station-input" min="0" max="100" value="1">
+                            </div>
+                            <div class="param-group hidden" data-dist="uniform triangular">
+                                <label class="form-label-small">Min (sec)</label>
+                                <input id="station3Min" type="number" class="form-control station-input" min="1" max="120" value="3">
+                            </div>
+                            <div class="param-group hidden" data-dist="uniform triangular">
+                                <label class="form-label-small">Max (sec)</label>
+                                <input id="station3Max" type="number" class="form-control station-input" min="1" max="120" value="9">
+                            </div>
+                            <div class="param-group hidden" data-dist="triangular">
+                                <label class="form-label-small">Mode (sec)</label>
+                                <input id="station3Mode" type="number" class="form-control station-input" min="1" max="120" value="6">
+                            </div>
+                        </div>
+                        <div class="utilization-metrics">
+                            <div id="station3Occupied" class="utilization-occupied">0.0% Occupied</div>
+                            <div id="station3Processing" class="utilization-processing">0.0% Processing</div>
+                        </div>
+                    </div>
+
+                    <!-- Station 4 -->
+                    <div class="station-config-card">
+                        <label class="station-label">Station 4</label>
+                        <div class="param-group" style="gap: 4px; margin-bottom: 8px;">
+                            <label class="form-label-small">Parallel Machines</label>
+                            <input id="station4Parallel" type="number" class="form-control station-input" min="1" max="10" value="1">
+                        </div>
+                        <div class="param-group" style="gap: 4px; margin-bottom: 8px;">
+                            <label class="form-label-small">Batch Size (parts)</label>
+                            <input id="station4Batch" type="number" class="form-control station-input" min="1" max="100" value="1">
+                        </div>
+                        <div class="param-group" style="gap: 4px; margin-bottom: 8px;">
+                            <label class="form-label-small">OEE (0.0 - 1.0)</label>
+                            <input id="station4OEE" type="number" class="form-control station-input" min="0.01" max="1.0" step="0.01" value="1.0">
+                        </div>
+                        <select id="station4Dist" class="form-control station-input">
+                            <option value="deterministic" selected>Deterministic</option>
+                            <option value="normal">Normal</option>
+                            <option value="exponential">Exponential</option>
+                            <option value="uniform">Uniform</option>
+                            <option value="triangular">Triangular</option>
+                        </select>
+                        <div id="station4Params">
+                            <div class="param-group" data-dist="deterministic exponential normal">
+                                <label class="form-label-small">Mean (sec)</label>
+                                <input id="station4Mean" type="number" class="form-control station-input" min="1" max="120" value="3">
+                            </div>
+                            <div class="param-group hidden" data-dist="normal">
+                                <label class="form-label-small">Variance</label>
+                                <input id="station4Variance" type="number" class="form-control station-input" min="0" max="100" value="1">
+                            </div>
+                            <div class="param-group hidden" data-dist="uniform triangular">
+                                <label class="form-label-small">Min (sec)</label>
+                                <input id="station4Min" type="number" class="form-control station-input" min="1" max="120" value="1">
+                            </div>
+                            <div class="param-group hidden" data-dist="uniform triangular">
+                                <label class="form-label-small">Max (sec)</label>
+                                <input id="station4Max" type="number" class="form-control station-input" min="1" max="120" value="5">
+                            </div>
+                            <div class="param-group hidden" data-dist="triangular">
+                                <label class="form-label-small">Mode (sec)</label>
+                                <input id="station4Mode" type="number" class="form-control station-input" min="1" max="120" value="3">
+                            </div>
+                        </div>
+                        <div class="utilization-metrics">
+                            <div id="station4Occupied" class="utilization-occupied">0.0% Occupied</div>
+                            <div id="station4Processing" class="utilization-processing">0.0% Processing</div>
+                        </div>
+                    </div>
+
+                    <!-- Station 5 -->
+                    <div class="station-config-card">
+                        <label class="station-label">Station 5</label>
+                        <div class="param-group" style="gap: 4px; margin-bottom: 8px;">
+                            <label class="form-label-small">Parallel Machines</label>
+                            <input id="station5Parallel" type="number" class="form-control station-input" min="1" max="10" value="1">
+                        </div>
+                        <div class="param-group" style="gap: 4px; margin-bottom: 8px;">
+                            <label class="form-label-small">Batch Size (parts)</label>
+                            <input id="station5Batch" type="number" class="form-control station-input" min="1" max="100" value="1">
+                        </div>
+                        <div class="param-group" style="gap: 4px; margin-bottom: 8px;">
+                            <label class="form-label-small">OEE (0.0 - 1.0)</label>
+                            <input id="station5OEE" type="number" class="form-control station-input" min="0.01" max="1.0" step="0.01" value="1.0">
+                        </div>
+                        <select id="station5Dist" class="form-control station-input">
+                            <option value="deterministic" selected>Deterministic</option>
+                            <option value="normal">Normal</option>
+                            <option value="exponential">Exponential</option>
+                            <option value="uniform">Uniform</option>
+                            <option value="triangular">Triangular</option>
+                        </select>
+                        <div id="station5Params">
+                            <div class="param-group" data-dist="deterministic exponential normal">
+                                <label class="form-label-small">Mean (sec)</label>
+                                <input id="station5Mean" type="number" class="form-control station-input" min="1" max="120" value="5">
+                            </div>
+                            <div class="param-group hidden" data-dist="normal">
+                                <label class="form-label-small">Variance</label>
+                                <input id="station5Variance" type="number" class="form-control station-input" min="0" max="100" value="1">
+                            </div>
+                            <div class="param-group hidden" data-dist="uniform triangular">
+                                <label class="form-label-small">Min (sec)</label>
+                                <input id="station5Min" type="number" class="form-control station-input" min="1" max="120" value="2">
+                            </div>
+                            <div class="param-group hidden" data-dist="uniform triangular">
+                                <label class="form-label-small">Max (sec)</label>
+                                <input id="station5Max" type="number" class="form-control station-input" min="1" max="120" value="8">
+                            </div>
+                            <div class="param-group hidden" data-dist="triangular">
+                                <label class="form-label-small">Mode (sec)</label>
+                                <input id="station5Mode" type="number" class="form-control station-input" min="1" max="120" value="5">
+                            </div>
+                        </div>
+                        <div class="utilization-metrics">
+                            <div id="station5Occupied" class="utilization-occupied">0.0% Occupied</div>
+                            <div id="station5Processing" class="utilization-processing">0.0% Processing</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="config-panel buffer-config-panel">
+                <h3 class="config-title">📦 Buffer Configuration</h3>
+                <div class="buffers-config">
+                    <div class="buffer-config">
+                        <label class="buffer-label">Buffer 1 (S1 → S2)</label>
+                        <input id="buffer1Capacity" type="number" class="form-control station-input" min="0" max="100" value="2">
+                        <div id="buffer1Status" class="buffer-status">Current: 0/2 (0%)</div>
+                        <div id="buffer1AvgUtilization" class="buffer-avg-util">Avg Util: 0.0%</div>
+                    </div>
+                    <div class="buffer-config">
+                        <label class="buffer-label">Buffer 2 (S2 → S3)</label>
+                        <input id="buffer2Capacity" type="number" class="form-control station-input" min="0" max="100" value="2">
+                        <div id="buffer2Status" class="buffer-status">Current: 0/2 (0%)</div>
+                        <div id="buffer2AvgUtilization" class="buffer-avg-util">Avg Util: 0.0%</div>
+                    </div>
+                    <div class="buffer-config">
+                        <label class="buffer-label">Buffer 3 (S3 → S4)</label>
+                        <input id="buffer3Capacity" type="number" class="form-control station-input" min="0" max="100" value="2">
+                        <div id="buffer3Status" class="buffer-status">Current: 0/2 (0%)</div>
+                        <div id="buffer3AvgUtilization" class="buffer-avg-util">Avg Util: 0.0%</div>
+                    </div>
+                    <div class="buffer-config">
+                        <label class="buffer-label">Buffer 4 (S4 → S5)</label>
+                        <input id="buffer4Capacity" type="number" class="form-control station-input" min="0" max="100" value="2">
+                        <div id="buffer4Status" class="buffer-status">Current: 0/2 (0%)</div>
+                        <div id="buffer4AvgUtilization" class="buffer-avg-util">Avg Util: 0.0%</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="export-panel">
+                <h3 class="config-title">📄 Export Log</h3>
+                <button id="exportLogBtn" class="btn btn--secondary">💾 Export Log File (.csv)</button>
+            </div>
+
+            <div class="config-panel" style="background-color: var(--color-bg-6);">
+                <h3 class="config-title">⚙️ Configuration Save / Load</h3>
+                <div class="button-group" style="justify-content: space-between;">
+                    <button id="saveConfigBtn" class="btn btn--primary">⬇️ Save Config (JSON)</button>
+                    <button id="loadConfigBtn" class="btn btn--outline">⬆️ Load Config (JSON)</button>
+                </div>
+                <input type="file" id="configFileInput" accept=".json" style="display:none;">
+            </div>
+
+            <div class="preset-panel">
+                <h3 class="config-title">⚡ Load Configuration Presets</h3>
+                <div class="preset-group">
+                    <button class="btn btn--secondary preset-button" data-preset="balanced">Balanced Line</button>
+                    <button class="btn btn--secondary preset-button" data-preset="bottleneck">Bottleneck (S3)</button>
+                    <button class="btn btn--secondary preset-button" data-preset="high-volatility">High Volatility</button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- External JavaScript -->
+    <script src="simulator.js"></script>
+</body>
+</html>

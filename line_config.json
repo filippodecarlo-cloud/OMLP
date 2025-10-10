@@ -1,0 +1,87 @@
+{
+  "wip": 9,
+  "logStep": 5,
+  "zoomWindow": 300,
+  "warmupPeriod": 0,
+  "buffers": [
+    {
+      "capacity": 5
+    },
+    {
+      "capacity": 5
+    },
+    {
+      "capacity": 6
+    },
+    {
+      "capacity": 5
+    }
+  ],
+  "stations": [
+    {
+      "dist": "deterministic",
+      "oee": 1,
+      "batchSize": 1,
+      "parallelMachines": 1,
+      "params": {
+        "mean": 5,
+        "variance": 1,
+        "min": 2,
+        "max": 8,
+        "mode": 5
+      }
+    },
+    {
+      "dist": "deterministic",
+      "oee": 1,
+      "batchSize": 2,
+      "parallelMachines": 1,
+      "params": {
+        "mean": 4,
+        "variance": 1,
+        "min": 2,
+        "max": 6,
+        "mode": 4
+      }
+    },
+    {
+      "dist": "deterministic",
+      "oee": 1,
+      "batchSize": 3,
+      "parallelMachines": 1,
+      "params": {
+        "mean": 6,
+        "variance": 1,
+        "min": 3,
+        "max": 9,
+        "mode": 6
+      }
+    },
+    {
+      "dist": "deterministic",
+      "oee": 1,
+      "batchSize": 4,
+      "parallelMachines": 1,
+      "params": {
+        "mean": 3,
+        "variance": 1,
+        "min": 1,
+        "max": 5,
+        "mode": 3
+      }
+    },
+    {
+      "dist": "deterministic",
+      "oee": 1,
+      "batchSize": 1,
+      "parallelMachines": 1,
+      "params": {
+        "mean": 5,
+        "variance": 1,
+        "min": 2,
+        "max": 8,
+        "mode": 5
+      }
+    }
+  ]
+}
