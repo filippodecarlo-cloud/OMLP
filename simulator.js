@@ -373,6 +373,156 @@ class ProductionLineSimulator {
         reader.readAsText(file);
     }
 
+    // ============================================
+    // LOCAL STORAGE MANAGEMENT
+    // ============================================
+
+    getConfigurationObject() {
+        return {
+            wip: this.wip,
+            logStep: this.logStep,
+            zoomWindow: this.zoomWindow,
+            warmupPeriod: this.warmupPeriod,
+            buffers: this.buffers.map(b => ({ capacity: b.capacity })),
+            stations: this.stations.map(s => ({
+                dist: s.dist,
+                oee: s.oee,
+                batchSize: s.batchSize,
+                parallelMachines: s.parallelMachines,
+                params: s.params
+            }))
+        };
+    }
+
+    saveToLocalStorage(name) {
+        try {
+            const config = this.getConfigurationObject();
+            const savedConfigs = this.getSavedConfigurations();
+
+            savedConfigs[name] = {
+                config: config,
+                timestamp: new Date().toISOString(),
+                name: name
+            };
+
+            localStorage.setItem('omlp_saved_configs', JSON.stringify(savedConfigs));
+            console.log(`✅ Configuration "${name}" saved to localStorage`);
+            return true;
+        } catch (error) {
+            console.error('Error saving to localStorage:', error);
+            return false;
+        }
+    }
+
+    getSavedConfigurations() {
+        try {
+            const saved = localStorage.getItem('omlp_saved_configs');
+            return saved ? JSON.parse(saved) : {};
+        } catch (error) {
+            console.error('Error reading from localStorage:', error);
+            return {};
+        }
+    }
+
+    loadFromLocalStorage(name) {
+        try {
+            const savedConfigs = this.getSavedConfigurations();
+            const savedConfig = savedConfigs[name];
+
+            if (!savedConfig) {
+                console.error(`Configuration "${name}" not found`);
+                return false;
+            }
+
+            this.applyConfigurationObject(savedConfig.config);
+            console.log(`✅ Configuration "${name}" loaded from localStorage`);
+            return true;
+        } catch (error) {
+            console.error('Error loading from localStorage:', error);
+            return false;
+        }
+    }
+
+    deleteFromLocalStorage(name) {
+        try {
+            const savedConfigs = this.getSavedConfigurations();
+            delete savedConfigs[name];
+            localStorage.setItem('omlp_saved_configs', JSON.stringify(savedConfigs));
+            console.log(`✅ Configuration "${name}" deleted from localStorage`);
+            return true;
+        } catch (error) {
+            console.error('Error deleting from localStorage:', error);
+            return false;
+        }
+    }
+
+    applyConfigurationObject(config) {
+        this.resetSimulation();
+
+        this.wip = config.wip || 9;
+        this.logStep = config.logStep || 5;
+        this.zoomWindow = config.zoomWindow || 300;
+        this.warmupPeriod = config.warmupPeriod || 0;
+
+        document.getElementById('wipInput').value = this.wip;
+        document.getElementById('logStepInput').value = this.logStep;
+        document.getElementById('zoomWindowInput').value = this.zoomWindow;
+        document.getElementById('warmupPeriodInput').value = this.warmupPeriod;
+
+        if (config.buffers && config.buffers.length === this.buffers.length) {
+            config.buffers.forEach((bConfig, i) => {
+                this.buffers[i].capacity = bConfig.capacity;
+                document.getElementById(`buffer${i+1}Capacity`).value = bConfig.capacity;
+            });
+        }
+
+        if (config.stations && config.stations.length === this.stations.length) {
+            config.stations.forEach((sConfig, i) => {
+                const station = this.stations[i];
+
+                station.dist = sConfig.dist;
+                station.oee = sConfig.oee;
+                station.batchSize = sConfig.batchSize || 1;
+                station.parallelMachines = sConfig.parallelMachines || 1;
+                station.params = { ...station.params, ...sConfig.params };
+
+                station.machines = [];
+                for (let j = 0; j < station.parallelMachines; j++) {
+                    station.machines.push({
+                        piece: null,
+                        pieceBatch: [],
+                        remainingTime: 0,
+                        status: 'free'
+                    });
+                }
+
+                document.getElementById(`station${i+1}Dist`).value = sConfig.dist;
+                document.getElementById(`station${i+1}OEE`).value = sConfig.oee.toFixed(2);
+                document.getElementById(`station${i+1}Batch`).value = station.batchSize;
+                document.getElementById(`station${i+1}Parallel`).value = station.parallelMachines;
+                document.getElementById(`station${i+1}Mean`).value = sConfig.params.mean;
+                document.getElementById(`station${i+1}Variance`).value = sConfig.params.variance;
+                document.getElementById(`station${i+1}Min`).value = sConfig.params.min;
+                document.getElementById(`station${i+1}Max`).value = sConfig.params.max;
+                document.getElementById(`station${i+1}Mode`).value = sConfig.params.mode;
+            });
+        }
+
+        this.updateVisuals();
+    }
+
+    autoSave() {
+        this.saveToLocalStorage('__autosave__');
+    }
+
+    loadAutoSave() {
+        const savedConfigs = this.getSavedConfigurations();
+        if (savedConfigs['__autosave__']) {
+            this.loadFromLocalStorage('__autosave__');
+            console.log('✅ Auto-saved configuration restored');
+        }
+    }
+
     applyPreset(presetKey) {
         this.resetSimulation();
         const preset = PRESETS[presetKey];
