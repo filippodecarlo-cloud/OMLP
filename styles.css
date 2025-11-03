@@ -961,16 +961,16 @@ select.station-input {
 
 .progress-ring-circle {
   fill: none;
-  stroke: #10b981; /* Green progress ring */
-  stroke-width: 4;
+  stroke: #059669; /* Dark green progress ring */
+  stroke-width: 5;
   stroke-linecap: round;
   transition: stroke-dashoffset 0.3s ease;
 }
 
 .progress-ring-bg {
   fill: none;
-  stroke: rgba(16, 185, 129, 0.4); /* Light green background ring - more visible */
-  stroke-width: 4;
+  stroke: rgba(134, 239, 172, 0.8); /* Light green background ring - very visible */
+  stroke-width: 5;
 }
 
 .station:hover {
