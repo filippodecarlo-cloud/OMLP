@@ -1039,28 +1039,30 @@
                 const stationElement = document.getElementById(stationId);
                 if (!stationElement) return;
 
+                const progressRingSvg = stationElement.querySelector('.progress-ring');
                 const progressCircle = stationElement.querySelector('.progress-ring-circle');
-                if (!progressCircle) return;
+                if (!progressRingSvg || !progressCircle) return;
 
                 // Get the first machine (or we could aggregate across machines)
                 const machine = station.machines[0];
 
                 if (machine && machine.status === 'occupied' && machine.remainingTime !== undefined) {
+                    // Show the progress ring
+                    progressRingSvg.style.display = 'block';
+
                     // Calculate progress
                     const totalTime = machine.initialTime || 10; // fallback
                     const elapsed = totalTime - machine.remainingTime;
                     const progress = totalTime > 0 ? elapsed / totalTime : 0;
 
-                    // Update progress ring
+                    // Update progress ring - start from 0 (empty) and fill to circumference (full)
                     const radius = 30;
                     const circumference = 2 * Math.PI * radius;
                     const offset = circumference - (progress * circumference);
                     progressCircle.style.strokeDashoffset = offset;
                 } else {
-                    // Reset to empty when not occupied
-                    const radius = 30;
-                    const circumference = 2 * Math.PI * radius;
-                    progressCircle.style.strokeDashoffset = circumference;
+                    // Hide the progress ring when not occupied
+                    progressRingSvg.style.display = 'none';
                 }
             });
         }
