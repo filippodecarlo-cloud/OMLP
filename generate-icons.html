@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PWA Icon Generator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #4a90e2;
+        }
+        button {
+            background: #4a90e2;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background: #357abd;
+        }
+        #preview {
+            margin: 20px 0;
+            text-align: center;
+        }
+        #preview img {
+            max-width: 200px;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+        }
+        .progress {
+            margin: 20px 0;
+            color: #666;
+        }
+        .success {
+            color: #2ecc71;
+            font-weight: bold;
+        }
+        .icon-list {
+            margin: 20px 0;
+        }
+        .icon-item {
+            display: inline-block;
+            margin: 10px;
+            text-align: center;
+        }
+        .icon-item canvas {
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .instructions {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 PWA Icon Generator</h1>
+
+        <div class="instructions">
+            <h3>Istruzioni:</h3>
+            <ol>
+                <li>Clicca su "Generate All Icons" per creare tutte le icone necessarie</li>
+                <li>Scarica ogni icona cliccando sul bottone sotto ogni immagine</li>
+                <li>Salva le icone nella cartella principale del progetto</li>
+            </ol>
+        </div>
+
+        <div id="preview">
+            <h3>Preview (512x512):</h3>
+            <img id="previewImage" alt="Icon preview">
+        </div>
+
+        <button onclick="generateAllIcons()">Generate All Icons</button>
+        <button onclick="downloadAll()">Download All Icons</button>
+
+        <div id="progress" class="progress"></div>
+
+        <div id="iconList" class="icon-list"></div>
+    </div>
+
+    <script>
+        const iconSizes = [72, 96, 128, 144, 152, 192, 384, 512];
+        const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#4a90e2;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#357abd;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="80" fill="url(#grad1)"/>
+  <g transform="translate(100, 150)">
+    <rect x="0" y="40" width="50" height="50" rx="5" fill="#ffffff" opacity="0.9"/>
+    <circle cx="25" cy="65" r="8" fill="#4a90e2"/>
+    <path d="M 55 65 L 75 65" stroke="#ffffff" stroke-width="4" fill="none"/>
+    <path d="M 70 60 L 75 65 L 70 70" stroke="#ffffff" stroke-width="4" fill="none" stroke-linejoin="round"/>
+    <rect x="80" y="40" width="50" height="50" rx="5" fill="#ffffff" opacity="0.9"/>
+    <circle cx="105" cy="65" r="8" fill="#4a90e2"/>
+    <path d="M 135 65 L 155 65" stroke="#ffffff" stroke-width="4" fill="none"/>
+    <path d="M 150 60 L 155 65 L 150 70" stroke="#ffffff" stroke-width="4" fill="none" stroke-linejoin="round"/>
+    <rect x="160" y="30" width="50" height="70" rx="5" fill="#ffffff" opacity="0.95"/>
+    <circle cx="185" cy="65" r="10" fill="#e74c3c"/>
+    <path d="M 215 65 L 235 65" stroke="#ffffff" stroke-width="4" fill="none"/>
+    <path d="M 230 60 L 235 65 L 230 70" stroke="#ffffff" stroke-width="4" fill="none" stroke-linejoin="round"/>
+    <rect x="240" y="40" width="50" height="50" rx="5" fill="#ffffff" opacity="0.9"/>
+    <circle cx="265" cy="65" r="8" fill="#4a90e2"/>
+    <path d="M 295 65 L 315 65" stroke="#ffffff" stroke-width="4" fill="none"/>
+    <path d="M 310 60 L 315 65 L 310 70" stroke="#ffffff" stroke-width="4" fill="none" stroke-linejoin="round"/>
+    <rect x="320" y="40" width="50" height="50" rx="5" fill="#ffffff" opacity="0.9"/>
+    <circle cx="345" cy="65" r="8" fill="#2ecc71"/>
+  </g>
+  <text x="256" y="320" font-family="Arial, sans-serif" font-size="48" font-weight="bold" fill="#ffffff" text-anchor="middle">OMLP</text>
+  <text x="256" y="355" font-family="Arial, sans-serif" font-size="20" fill="#ffffff" text-anchor="middle" opacity="0.9">Simulator</text>
+</svg>`;
+
+        let generatedIcons = [];
+
+        function svgToCanvas(svgString, size) {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                const blob = new Blob([svgString], { type: 'image/svg+xml' });
+                const url = URL.createObjectURL(blob);
+
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = size;
+                    canvas.height = size;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, size, size);
+                    URL.revokeObjectURL(url);
+                    resolve(canvas);
+                };
+
+                img.onerror = reject;
+                img.src = url;
+            });
+        }
+
+        async function generateIcon(size) {
+            const canvas = await svgToCanvas(svgContent, size);
+            return {
+                size: size,
+                canvas: canvas,
+                dataUrl: canvas.toDataURL('image/png')
+            };
+        }
+
+        async function generateAllIcons() {
+            const iconList = document.getElementById('iconList');
+            const progress = document.getElementById('progress');
+            iconList.innerHTML = '';
+            generatedIcons = [];
+
+            progress.textContent = 'Generating icons...';
+
+            for (let i = 0; i < iconSizes.length; i++) {
+                const size = iconSizes[i];
+                progress.textContent = `Generating ${size}x${size}... (${i + 1}/${iconSizes.length})`;
+
+                const icon = await generateIcon(size);
+                generatedIcons.push(icon);
+
+                const iconItem = document.createElement('div');
+                iconItem.className = 'icon-item';
+                iconItem.innerHTML = `
+                    <canvas id="canvas-${size}" width="${size}" height="${size}"></canvas>
+                    <div>${size}x${size}</div>
+                    <button onclick="downloadIcon(${size})">Download</button>
+                `;
+                iconList.appendChild(iconItem);
+
+                const targetCanvas = document.getElementById(`canvas-${size}`);
+                const ctx = targetCanvas.getContext('2d');
+                ctx.drawImage(icon.canvas, 0, 0);
+            }
+
+            // Update preview
+            const preview512 = generatedIcons.find(i => i.size === 512);
+            if (preview512) {
+                document.getElementById('previewImage').src = preview512.dataUrl;
+            }
+
+            progress.innerHTML = '<span class="success">✓ All icons generated successfully!</span>';
+        }
+
+        function downloadIcon(size) {
+            const icon = generatedIcons.find(i => i.size === size);
+            if (!icon) return;
+
+            const link = document.createElement('a');
+            link.download = `icon-${size}x${size}.png`;
+            link.href = icon.dataUrl;
+            link.click();
+        }
+
+        function downloadAll() {
+            if (generatedIcons.length === 0) {
+                alert('Please generate icons first!');
+                return;
+            }
+
+            generatedIcons.forEach(icon => {
+                setTimeout(() => downloadIcon(icon.size), icon.size);
+            });
+        }
+
+        // Generate preview on load
+        window.onload = () => {
+            generateIcon(512).then(icon => {
+                document.getElementById('previewImage').src = icon.dataUrl;
+            });
+        };
+    </script>
+</body>
+</html>
