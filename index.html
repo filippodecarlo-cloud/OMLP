@@ -1034,7 +1034,8 @@
                     console.log(`S${index + 1}: status=${machine.status}, remaining=${machine.remainingTime}, initial=${machine.initialTime}`);
                 }
 
-                if (machine && machine.status === 'occupied' && machine.remainingTime !== undefined && machine.initialTime) {
+                // Show progress if machine has initialTime (currently or recently working)
+                if (machine && machine.initialTime && machine.remainingTime !== undefined && machine.remainingTime >= 0) {
                     // Calculate progress (0 to 100%)
                     const totalTime = machine.initialTime;
                     const elapsed = totalTime - machine.remainingTime;
@@ -1047,7 +1048,7 @@
                         console.log(`  → S${index + 1} Progress: ${progress.toFixed(1)}% (width set to ${progress.toFixed(1)}%)`);
                     }
                 } else {
-                    // Reset to 0% when not occupied
+                    // Reset to 0% when not working
                     progressBarFill.style.width = '0%';
                 }
             });
