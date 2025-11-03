@@ -27,11 +27,24 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/1.2.1/chartjs-plugin-zoom.min.js"></script>
+
+    <!-- jsPDF for PDF export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
     <div class="container">
         <div class="main-card">
-            <h1>Lean Production Line Simulator - Parallel Machines</h1>
+            <div class="header-bar">
+                <h1>Lean Production Line Simulator - Parallel Machines</h1>
+                <div class="header-actions">
+                    <button id="themeToggle" class="btn btn--icon" title="Toggle Dark/Light Mode">
+                        <span class="theme-icon">🌙</span>
+                    </button>
+                    <button id="installBtn" class="btn btn--success" style="display: none;">
+                        <span class="btn-icon">📱</span>Installa App
+                    </button>
+                </div>
+            </div>
 
             <div class="control-panel">
                 <div class="controls-row">
@@ -591,8 +604,11 @@
             </div>
 
             <div class="export-panel">
-                <h3 class="config-title">📄 Export Log</h3>
-                <button id="exportLogBtn" class="btn btn--secondary">💾 Export Log File (.csv)</button>
+                <h3 class="config-title">📄 Export Data</h3>
+                <div class="button-group" style="gap: 8px;">
+                    <button id="exportLogBtn" class="btn btn--secondary">💾 Export Log (.csv)</button>
+                    <button id="exportPdfBtn" class="btn btn--primary">📄 Export Report (.pdf)</button>
+                </div>
             </div>
 
             <div class="config-panel" style="background-color: var(--color-bg-6);">
@@ -613,15 +629,535 @@
                 </div>
             </div>
 
+            <div class="preset-panel">
+                <h3 class="config-title">💾 Saved Configurations</h3>
+                <div class="saved-config-controls">
+                    <div class="input-group" style="flex: 1;">
+                        <input id="configNameInput" type="text" class="form-control" placeholder="Enter configuration name..." style="flex: 1;">
+                        <button id="saveConfigLocalBtn" class="btn btn--primary">💾 Save Current</button>
+                    </div>
+                </div>
+                <div id="savedConfigsList" class="saved-configs-list" style="margin-top: 12px;">
+                    <!-- Saved configurations will be dynamically inserted here -->
+                </div>
+            </div>
+
         </div>
     </div>
 
     <!-- External JavaScript -->
     <script src="simulator.js"></script>
 
-    <!-- Service Worker Registration -->
+    <!-- Saved Configurations Management -->
     <script>
-        // Register service worker for PWA functionality
+        // =============================================
+        // SAVED CONFIGURATIONS UI
+        // =============================================
+
+        function renderSavedConfigurationsList() {
+            const listContainer = document.getElementById('savedConfigsList');
+            const savedConfigs = window.simulator.getSavedConfigurations();
+
+            // Filter out autosave
+            const userConfigs = Object.entries(savedConfigs).filter(([name]) => name !== '__autosave__');
+
+            if (userConfigs.length === 0) {
+                listContainer.innerHTML = '<div class="empty-state">No saved configurations yet. Enter a name and click "Save Current" to save your first configuration.</div>';
+                return;
+            }
+
+            listContainer.innerHTML = userConfigs.map(([name, data]) => {
+                const date = new Date(data.timestamp);
+                const formattedDate = date.toLocaleString();
+
+                return `
+                    <div class="saved-config-item">
+                        <div class="saved-config-info">
+                            <div class="saved-config-name">${name}</div>
+                            <div class="saved-config-timestamp">Saved: ${formattedDate}</div>
+                        </div>
+                        <div class="saved-config-actions">
+                            <button class="btn btn--sm btn--primary" onclick="loadSavedConfig('${name}')">📂 Load</button>
+                            <button class="btn btn--sm btn--outline" onclick="deleteSavedConfig('${name}')">🗑️ Delete</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function saveSavedConfig() {
+            const nameInput = document.getElementById('configNameInput');
+            const name = nameInput.value.trim();
+
+            if (!name) {
+                alert('Please enter a configuration name');
+                return;
+            }
+
+            if (name === '__autosave__') {
+                alert('This name is reserved. Please choose another name.');
+                return;
+            }
+
+            const success = window.simulator.saveToLocalStorage(name);
+            if (success) {
+                nameInput.value = '';
+                renderSavedConfigurationsList();
+                alert(`Configuration "${name}" saved successfully!`);
+            } else {
+                alert('Error saving configuration. Please try again.');
+            }
+        }
+
+        function loadSavedConfig(name) {
+            const success = window.simulator.loadFromLocalStorage(name);
+            if (success) {
+                console.log(`Configuration "${name}" loaded`);
+            } else {
+                alert(`Error loading configuration "${name}"`);
+            }
+        }
+
+        function deleteSavedConfig(name) {
+            if (confirm(`Are you sure you want to delete configuration "${name}"?`)) {
+                const success = window.simulator.deleteFromLocalStorage(name);
+                if (success) {
+                    renderSavedConfigurationsList();
+                } else {
+                    alert(`Error deleting configuration "${name}"`);
+                }
+            }
+        }
+
+        function setupSavedConfigsUI() {
+            // Save button handler
+            document.getElementById('saveConfigLocalBtn').addEventListener('click', saveSavedConfig);
+
+            // Enter key in name input
+            document.getElementById('configNameInput').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    saveSavedConfig();
+                }
+            });
+
+            // Load autosave if available
+            window.simulator.loadAutoSave();
+
+            // Render initial list
+            renderSavedConfigurationsList();
+
+            // Auto-save on parameter changes
+            const autoSaveInputs = [
+                'wipInput', 'logStepInput', 'zoomWindowInput', 'warmupPeriodInput',
+                'buffer1Capacity', 'buffer2Capacity', 'buffer3Capacity', 'buffer4Capacity'
+            ];
+
+            autoSaveInputs.forEach(id => {
+                const element = document.getElementById(id);
+                if (element) {
+                    element.addEventListener('change', () => {
+                        setTimeout(() => window.simulator.autoSave(), 500);
+                    });
+                }
+            });
+
+            // Auto-save for station parameters
+            for (let i = 1; i <= 5; i++) {
+                ['Dist', 'OEE', 'Batch', 'Parallel', 'Mean', 'Variance', 'Min', 'Max', 'Mode'].forEach(param => {
+                    const element = document.getElementById(`station${i}${param}`);
+                    if (element) {
+                        element.addEventListener('change', () => {
+                            setTimeout(() => window.simulator.autoSave(), 500);
+                        });
+                    }
+                });
+            }
+
+            console.log('✅ Saved configurations UI initialized');
+        }
+
+        // Initialize when simulator is ready
+        window.addEventListener('load', () => {
+            // Wait a bit for simulator to be fully initialized
+            setTimeout(setupSavedConfigsUI, 100);
+        });
+
+        // Make functions globally accessible
+        window.loadSavedConfig = loadSavedConfig;
+        window.deleteSavedConfig = deleteSavedConfig;
+    </script>
+
+    <!-- Tooltips Initialization -->
+    <script>
+        // =============================================
+        // TOOLTIPS FOR PARAMETERS
+        // =============================================
+
+        const tooltipData = {
+            'Constant WIP:': 'Work In Process - Numero fisso di pezzi nella linea. Principio del pull system: un nuovo pezzo entra solo quando uno esce.',
+            'Speed:': 'Velocità di simulazione. Aumenta per vedere risultati più velocemente.',
+            'Log Step (sec):': 'Frequenza di registrazione delle metriche. Valori più bassi = più punti dati, ma maggiore uso di memoria.',
+            'Zoom Window (sec):': 'Finestra temporale mostrata nei grafici durante la simulazione. Auto-zoom sugli ultimi N secondi.',
+            'Warm-up (sec):': 'Periodo iniziale di "riscaldamento" prima di raccogliere statistiche. Utile per raggiungere stato stazionario.',
+            'Time Window (sec):': 'Durata della finestra temporale del diagramma di Gantt.',
+            'Distribution:': 'Distribuzione probabilistica dei tempi di processo. Deterministic = fisso, Normal = gaussiana, Exponential = code casuali, Uniform = uniforme, Triangular = triangolare.',
+            'Mean (sec):': 'Tempo medio di processo per pezzo (o batch).',
+            'Variance:': 'Varianza della distribuzione normale. Valori più alti = maggiore variabilità.',
+            'Min (sec):': 'Tempo minimo di processo.',
+            'Max (sec):': 'Tempo massimo di processo.',
+            'Mode (sec):': 'Valore più probabile nella distribuzione triangolare.',
+            'OEE:': 'Overall Equipment Effectiveness (0-1). Efficienza complessiva della macchina. 1.0 = 100% efficiente, 0.8 = 80% efficiente.',
+            'Batch Size:': 'Numero di pezzi processati insieme. Batch > 1 significa che la macchina lavora su più pezzi simultaneamente.',
+            'Parallel Machines:': 'Numero di macchine parallele alla stazione. Più macchine = maggiore capacità.',
+            'Capacity:': 'Capacità massima del buffer. Numero massimo di pezzi che può contenere tra due stazioni.'
+        };
+
+        function addTooltips() {
+            // Find all labels
+            const labels = document.querySelectorAll('.form-label, .config-label');
+
+            labels.forEach(label => {
+                const labelText = label.textContent.trim();
+
+                // Check if we have tooltip data for this label
+                if (tooltipData[labelText]) {
+                    // Create tooltip wrapper
+                    const wrapper = document.createElement('span');
+                    wrapper.className = 'tooltip-wrapper';
+
+                    // Create tooltip icon
+                    const icon = document.createElement('span');
+                    icon.className = 'tooltip-icon';
+                    icon.textContent = '?';
+
+                    // Create tooltip text
+                    const tooltipText = document.createElement('span');
+                    tooltipText.className = 'tooltip-text';
+                    tooltipText.textContent = tooltipData[labelText];
+
+                    // Assemble tooltip
+                    wrapper.appendChild(icon);
+                    wrapper.appendChild(tooltipText);
+
+                    // Insert after label
+                    label.appendChild(wrapper);
+                }
+            });
+
+            console.log('✅ Tooltips initialized');
+        }
+
+        // Initialize tooltips when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', addTooltips);
+        } else {
+            addTooltips();
+        }
+    </script>
+
+    <!-- PDF Export -->
+    <script>
+        // =============================================
+        // PDF EXPORT FUNCTIONALITY
+        // =============================================
+
+        async function exportToPDF() {
+            try {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF('p', 'mm', 'a4');
+
+                const pageWidth = doc.internal.pageSize.getWidth();
+                const pageHeight = doc.internal.pageSize.getHeight();
+                const margin = 20;
+                let yPos = margin;
+
+                // Helper function to add new page if needed
+                function checkPageBreak(needed) {
+                    if (yPos + needed > pageHeight - margin) {
+                        doc.addPage();
+                        yPos = margin;
+                        return true;
+                    }
+                    return false;
+                }
+
+                // Title
+                doc.setFontSize(20);
+                doc.setFont(undefined, 'bold');
+                doc.text('OMLP Simulator - Simulation Report', pageWidth / 2, yPos, { align: 'center' });
+                yPos += 10;
+
+                // Timestamp
+                doc.setFontSize(10);
+                doc.setFont(undefined, 'normal');
+                const timestamp = new Date().toLocaleString();
+                doc.text(`Generated: ${timestamp}`, pageWidth / 2, yPos, { align: 'center' });
+                yPos += 15;
+
+                // === SUMMARY METRICS ===
+                checkPageBreak(40);
+                doc.setFontSize(14);
+                doc.setFont(undefined, 'bold');
+                doc.text('📊 Summary Metrics', margin, yPos);
+                yPos += 8;
+
+                doc.setFontSize(10);
+                doc.setFont(undefined, 'normal');
+
+                const metrics = {
+                    'Simulation Time': document.getElementById('currentTime').textContent + ' sec',
+                    'Completed Pieces': document.getElementById('completedPieces').textContent,
+                    'Throughput': document.getElementById('throughputRate').textContent + ' parts/hour',
+                    'WIP in Line': document.getElementById('wipInLine').textContent,
+                    'Queue Count': document.getElementById('queueCount').textContent,
+                    'Average Lead Time': document.getElementById('averageLeadTime').textContent + ' sec'
+                };
+
+                Object.entries(metrics).forEach(([key, value]) => {
+                    checkPageBreak(7);
+                    doc.text(`${key}: ${value}`, margin + 5, yPos);
+                    yPos += 6;
+                });
+
+                yPos += 5;
+
+                // === CONFIGURATION ===
+                checkPageBreak(30);
+                doc.setFontSize(14);
+                doc.setFont(undefined, 'bold');
+                doc.text('⚙️ Configuration', margin, yPos);
+                yPos += 8;
+
+                doc.setFontSize(10);
+                doc.setFont(undefined, 'normal');
+
+                const config = window.simulator.getConfigurationObject();
+
+                doc.text(`Constant WIP: ${config.wip}`, margin + 5, yPos);
+                yPos += 6;
+                doc.text(`Log Step: ${config.logStep} sec`, margin + 5, yPos);
+                yPos += 6;
+                doc.text(`Warm-up Period: ${config.warmupPeriod} sec`, margin + 5, yPos);
+                yPos += 10;
+
+                // Buffers
+                checkPageBreak(20);
+                doc.setFont(undefined, 'bold');
+                doc.text('Buffers:', margin + 5, yPos);
+                yPos += 6;
+                doc.setFont(undefined, 'normal');
+
+                config.buffers.forEach((buffer, i) => {
+                    checkPageBreak(6);
+                    doc.text(`  Buffer ${i + 1}: Capacity = ${buffer.capacity}`, margin + 10, yPos);
+                    yPos += 5;
+                });
+
+                yPos += 5;
+
+                // Stations
+                config.stations.forEach((station, i) => {
+                    checkPageBreak(35);
+                    doc.setFont(undefined, 'bold');
+                    doc.text(`Station ${i + 1}:`, margin + 5, yPos);
+                    yPos += 6;
+                    doc.setFont(undefined, 'normal');
+
+                    doc.text(`  Distribution: ${station.dist}`, margin + 10, yPos);
+                    yPos += 5;
+                    doc.text(`  Mean: ${station.params.mean} sec, OEE: ${station.oee}`, margin + 10, yPos);
+                    yPos += 5;
+                    doc.text(`  Batch Size: ${station.batchSize}, Parallel Machines: ${station.parallelMachines}`, margin + 10, yPos);
+                    yPos += 7;
+                });
+
+                // === STATION STATISTICS ===
+                checkPageBreak(40);
+                yPos += 5;
+                doc.setFontSize(14);
+                doc.setFont(undefined, 'bold');
+                doc.text('📈 Station Statistics', margin, yPos);
+                yPos += 8;
+
+                doc.setFontSize(9);
+                doc.setFont(undefined, 'normal');
+
+                const simulator = window.simulator;
+                simulator.stations.forEach((station, i) => {
+                    checkPageBreak(15);
+                    const utilization = (station.workingTime / simulator.currentTime * 100).toFixed(1);
+                    const processing = (station.processingTime / simulator.currentTime * 100).toFixed(1);
+
+                    doc.text(`Station ${i + 1}: Utilization ${utilization}%, Processing ${processing}%`, margin + 5, yPos);
+                    yPos += 5;
+                });
+
+                yPos += 5;
+
+                // === BUFFER STATISTICS ===
+                checkPageBreak(25);
+                doc.setFontSize(14);
+                doc.setFont(undefined, 'bold');
+                doc.text('📦 Buffer Statistics', margin, yPos);
+                yPos += 8;
+
+                doc.setFontSize(9);
+                doc.setFont(undefined, 'normal');
+
+                simulator.buffers.forEach((buffer, i) => {
+                    checkPageBreak(8);
+                    const avgFill = simulator.currentTime > 0
+                        ? (buffer.cumulativeFill / simulator.currentTime).toFixed(2)
+                        : '0.00';
+
+                    doc.text(`Buffer ${i + 1}: Current=${buffer.pieces.length}, Avg=${avgFill}, Capacity=${buffer.capacity}`, margin + 5, yPos);
+                    yPos += 5;
+                });
+
+                // === CHARTS (if possible) ===
+                yPos += 10;
+                checkPageBreak(20);
+                doc.setFontSize(14);
+                doc.setFont(undefined, 'bold');
+                doc.text('📊 Charts', margin, yPos);
+                yPos += 8;
+
+                doc.setFontSize(9);
+                doc.setFont(undefined, 'normal');
+                doc.text('(Charts are available in the web application)', margin + 5, yPos);
+                yPos += 10;
+
+                // === FOOTER ===
+                const totalPages = doc.internal.pages.length - 1;
+                for (let i = 1; i <= totalPages; i++) {
+                    doc.setPage(i);
+                    doc.setFontSize(8);
+                    doc.setFont(undefined, 'italic');
+                    doc.text(`Page ${i} of ${totalPages} | OMLP Simulator`, pageWidth / 2, pageHeight - 10, { align: 'center' });
+                }
+
+                // Save PDF
+                const filename = `OMLP_Report_${new Date().toISOString().slice(0, 10)}.pdf`;
+                doc.save(filename);
+
+                console.log('✅ PDF report generated successfully');
+            } catch (error) {
+                console.error('Error generating PDF:', error);
+                alert('Error generating PDF report. Please try again.');
+            }
+        }
+
+        // Setup PDF export button
+        function setupPDFExport() {
+            const exportBtn = document.getElementById('exportPdfBtn');
+            if (exportBtn) {
+                exportBtn.addEventListener('click', exportToPDF);
+                console.log('✅ PDF export initialized');
+            }
+        }
+
+        // Initialize
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', setupPDFExport);
+        } else {
+            setupPDFExport();
+        }
+    </script>
+
+    <!-- PWA & Theme Management -->
+    <script>
+        // =============================================
+        // THEME MANAGEMENT
+        // =============================================
+
+        // Load saved theme preference or detect system preference
+        function initTheme() {
+            const savedTheme = localStorage.getItem('theme');
+            const themeToggleBtn = document.getElementById('themeToggle');
+            const themeIcon = themeToggleBtn.querySelector('.theme-icon');
+
+            if (savedTheme) {
+                document.documentElement.classList.toggle('dark-theme', savedTheme === 'dark');
+                document.documentElement.classList.toggle('light-theme', savedTheme === 'light');
+                themeIcon.textContent = savedTheme === 'dark' ? '☀️' : '🌙';
+            } else {
+                // Check system preference
+                const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                themeIcon.textContent = prefersDark ? '☀️' : '🌙';
+            }
+
+            // Theme toggle handler
+            themeToggleBtn.addEventListener('click', () => {
+                const isDark = document.documentElement.classList.contains('dark-theme');
+
+                if (isDark) {
+                    document.documentElement.classList.remove('dark-theme');
+                    document.documentElement.classList.add('light-theme');
+                    themeIcon.textContent = '🌙';
+                    localStorage.setItem('theme', 'light');
+                } else {
+                    document.documentElement.classList.remove('light-theme');
+                    document.documentElement.classList.add('dark-theme');
+                    themeIcon.textContent = '☀️';
+                    localStorage.setItem('theme', 'dark');
+                }
+            });
+        }
+
+        // Initialize theme on load
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initTheme);
+        } else {
+            initTheme();
+        }
+
+        // =============================================
+        // PWA INSTALL BUTTON
+        // =============================================
+
+        let deferredPrompt;
+        const installBtn = document.getElementById('installBtn');
+
+        window.addEventListener('beforeinstallprompt', (e) => {
+            // Prevent the mini-infobar from appearing on mobile
+            e.preventDefault();
+            // Stash the event so it can be triggered later
+            deferredPrompt = e;
+
+            // Show install button
+            installBtn.style.display = 'inline-flex';
+            console.log('💾 PWA install prompt available');
+        });
+
+        installBtn.addEventListener('click', async () => {
+            if (!deferredPrompt) {
+                return;
+            }
+
+            // Show the install prompt
+            deferredPrompt.prompt();
+
+            // Wait for the user to respond to the prompt
+            const { outcome } = await deferredPrompt.userChoice;
+            console.log(`User response to the install prompt: ${outcome}`);
+
+            // Clear the deferredPrompt
+            deferredPrompt = null;
+
+            // Hide install button
+            installBtn.style.display = 'none';
+        });
+
+        window.addEventListener('appinstalled', () => {
+            console.log('✅ PWA installed successfully');
+            deferredPrompt = null;
+            installBtn.style.display = 'none';
+        });
+
+        // =============================================
+        // SERVICE WORKER REGISTRATION
+        // =============================================
+
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('./service-worker.js')
@@ -660,24 +1196,6 @@
         } else {
             console.warn('⚠️ Service Workers are not supported in this browser');
         }
-
-        // PWA install prompt handling
-        let deferredPrompt;
-        window.addEventListener('beforeinstallprompt', (e) => {
-            // Prevent the mini-infobar from appearing on mobile
-            e.preventDefault();
-            // Stash the event so it can be triggered later
-            deferredPrompt = e;
-            console.log('💾 PWA install prompt available');
-
-            // Optionally, show your own install button
-            // You can create a button in the UI to trigger installation
-        });
-
-        window.addEventListener('appinstalled', () => {
-            console.log('✅ PWA installed successfully');
-            deferredPrompt = null;
-        });
     </script>
 </body>
 </html>
