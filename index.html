@@ -1007,51 +1007,50 @@
         // PROGRESS BAR FOR STATIONS
         // =============================================
 
+        let updateCount = 0;
         function updateProgressBars() {
-            if (!window.simulator) return;
+            if (!window.simulator) {
+                console.log('⚠️ window.simulator is not defined');
+                return;
+            }
+
+            updateCount++;
+            // Log every 10th update to avoid spam
+            const shouldLog = updateCount % 10 === 0;
 
             const stations = window.simulator.stations;
-            let hasOccupied = false;
+
+            if (shouldLog) console.log(`--- Update #${updateCount} ---`);
 
             stations.forEach((station, index) => {
                 const stationId = `station${index + 1}`;
                 const progressBarFill = document.getElementById(`${stationId}ProgressBar`);
-                if (!progressBarFill) {
-                    console.log('Progress bar not found:', stationId);
-                    return;
-                }
+                if (!progressBarFill) return;
 
                 // Get the first machine
                 const machine = station.machines[0];
 
-                if (machine && machine.status === 'occupied') {
-                    hasOccupied = true;
-                    console.log(`Station ${index + 1}:`, {
-                        status: machine.status,
-                        remainingTime: machine.remainingTime,
-                        initialTime: machine.initialTime
-                    });
+                if (shouldLog) {
+                    console.log(`S${index + 1}: status=${machine.status}, remaining=${machine.remainingTime}, initial=${machine.initialTime}`);
+                }
 
-                    if (machine.remainingTime !== undefined && machine.initialTime) {
-                        // Calculate progress (0 to 100%)
-                        const totalTime = machine.initialTime;
-                        const elapsed = totalTime - machine.remainingTime;
-                        const progress = Math.max(0, Math.min(100, (elapsed / totalTime) * 100));
+                if (machine && machine.status === 'occupied' && machine.remainingTime !== undefined && machine.initialTime) {
+                    // Calculate progress (0 to 100%)
+                    const totalTime = machine.initialTime;
+                    const elapsed = totalTime - machine.remainingTime;
+                    const progress = Math.max(0, Math.min(100, (elapsed / totalTime) * 100));
 
-                        // Update progress bar width
-                        progressBarFill.style.width = progress + '%';
-                        progressBarFill.style.backgroundColor = '#10b981';
-                        console.log(`  → Progress: ${progress.toFixed(1)}%`);
+                    // Update progress bar width
+                    progressBarFill.style.width = progress + '%';
+
+                    if (shouldLog) {
+                        console.log(`  → S${index + 1} Progress: ${progress.toFixed(1)}% (width set to ${progress.toFixed(1)}%)`);
                     }
                 } else {
                     // Reset to 0% when not occupied
                     progressBarFill.style.width = '0%';
                 }
             });
-
-            if (hasOccupied) {
-                console.log('--- Update cycle complete ---');
-            }
         }
 
         // Initialize on load
