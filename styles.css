@@ -931,6 +931,8 @@ select.station-input {
   margin-bottom: var(--space-4);
   position: relative;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  overflow: visible; /* Allow progress ring to show outside */
+  z-index: 1;
 }
 
 /* Progress ring container */
@@ -948,26 +950,27 @@ select.station-input {
 /* Progress ring SVG */
 .progress-ring {
   position: absolute;
-  top: -5px;
-  left: -5px;
-  width: 66px;
-  height: 66px;
+  top: -6px;
+  left: -6px;
+  width: 68px;
+  height: 68px;
   transform: rotate(-90deg);
   pointer-events: none;
+  z-index: 0; /* Behind the station circle */
 }
 
 .progress-ring-circle {
   fill: none;
-  stroke: #10b981; /* Green progress ring */
-  stroke-width: 3;
+  stroke: #059669; /* Dark green progress ring */
+  stroke-width: 5;
   stroke-linecap: round;
   transition: stroke-dashoffset 0.3s ease;
 }
 
 .progress-ring-bg {
   fill: none;
-  stroke: rgba(16, 185, 129, 0.15); /* Light green background ring */
-  stroke-width: 3;
+  stroke: rgba(134, 239, 172, 0.8); /* Light green background ring - very visible */
+  stroke-width: 5;
 }
 
 .station:hover {
