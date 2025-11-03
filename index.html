@@ -114,6 +114,9 @@
                             <div id="station1Piece" class="piece-id"></div>
                             <div id="station1Time" class="remaining-time"></div>
                         </div>
+                        <div class="progress-bar-container">
+                            <div id="station1ProgressBar" class="progress-bar-fill"></div>
+                        </div>
                         <div class="station-info">
                             <div id="station1DurationDisplay" class="duration-display">5.0s</div>
                             <div id="station1Status" class="status-display">free</div>
@@ -135,6 +138,9 @@
                             <div class="station-id">S2</div>
                             <div id="station2Piece" class="piece-id"></div>
                             <div id="station2Time" class="remaining-time"></div>
+                        </div>
+                        <div class="progress-bar-container">
+                            <div id="station2ProgressBar" class="progress-bar-fill"></div>
                         </div>
                         <div class="station-info">
                             <div id="station2DurationDisplay" class="duration-display">4.0s</div>
@@ -158,6 +164,9 @@
                             <div id="station3Piece" class="piece-id"></div>
                             <div id="station3Time" class="remaining-time"></div>
                         </div>
+                        <div class="progress-bar-container">
+                            <div id="station3ProgressBar" class="progress-bar-fill"></div>
+                        </div>
                         <div class="station-info">
                             <div id="station3DurationDisplay" class="duration-display">6.0s</div>
                             <div id="station3Status" class="status-display">free</div>
@@ -180,6 +189,9 @@
                             <div id="station4Piece" class="piece-id"></div>
                             <div id="station4Time" class="remaining-time"></div>
                         </div>
+                        <div class="progress-bar-container">
+                            <div id="station4ProgressBar" class="progress-bar-fill"></div>
+                        </div>
                         <div class="station-info">
                             <div id="station4DurationDisplay" class="duration-display">3.0s</div>
                             <div id="station4Status" class="status-display">free</div>
@@ -201,6 +213,9 @@
                             <div class="station-id">S5</div>
                             <div id="station5Piece" class="piece-id"></div>
                             <div id="station5Time" class="remaining-time"></div>
+                        </div>
+                        <div class="progress-bar-container">
+                            <div id="station5ProgressBar" class="progress-bar-fill"></div>
                         </div>
                         <div class="station-info">
                             <div id="station5DurationDisplay" class="duration-display">5.0s</div>
@@ -989,49 +1004,10 @@
     <!-- Station Progress Rings -->
     <script>
         // =============================================
-        // PROGRESS RING FOR STATIONS
+        // PROGRESS BAR FOR STATIONS
         // =============================================
 
-        function initProgressRings() {
-            // Add progress ring SVG to each station
-            for (let i = 1; i <= 5; i++) {
-                const station = document.getElementById(`station${i}`);
-                if (station && !station.querySelector('.progress-ring')) {
-                    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-                    svg.classList.add('progress-ring');
-                    svg.setAttribute('width', '68');
-                    svg.setAttribute('height', '68');
-                    svg.style.display = 'none'; // Initially hidden
-
-                    // Background circle (light green)
-                    const bgCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-                    bgCircle.classList.add('progress-ring-bg');
-                    bgCircle.setAttribute('cx', '34');
-                    bgCircle.setAttribute('cy', '34');
-                    bgCircle.setAttribute('r', '30');
-
-                    // Progress circle (green)
-                    const progressCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-                    progressCircle.classList.add('progress-ring-circle');
-                    progressCircle.setAttribute('cx', '34');
-                    progressCircle.setAttribute('cy', '34');
-                    progressCircle.setAttribute('r', '30');
-
-                    // Calculate circumference
-                    const radius = 30;
-                    const circumference = 2 * Math.PI * radius;
-                    progressCircle.style.strokeDasharray = circumference;
-                    progressCircle.style.strokeDashoffset = circumference; // Start at 0%
-
-                    svg.appendChild(bgCircle);
-                    svg.appendChild(progressCircle);
-                    station.appendChild(svg);
-                }
-            }
-            console.log('✅ Progress rings initialized');
-        }
-
-        function updateProgressRings() {
+        function updateProgressBars() {
             if (!window.simulator) return;
 
             const stations = window.simulator.stations;
@@ -1040,35 +1016,33 @@
                 const stationElement = document.getElementById(stationId);
                 if (!stationElement) return;
 
-                const progressRingSvg = stationElement.querySelector('.progress-ring');
-                const progressCircle = stationElement.querySelector('.progress-ring-circle');
-                if (!progressRingSvg || !progressCircle) return;
+                const progressBarContainer = stationElement.parentElement.querySelector('.progress-bar-container');
+                const progressBarFill = document.getElementById(`${stationId}ProgressBar`);
+                if (!progressBarContainer || !progressBarFill) return;
 
                 // Check if station is occupied using CSS class
                 const isOccupied = stationElement.classList.contains('status-occupied');
 
                 if (isOccupied) {
-                    // Show the progress ring
-                    progressRingSvg.style.display = 'block';
+                    // Show the progress bar
+                    progressBarContainer.classList.add('active');
 
-                    // Get the first machine (or we could aggregate across machines)
+                    // Get the first machine
                     const machine = station.machines[0];
 
                     if (machine && machine.remainingTime !== undefined && machine.initialTime) {
-                        // Calculate progress
+                        // Calculate progress (0 to 100%)
                         const totalTime = machine.initialTime;
                         const elapsed = totalTime - machine.remainingTime;
-                        const progress = Math.max(0, Math.min(1, elapsed / totalTime));
+                        const progress = Math.max(0, Math.min(100, (elapsed / totalTime) * 100));
 
-                        // Update progress ring - start from 0 (empty) and fill to circumference (full)
-                        const radius = 30;
-                        const circumference = 2 * Math.PI * radius;
-                        const offset = circumference - (progress * circumference);
-                        progressCircle.style.strokeDashoffset = offset;
+                        // Update progress bar width
+                        progressBarFill.style.width = progress + '%';
                     }
                 } else {
-                    // Hide the progress ring when not occupied
-                    progressRingSvg.style.display = 'none';
+                    // Hide the progress bar when not occupied
+                    progressBarContainer.classList.remove('active');
+                    progressBarFill.style.width = '0%';
                 }
             });
         }
@@ -1076,10 +1050,8 @@
         // Initialize on load
         window.addEventListener('load', () => {
             setTimeout(() => {
-                initProgressRings();
-
-                // Update progress rings every 100ms when simulation is running
-                setInterval(updateProgressRings, 100);
+                // Update progress bars every 100ms when simulation is running
+                setInterval(updateProgressBars, 100);
             }, 500);
         });
     </script>
