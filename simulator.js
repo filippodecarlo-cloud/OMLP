@@ -2100,5 +2100,5 @@ class ProductionLineSimulator {
 // ============================================
 
 document.addEventListener('DOMContentLoaded', () => {
-    const simulator = new ProductionLineSimulator();
+    window.simulator = new ProductionLineSimulator();
 });
