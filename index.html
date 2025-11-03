@@ -1057,8 +1057,31 @@
         // Initialize on load
         window.addEventListener('load', () => {
             setTimeout(() => {
-                // Update progress bars every 100ms when simulation is running
-                setInterval(updateProgressBars, 100);
+                // Test: force all progress bars to 50% to verify they work
+                console.log('=== TESTING PROGRESS BARS ===');
+                for (let i = 1; i <= 5; i++) {
+                    const bar = document.getElementById(`station${i}ProgressBar`);
+                    if (bar) {
+                        bar.style.width = '50%';
+                        console.log(`✓ Station ${i} progress bar set to 50% width`);
+                    } else {
+                        console.log(`✗ Station ${i} progress bar NOT FOUND`);
+                    }
+                }
+                console.log('=== Bars should now be green at 50% ===');
+
+                // After 3 seconds, start the normal update loop
+                setTimeout(() => {
+                    console.log('=== Starting normal updates ===');
+                    // Reset bars
+                    for (let i = 1; i <= 5; i++) {
+                        const bar = document.getElementById(`station${i}ProgressBar`);
+                        if (bar) bar.style.width = '0%';
+                    }
+
+                    // Update progress bars every 100ms when simulation is running
+                    setInterval(updateProgressBars, 100);
+                }, 3000);
             }, 500);
         });
     </script>
