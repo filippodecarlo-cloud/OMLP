@@ -1044,23 +1044,28 @@
                 const progressCircle = stationElement.querySelector('.progress-ring-circle');
                 if (!progressRingSvg || !progressCircle) return;
 
-                // Get the first machine (or we could aggregate across machines)
-                const machine = station.machines[0];
+                // Check if station is occupied using CSS class
+                const isOccupied = stationElement.classList.contains('status-occupied');
 
-                if (machine && machine.status === 'occupied' && machine.remainingTime !== undefined) {
+                if (isOccupied) {
                     // Show the progress ring
                     progressRingSvg.style.display = 'block';
 
-                    // Calculate progress
-                    const totalTime = machine.initialTime || 10; // fallback
-                    const elapsed = totalTime - machine.remainingTime;
-                    const progress = totalTime > 0 ? elapsed / totalTime : 0;
+                    // Get the first machine (or we could aggregate across machines)
+                    const machine = station.machines[0];
 
-                    // Update progress ring - start from 0 (empty) and fill to circumference (full)
-                    const radius = 30;
-                    const circumference = 2 * Math.PI * radius;
-                    const offset = circumference - (progress * circumference);
-                    progressCircle.style.strokeDashoffset = offset;
+                    if (machine && machine.remainingTime !== undefined && machine.initialTime) {
+                        // Calculate progress
+                        const totalTime = machine.initialTime;
+                        const elapsed = totalTime - machine.remainingTime;
+                        const progress = Math.max(0, Math.min(1, elapsed / totalTime));
+
+                        // Update progress ring - start from 0 (empty) and fill to circumference (full)
+                        const radius = 30;
+                        const circumference = 2 * Math.PI * radius;
+                        const offset = circumference - (progress * circumference);
+                        progressCircle.style.strokeDashoffset = offset;
+                    }
                 } else {
                     // Hide the progress ring when not occupied
                     progressRingSvg.style.display = 'none';
