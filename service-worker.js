@@ -1,4 +1,4 @@
-const CACHE_NAME = 'omlp-simulator-v2';
+const CACHE_NAME = 'omlp-simulator-v3';
 const urlsToCache = [
   './',
   './index.html',

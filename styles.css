@@ -441,6 +441,11 @@ select.form-control {
   flex-wrap: wrap;
 }
 
+.title-section {
+  flex: 1;
+  text-align: center;
+}
+
 .header-actions {
   display: flex;
   gap: var(--space-8);
@@ -448,12 +453,27 @@ select.form-control {
 }
 
 h1 {
-  text-align: center;
-  margin-bottom: 0;
+  margin: 0 0 var(--space-8) 0;
   color: var(--color-text);
   font-size: var(--font-size-3xl);
   font-weight: var(--font-weight-bold);
-  flex: 1;
+  line-height: var(--line-height-tight);
+}
+
+.subtitle {
+  margin: 0 0 var(--space-6) 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-normal);
+  font-weight: var(--font-weight-normal);
+}
+
+.author {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  font-style: italic;
+  font-weight: var(--font-weight-normal);
 }
 
 /* ============================================
