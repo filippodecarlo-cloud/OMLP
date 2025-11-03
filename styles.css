@@ -928,49 +928,30 @@ select.station-input {
               transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
               box-shadow 0.3s ease;
   border: 1px solid rgba(0, 0, 0, 0.1);
-  margin-bottom: var(--space-4);
+  margin-bottom: 0;
   position: relative;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  overflow: visible; /* Allow progress ring to show outside */
-  z-index: 1;
 }
 
-/* Progress ring container */
-.station::before {
-  content: '';
-  position: absolute;
-  top: -4px;
-  left: -4px;
-  right: -4px;
-  bottom: -4px;
-  border-radius: 50%;
-  pointer-events: none;
+/* Progress bar container */
+.progress-bar-container {
+  width: 56px;
+  height: 8px;
+  background-color: #e5e7eb;
+  border-radius: 4px;
+  overflow: hidden;
+  margin: 4px 0;
+  border: 1px solid #d1d5db;
 }
 
-/* Progress ring SVG */
-.progress-ring {
-  position: absolute;
-  top: -6px;
-  left: -6px;
-  width: 68px;
-  height: 68px;
-  transform: rotate(-90deg);
-  pointer-events: none;
-  z-index: 0; /* Behind the station circle */
-}
-
-.progress-ring-circle {
-  fill: none;
-  stroke: #059669; /* Dark green progress ring */
-  stroke-width: 5;
-  stroke-linecap: round;
-  transition: stroke-dashoffset 0.3s ease;
-}
-
-.progress-ring-bg {
-  fill: none;
-  stroke: rgba(134, 239, 172, 0.8); /* Light green background ring - very visible */
-  stroke-width: 5;
+/* Progress bar fill */
+.progress-bar-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #10b981 0%, #059669 100%);
+  border-radius: 3px;
+  transition: width 0.15s linear;
+  box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.3);
 }
 
 .station:hover {
