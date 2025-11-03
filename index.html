@@ -1013,35 +1013,22 @@
             const stations = window.simulator.stations;
             stations.forEach((station, index) => {
                 const stationId = `station${index + 1}`;
-                const stationElement = document.getElementById(stationId);
-                if (!stationElement) return;
-
-                const progressBarContainer = stationElement.parentElement.querySelector('.progress-bar-container');
                 const progressBarFill = document.getElementById(`${stationId}ProgressBar`);
-                if (!progressBarContainer || !progressBarFill) return;
+                if (!progressBarFill) return;
 
-                // Check if station is occupied using CSS class
-                const isOccupied = stationElement.classList.contains('status-occupied');
+                // Get the first machine
+                const machine = station.machines[0];
 
-                if (isOccupied) {
-                    // Show the progress bar
-                    progressBarContainer.classList.add('active');
+                if (machine && machine.status === 'occupied' && machine.remainingTime !== undefined && machine.initialTime) {
+                    // Calculate progress (0 to 100%)
+                    const totalTime = machine.initialTime;
+                    const elapsed = totalTime - machine.remainingTime;
+                    const progress = Math.max(0, Math.min(100, (elapsed / totalTime) * 100));
 
-                    // Get the first machine
-                    const machine = station.machines[0];
-
-                    if (machine && machine.remainingTime !== undefined && machine.initialTime) {
-                        // Calculate progress (0 to 100%)
-                        const totalTime = machine.initialTime;
-                        const elapsed = totalTime - machine.remainingTime;
-                        const progress = Math.max(0, Math.min(100, (elapsed / totalTime) * 100));
-
-                        // Update progress bar width
-                        progressBarFill.style.width = progress + '%';
-                    }
+                    // Update progress bar width
+                    progressBarFill.style.width = progress + '%';
                 } else {
-                    // Hide the progress bar when not occupied
-                    progressBarContainer.classList.remove('active');
+                    // Reset to 0% when not occupied
                     progressBarFill.style.width = '0%';
                 }
             });

@@ -936,17 +936,12 @@ select.station-input {
 /* Progress bar container */
 .progress-bar-container {
   width: 56px;
-  height: 6px;
-  background-color: rgba(134, 239, 172, 0.3);
-  border-radius: 3px;
+  height: 8px;
+  background-color: #e5e7eb;
+  border-radius: 4px;
   overflow: hidden;
   margin: 4px 0;
-  opacity: 0;
-  transition: opacity 0.3s ease;
-}
-
-.progress-bar-container.active {
-  opacity: 1;
+  border: 1px solid #d1d5db;
 }
 
 /* Progress bar fill */
@@ -955,8 +950,8 @@ select.station-input {
   width: 0%;
   background: linear-gradient(90deg, #10b981 0%, #059669 100%);
   border-radius: 3px;
-  transition: width 0.2s ease;
-  box-shadow: 0 0 4px rgba(16, 185, 129, 0.5);
+  transition: width 0.15s linear;
+  box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.3);
 }
 
 .station:hover {
