@@ -1,7 +1,7 @@
 {
-  "name": "OMLP - Production Line Simulator",
-  "short_name": "OMLP Simulator",
-  "description": "Lean Production Line Simulator with Parallel Machines - Manufacturing process optimization tool",
+  "name": "Production Line Simulator - Factory Dynamics",
+  "short_name": "Line Simulator",
+  "description": "Observe Lead Time, Work in Process and Throughput Rate by adjusting system parameters. Operations Management and Lean Production.",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#1a1a2e",
