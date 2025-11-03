@@ -3,22 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Production Line Simulator - Factory Dynamics</title>
+    <title>Factory Flow Simulation - Factory Dynamics</title>
 
     <!-- PWA Configuration -->
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#4a90e2">
-    <meta name="description" content="Production Line Simulator - Observe Lead Time, Work in Process and Throughput Rate by adjusting system parameters. Operations Management and Lean Production.">
+    <meta name="description" content="Factory Flow Simulation - Observe Lead Time, Work in Process and Throughput Rate by adjusting system parameters. Operations Management and Lean Production.">
 
     <!-- iOS Support -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="OMLP Simulator">
-    <link rel="apple-touch-icon" href="icon-192x192.png">
+    <meta name="apple-mobile-web-app-title" content="Flow Sim">
+    <link rel="apple-touch-icon" href="icon.png">
 
     <!-- Favicon -->
-    <link rel="icon" type="image/png" sizes="192x192" href="icon-192x192.png">
-    <link rel="icon" type="image/png" sizes="512x512" href="icon-512x512.png">
+    <link rel="icon" type="image/png" href="icon.png">
+    <link rel="shortcut icon" type="image/png" href="icon.png">
 
     <!-- External CSS -->
     <link rel="stylesheet" href="styles.css">
@@ -27,16 +27,13 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/1.2.1/chartjs-plugin-zoom.min.js"></script>
-
-    <!-- jsPDF for PDF export -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
     <div class="container">
         <div class="main-card">
             <div class="header-bar">
                 <div class="title-section">
-                    <h1>Production Line Simulator</h1>
+                    <h1>Factory Flow Simulation</h1>
                     <p class="subtitle">Factory Dynamics - Observe Lead Time, Work in Process and Throughput Rate by adjusting system parameters.</p>
                     <p class="author">Operations Management and Lean Production - Filippo De Carlo</p>
                 </div>
@@ -609,10 +606,7 @@
 
             <div class="export-panel">
                 <h3 class="config-title">📄 Export Data</h3>
-                <div class="button-group" style="gap: 8px;">
-                    <button id="exportLogBtn" class="btn btn--secondary">💾 Export Log (.csv)</button>
-                    <button id="exportPdfBtn" class="btn btn--primary">📄 Export Report (.pdf)</button>
-                </div>
+                <button id="exportLogBtn" class="btn btn--secondary">💾 Export Log (.csv)</button>
             </div>
 
             <div class="config-panel" style="background-color: var(--color-bg-6);">
@@ -858,229 +852,6 @@
             addTooltips();
         }
     </script>
-
-    <!-- PDF Export -->
-    <script>
-        // =============================================
-        // PDF EXPORT FUNCTIONALITY
-        // =============================================
-
-        async function exportToPDF() {
-            try {
-                // Check if jsPDF is available
-                if (!window.jspdf || !window.jspdf.jsPDF) {
-                    alert('PDF library not loaded yet. Please wait a moment and try again.');
-                    console.error('jsPDF not available');
-                    return;
-                }
-
-                const { jsPDF } = window.jspdf;
-                const doc = new jsPDF('p', 'mm', 'a4');
-
-                const pageWidth = doc.internal.pageSize.getWidth();
-                const pageHeight = doc.internal.pageSize.getHeight();
-                const margin = 20;
-                let yPos = margin;
-
-                // Helper function to add new page if needed
-                function checkPageBreak(needed) {
-                    if (yPos + needed > pageHeight - margin) {
-                        doc.addPage();
-                        yPos = margin;
-                        return true;
-                    }
-                    return false;
-                }
-
-                // Title
-                doc.setFontSize(20);
-                doc.setFont(undefined, 'bold');
-                doc.text('Production Line Simulator', pageWidth / 2, yPos, { align: 'center' });
-                yPos += 8;
-
-                // Subtitle
-                doc.setFontSize(11);
-                doc.setFont(undefined, 'normal');
-                doc.text('Factory Dynamics - Observe Lead Time, Work in Process and Throughput Rate', pageWidth / 2, yPos, { align: 'center' });
-                yPos += 5;
-                doc.text('by adjusting system parameters', pageWidth / 2, yPos, { align: 'center' });
-                yPos += 8;
-
-                // Author
-                doc.setFontSize(10);
-                doc.setFont(undefined, 'italic');
-                doc.text('Operations Management and Lean Production - Filippo De Carlo', pageWidth / 2, yPos, { align: 'center' });
-                yPos += 10;
-
-                // Timestamp
-                doc.setFontSize(9);
-                doc.setFont(undefined, 'normal');
-                const timestamp = new Date().toLocaleString();
-                doc.text('Report generated: ' + timestamp, pageWidth / 2, yPos, { align: 'center' });
-                yPos += 15;
-
-                // Separator line
-                doc.setDrawColor(100, 100, 100);
-                doc.line(margin, yPos, pageWidth - margin, yPos);
-                yPos += 10;
-
-                // === SUMMARY METRICS ===
-                checkPageBreak(40);
-                doc.setFontSize(14);
-                doc.setFont(undefined, 'bold');
-                doc.text('Summary Metrics', margin, yPos);
-                yPos += 8;
-
-                doc.setFontSize(10);
-                doc.setFont(undefined, 'normal');
-
-                const metrics = {
-                    'Simulation Time': document.getElementById('currentTime').textContent + ' sec',
-                    'Completed Pieces': document.getElementById('completedPieces').textContent,
-                    'Throughput': document.getElementById('throughputRate').textContent + ' parts/hour',
-                    'WIP in Line': document.getElementById('wipInLine').textContent,
-                    'Queue Count': document.getElementById('queueCount').textContent,
-                    'Average Lead Time': document.getElementById('averageLeadTime').textContent + ' sec'
-                };
-
-                Object.entries(metrics).forEach(([key, value]) => {
-                    checkPageBreak(7);
-                    doc.text(key + ': ' + value, margin + 5, yPos);
-                    yPos += 6;
-                });
-
-                yPos += 5;
-
-                // === CONFIGURATION ===
-                checkPageBreak(30);
-                doc.setFontSize(14);
-                doc.setFont(undefined, 'bold');
-                doc.text('Configuration', margin, yPos);
-                yPos += 8;
-
-                doc.setFontSize(10);
-                doc.setFont(undefined, 'normal');
-
-                const config = window.simulator.getConfigurationObject();
-
-                doc.text('Constant WIP: ' + config.wip, margin + 5, yPos);
-                yPos += 6;
-                doc.text('Log Step: ' + config.logStep + ' sec', margin + 5, yPos);
-                yPos += 6;
-                doc.text('Warm-up Period: ' + config.warmupPeriod + ' sec', margin + 5, yPos);
-                yPos += 10;
-
-                // Buffers
-                checkPageBreak(20);
-                doc.setFont(undefined, 'bold');
-                doc.text('Buffers:', margin + 5, yPos);
-                yPos += 6;
-                doc.setFont(undefined, 'normal');
-
-                config.buffers.forEach((buffer, i) => {
-                    checkPageBreak(6);
-                    doc.text('  Buffer ' + (i + 1) + ': Capacity = ' + buffer.capacity, margin + 10, yPos);
-                    yPos += 5;
-                });
-
-                yPos += 5;
-
-                // Stations
-                config.stations.forEach((station, i) => {
-                    checkPageBreak(35);
-                    doc.setFont(undefined, 'bold');
-                    doc.text('Station ' + (i + 1) + ':', margin + 5, yPos);
-                    yPos += 6;
-                    doc.setFont(undefined, 'normal');
-
-                    doc.text('  Distribution: ' + station.dist, margin + 10, yPos);
-                    yPos += 5;
-                    doc.text('  Mean: ' + station.params.mean + ' sec, OEE: ' + station.oee, margin + 10, yPos);
-                    yPos += 5;
-                    doc.text('  Batch Size: ' + station.batchSize + ', Parallel Machines: ' + station.parallelMachines, margin + 10, yPos);
-                    yPos += 7;
-                });
-
-                // === STATION STATISTICS ===
-                checkPageBreak(40);
-                yPos += 5;
-                doc.setFontSize(14);
-                doc.setFont(undefined, 'bold');
-                doc.text('Station Statistics', margin, yPos);
-                yPos += 8;
-
-                doc.setFontSize(9);
-                doc.setFont(undefined, 'normal');
-
-                const simulator = window.simulator;
-                simulator.stations.forEach((station, i) => {
-                    checkPageBreak(15);
-                    const utilization = (station.workingTime / simulator.currentTime * 100).toFixed(1);
-                    const processing = (station.processingTime / simulator.currentTime * 100).toFixed(1);
-
-                    doc.text('Station ' + (i + 1) + ': Utilization ' + utilization + '%, Processing ' + processing + '%', margin + 5, yPos);
-                    yPos += 5;
-                });
-
-                yPos += 5;
-
-                // === BUFFER STATISTICS ===
-                checkPageBreak(25);
-                doc.setFontSize(14);
-                doc.setFont(undefined, 'bold');
-                doc.text('Buffer Statistics', margin, yPos);
-                yPos += 8;
-
-                doc.setFontSize(9);
-                doc.setFont(undefined, 'normal');
-
-                simulator.buffers.forEach((buffer, i) => {
-                    checkPageBreak(8);
-                    const avgFill = simulator.currentTime > 0
-                        ? (buffer.cumulativeFill / simulator.currentTime).toFixed(2)
-                        : '0.00';
-
-                    doc.text('Buffer ' + (i + 1) + ': Current=' + buffer.pieces.length + ', Avg=' + avgFill + ', Capacity=' + buffer.capacity, margin + 5, yPos);
-                    yPos += 5;
-                });
-
-                // === FOOTER ===
-                const totalPages = doc.internal.pages.length - 1;
-                for (let i = 1; i <= totalPages; i++) {
-                    doc.setPage(i);
-                    doc.setFontSize(8);
-                    doc.setFont(undefined, 'italic');
-                    doc.setTextColor(100, 100, 100);
-                    doc.text('Page ' + i + ' of ' + totalPages + ' | Production Line Simulator', pageWidth / 2, pageHeight - 10, { align: 'center' });
-                }
-
-                // Save PDF
-                const filename = 'OMLP_Report_' + new Date().toISOString().slice(0, 10) + '.pdf';
-                doc.save(filename);
-
-                console.log('PDF report generated successfully');
-            } catch (error) {
-                console.error('Error generating PDF:', error);
-                alert('Error generating PDF report: ' + error.message + '\n\nPlease check the console for details.');
-            }
-        }
-
-        // Setup PDF export button
-        function setupPDFExport() {
-            const exportBtn = document.getElementById('exportPdfBtn');
-            if (exportBtn) {
-                exportBtn.addEventListener('click', exportToPDF);
-                console.log('PDF export initialized');
-            }
-        }
-
-        // Initialize - wait for jsPDF to load
-        window.addEventListener('load', () => {
-            // Give jsPDF time to load
-            setTimeout(setupPDFExport, 500);
-        });
-    </script>
-
     <!-- PWA & Theme Management -->
     <script>
         // =============================================
@@ -1213,6 +984,96 @@
         } else {
             console.warn('⚠️ Service Workers are not supported in this browser');
         }
+    </script>
+
+    <!-- Station Progress Rings -->
+    <script>
+        // =============================================
+        // PROGRESS RING FOR STATIONS
+        // =============================================
+
+        function initProgressRings() {
+            // Add progress ring SVG to each station
+            for (let i = 1; i <= 5; i++) {
+                const station = document.getElementById(`station${i}`);
+                if (station && !station.querySelector('.progress-ring')) {
+                    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                    svg.classList.add('progress-ring');
+                    svg.setAttribute('width', '66');
+                    svg.setAttribute('height', '66');
+
+                    // Background circle (light green)
+                    const bgCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                    bgCircle.classList.add('progress-ring-bg');
+                    bgCircle.setAttribute('cx', '33');
+                    bgCircle.setAttribute('cy', '33');
+                    bgCircle.setAttribute('r', '30');
+
+                    // Progress circle (green)
+                    const progressCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                    progressCircle.classList.add('progress-ring-circle');
+                    progressCircle.setAttribute('cx', '33');
+                    progressCircle.setAttribute('cy', '33');
+                    progressCircle.setAttribute('r', '30');
+
+                    // Calculate circumference
+                    const radius = 30;
+                    const circumference = 2 * Math.PI * radius;
+                    progressCircle.style.strokeDasharray = circumference;
+                    progressCircle.style.strokeDashoffset = circumference; // Start at 0%
+
+                    svg.appendChild(bgCircle);
+                    svg.appendChild(progressCircle);
+                    station.appendChild(svg);
+                }
+            }
+            console.log('✅ Progress rings initialized');
+        }
+
+        function updateProgressRings() {
+            if (!window.simulator) return;
+
+            const stations = window.simulator.stations;
+            stations.forEach((station, index) => {
+                const stationId = `station${index + 1}`;
+                const stationElement = document.getElementById(stationId);
+                if (!stationElement) return;
+
+                const progressCircle = stationElement.querySelector('.progress-ring-circle');
+                if (!progressCircle) return;
+
+                // Get the first machine (or we could aggregate across machines)
+                const machine = station.machines[0];
+
+                if (machine && machine.status === 'occupied' && machine.remainingTime !== undefined) {
+                    // Calculate progress
+                    const totalTime = machine.initialTime || 10; // fallback
+                    const elapsed = totalTime - machine.remainingTime;
+                    const progress = totalTime > 0 ? elapsed / totalTime : 0;
+
+                    // Update progress ring
+                    const radius = 30;
+                    const circumference = 2 * Math.PI * radius;
+                    const offset = circumference - (progress * circumference);
+                    progressCircle.style.strokeDashoffset = offset;
+                } else {
+                    // Reset to empty when not occupied
+                    const radius = 30;
+                    const circumference = 2 * Math.PI * radius;
+                    progressCircle.style.strokeDashoffset = circumference;
+                }
+            });
+        }
+
+        // Initialize on load
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                initProgressRings();
+
+                // Update progress rings every 100ms when simulation is running
+                setInterval(updateProgressRings, 100);
+            }, 500);
+        });
     </script>
 </body>
 </html>
