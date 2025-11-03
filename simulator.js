@@ -1210,6 +1210,7 @@ class ProductionLineSimulator {
                             machine.piece = newBatch.join('+');
                             machine.status = 'occupied';
                             machine.remainingTime = this.getProcessingTime(station);
+                            machine.initialTime = machine.remainingTime; // Store initial time for progress ring
 
                             // Move all pieces to station with proper vertical positioning
                             setTimeout(() => {
@@ -1238,6 +1239,7 @@ class ProductionLineSimulator {
                             machine.piece = pulledBatch.join('+');
                             machine.status = 'occupied';
                             machine.remainingTime = this.getProcessingTime(station);
+                            machine.initialTime = machine.remainingTime; // Store initial time for progress ring
 
                             // Move pieces to station with vertical positioning
                             pulledBatch.forEach(pieceId => {
@@ -1262,6 +1264,7 @@ class ProductionLineSimulator {
                                 machine.piece = blockedMachine.piece;
                                 machine.status = 'occupied';
                                 machine.remainingTime = this.getProcessingTime(station);
+                                machine.initialTime = machine.remainingTime; // Store initial time for progress ring
 
                                 blockedMachine.piece = null;
                                 blockedMachine.pieceBatch = [];
