@@ -807,22 +807,22 @@
         // =============================================
 
         const tooltipData = {
-            'Constant WIP:': 'Work In Process - Numero fisso di pezzi nella linea. Principio del pull system: un nuovo pezzo entra solo quando uno esce.',
-            'Speed:': 'Velocità di simulazione. Aumenta per vedere risultati più velocemente.',
-            'Log Step (sec):': 'Frequenza di registrazione delle metriche. Valori più bassi = più punti dati, ma maggiore uso di memoria.',
-            'Zoom Window (sec):': 'Finestra temporale mostrata nei grafici durante la simulazione. Auto-zoom sugli ultimi N secondi.',
-            'Warm-up (sec):': 'Periodo iniziale di "riscaldamento" prima di raccogliere statistiche. Utile per raggiungere stato stazionario.',
-            'Time Window (sec):': 'Durata della finestra temporale del diagramma di Gantt.',
-            'Distribution:': 'Distribuzione probabilistica dei tempi di processo. Deterministic = fisso, Normal = gaussiana, Exponential = code casuali, Uniform = uniforme, Triangular = triangolare.',
-            'Mean (sec):': 'Tempo medio di processo per pezzo (o batch).',
-            'Variance:': 'Varianza della distribuzione normale. Valori più alti = maggiore variabilità.',
-            'Min (sec):': 'Tempo minimo di processo.',
-            'Max (sec):': 'Tempo massimo di processo.',
-            'Mode (sec):': 'Valore più probabile nella distribuzione triangolare.',
-            'OEE:': 'Overall Equipment Effectiveness (0-1). Efficienza complessiva della macchina. 1.0 = 100% efficiente, 0.8 = 80% efficiente.',
-            'Batch Size:': 'Numero di pezzi processati insieme. Batch > 1 significa che la macchina lavora su più pezzi simultaneamente.',
-            'Parallel Machines:': 'Numero di macchine parallele alla stazione. Più macchine = maggiore capacità.',
-            'Capacity:': 'Capacità massima del buffer. Numero massimo di pezzi che può contenere tra due stazioni.'
+            'Constant WIP:': 'Work In Process - Fixed number of parts in the line. Pull system principle: a new part enters only when one exits.',
+            'Speed:': 'Simulation speed. Increase to see results faster.',
+            'Log Step (sec):': 'Metrics logging frequency. Lower values = more data points, but higher memory usage.',
+            'Zoom Window (sec):': 'Time window shown in charts during simulation. Auto-zoom on the last N seconds.',
+            'Warm-up (sec):': 'Initial "warm-up" period before collecting statistics. Useful to reach steady state.',
+            'Time Window (sec):': 'Duration of the Gantt chart time window.',
+            'Distribution:': 'Probabilistic distribution of process times. Deterministic = fixed, Normal = Gaussian, Exponential = random queues, Uniform = uniform, Triangular = triangular.',
+            'Mean (sec):': 'Average process time per piece (or batch).',
+            'Variance:': 'Variance of the normal distribution. Higher values = greater variability.',
+            'Min (sec):': 'Minimum process time.',
+            'Max (sec):': 'Maximum process time.',
+            'Mode (sec):': 'Most probable value in the triangular distribution.',
+            'OEE:': 'Overall Equipment Effectiveness (0-1). Overall machine efficiency. 1.0 = 100% efficient, 0.8 = 80% efficient.',
+            'Batch Size:': 'Number of pieces processed together. Batch > 1 means the machine works on multiple pieces simultaneously.',
+            'Parallel Machines:': 'Number of parallel machines at the station. More machines = greater capacity.',
+            'Capacity:': 'Maximum buffer capacity. Maximum number of pieces it can hold between two stations.'
         };
 
         function addTooltips() {
