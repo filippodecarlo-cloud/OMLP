@@ -35,7 +35,7 @@ const PRESETS = {
     'high-volatility': {
         name: 'High Volatility',
         wip: 8,
-        buffers: [1, 1, 1, 1],
+        buffers: [1, 2, 2, 1],
         stations: [
             { dist: 'exponential', oee: 0.85, mean: 6, batchSize: 1, parallelMachines: 1, variance: 1, min: 1, max: 15, mode: 6 },
             { dist: 'triangular', oee: 0.90, mean: 5, batchSize: 1, parallelMachines: 1, variance: 1, min: 1, max: 10, mode: 3 },

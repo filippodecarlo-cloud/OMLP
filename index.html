@@ -1024,10 +1024,19 @@
     <!-- Station Progress Rings -->
     <script>
         // =============================================
-        // PROGRESS BAR FOR STATIONS
+        // PROGRESS BAR AND CIRCLE FOR STATIONS
         // =============================================
 
         let updateCount = 0;
+        // Track previous state for each station to detect job completion
+        const stationPreviousState = [
+            { initialTime: null, isCompleting: false, completionTimer: null },
+            { initialTime: null, isCompleting: false, completionTimer: null },
+            { initialTime: null, isCompleting: false, completionTimer: null },
+            { initialTime: null, isCompleting: false, completionTimer: null },
+            { initialTime: null, isCompleting: false, completionTimer: null }
+        ];
+
         function updateProgressBars() {
             if (!window.simulator) {
                 console.log('⚠️ window.simulator is not defined');
@@ -1050,12 +1059,42 @@
 
                 // Get the first machine
                 const machine = station.machines[0];
+                const prevState = stationPreviousState[index];
 
                 if (shouldLog) {
                     console.log(`S${index + 1}: status=${machine.status}, remaining=${machine.remainingTime}, initial=${machine.initialTime}`);
                 }
 
-                // Show progress if machine has initialTime (currently or recently working)
+                // Detect if a new job has started (initialTime changed)
+                if (machine && machine.initialTime && prevState.initialTime !== machine.initialTime) {
+                    // New job started!
+                    if (prevState.initialTime !== null && !prevState.isCompleting) {
+                        // Previous job existed and wasn't shown as complete - show 100% briefly
+                        prevState.isCompleting = true;
+
+                        // Show 100% completion
+                        progressBarFill.style.width = '100%';
+                        const circumference = 283;
+                        progressCircle.style.strokeDashoffset = 0; // Full circle
+
+                        // After 250ms, reset and start new job
+                        if (prevState.completionTimer) clearTimeout(prevState.completionTimer);
+                        prevState.completionTimer = setTimeout(() => {
+                            prevState.isCompleting = false;
+                            prevState.initialTime = machine.initialTime;
+                        }, 250);
+
+                        return; // Skip normal update this cycle
+                    }
+                    prevState.initialTime = machine.initialTime;
+                }
+
+                // If we're in completion mode, skip updates
+                if (prevState.isCompleting) {
+                    return;
+                }
+
+                // Normal progress update
                 if (machine && machine.initialTime && machine.remainingTime !== undefined && machine.remainingTime >= 0) {
                     // Calculate progress (0 to 100%)
                     const totalTime = machine.initialTime;
@@ -1077,6 +1116,7 @@
                     // Reset to 0% when not working
                     progressBarFill.style.width = '0%';
                     progressCircle.style.strokeDashoffset = 283; // Reset circle to empty
+                    prevState.initialTime = null;
                 }
             });
         }
