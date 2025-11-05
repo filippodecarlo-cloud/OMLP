@@ -110,6 +110,10 @@
 
                     <div class="station-container">
                         <div id="station1" class="station status-free">
+                            <svg class="progress-circle" viewBox="0 0 100 100">
+                                <circle class="progress-circle-bg" cx="50" cy="50" r="45" />
+                                <circle id="station1ProgressCircle" class="progress-circle-fill" cx="50" cy="50" r="45" />
+                            </svg>
                             <div class="station-id">S1</div>
                             <div id="station1Piece" class="piece-id"></div>
                             <div id="station1Time" class="remaining-time"></div>
@@ -135,6 +139,10 @@
 
                     <div class="station-container">
                         <div id="station2" class="station status-free">
+                            <svg class="progress-circle" viewBox="0 0 100 100">
+                                <circle class="progress-circle-bg" cx="50" cy="50" r="45" />
+                                <circle id="station2ProgressCircle" class="progress-circle-fill" cx="50" cy="50" r="45" />
+                            </svg>
                             <div class="station-id">S2</div>
                             <div id="station2Piece" class="piece-id"></div>
                             <div id="station2Time" class="remaining-time"></div>
@@ -160,6 +168,10 @@
 
                     <div class="station-container">
                         <div id="station3" class="station status-free">
+                            <svg class="progress-circle" viewBox="0 0 100 100">
+                                <circle class="progress-circle-bg" cx="50" cy="50" r="45" />
+                                <circle id="station3ProgressCircle" class="progress-circle-fill" cx="50" cy="50" r="45" />
+                            </svg>
                             <div class="station-id">S3</div>
                             <div id="station3Piece" class="piece-id"></div>
                             <div id="station3Time" class="remaining-time"></div>
@@ -185,6 +197,10 @@
 
                     <div class="station-container">
                         <div id="station4" class="station status-free">
+                            <svg class="progress-circle" viewBox="0 0 100 100">
+                                <circle class="progress-circle-bg" cx="50" cy="50" r="45" />
+                                <circle id="station4ProgressCircle" class="progress-circle-fill" cx="50" cy="50" r="45" />
+                            </svg>
                             <div class="station-id">S4</div>
                             <div id="station4Piece" class="piece-id"></div>
                             <div id="station4Time" class="remaining-time"></div>
@@ -210,6 +226,10 @@
 
                     <div class="station-container">
                         <div id="station5" class="station status-free">
+                            <svg class="progress-circle" viewBox="0 0 100 100">
+                                <circle class="progress-circle-bg" cx="50" cy="50" r="45" />
+                                <circle id="station5ProgressCircle" class="progress-circle-fill" cx="50" cy="50" r="45" />
+                            </svg>
                             <div class="station-id">S5</div>
                             <div id="station5Piece" class="piece-id"></div>
                             <div id="station5Time" class="remaining-time"></div>
@@ -1025,7 +1045,8 @@
             stations.forEach((station, index) => {
                 const stationId = `station${index + 1}`;
                 const progressBarFill = document.getElementById(`${stationId}ProgressBar`);
-                if (!progressBarFill) return;
+                const progressCircle = document.getElementById(`${stationId}ProgressCircle`);
+                if (!progressBarFill || !progressCircle) return;
 
                 // Get the first machine
                 const machine = station.machines[0];
@@ -1044,12 +1065,18 @@
                     // Update progress bar width
                     progressBarFill.style.width = progress + '%';
 
+                    // Update progress circle
+                    const circumference = 283; // 2 * PI * 45
+                    const offset = circumference * (1 - progress / 100);
+                    progressCircle.style.strokeDashoffset = offset;
+
                     if (shouldLog) {
-                        console.log(`  → S${index + 1} Progress: ${progress.toFixed(1)}% (width set to ${progress.toFixed(1)}%)`);
+                        console.log(`  → S${index + 1} Progress: ${progress.toFixed(1)}%`);
                     }
                 } else {
                     // Reset to 0% when not working
                     progressBarFill.style.width = '0%';
+                    progressCircle.style.strokeDashoffset = 283; // Reset circle to empty
                 }
             });
         }
