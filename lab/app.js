@@ -19,41 +19,55 @@
     const L = (arr, o = {}) => arr.map((x, k) => ST(x, typeof o === 'function' ? o(k) : o));
     const PRESETS = [
         // ---- part 1: machines ----
-        { id: 'balanced', mode: 'machines', ref: 'Original simulator', name: 'Balanced line: 5 × 5 s, buffers 2, w = 9',
+        { id: 'balanced', mode: 'machines', ref: 'Reference lines', name: 'Balanced line: 5 × 5 s, buffers of 2, w = 9',
           cfg: { stations: L([5, 5, 5, 5, 5]), buffers: [2, 2, 2, 2], wip: 9, unit: 's', warmup: 60 } },
-        { id: 'bottleneck', mode: 'machines', ref: 'Original simulator', name: 'Bottleneck at S3, a 1-place buffer before it',
+        { id: 'bottleneck', mode: 'machines', ref: 'Reference lines', name: 'Bottleneck at S3 behind a 1-place buffer',
           cfg: { stations: [ST(4, { dist: 'uniform', cv: 0.14, oee: 0.95 }), ST(4, { dist: 'normal', cv: 0.3, oee: 0.9 }), ST(8, { oee: 0.8 }), ST(4, { dist: 'uniform', cv: 0.14, oee: 0.95 }), ST(4, { dist: 'normal', cv: 0.3, oee: 0.9 })],
                  buffers: [3, 1, 3, 3], wip: 10, unit: 's', warmup: 200 } },
-        { id: 'volatility', mode: 'machines', ref: 'Original simulator', name: 'High volatility: exponential, batches, small buffers',
+        { id: 'volatility', mode: 'machines', ref: 'Reference lines', name: 'High variability: random times, batches, small buffers',
           cfg: { stations: [ST(6, { dist: 'exp', oee: 0.85 }), ST(4.7, { dist: 'tri', cv: 0.4, oee: 0.9 }), ST(7, { dist: 'exp', oee: 0.75, batch: 2 }), ST(4, { dist: 'normal', cv: 0.3, oee: 0.88 }), ST(5, { dist: 'tri', cv: 0.25, oee: 0.92 })],
                  buffers: [1, 2, 1, 1], wip: 8, unit: 's', warmup: 300 } },
-        { id: 'assignment', mode: 'machines', ref: 'Assignment', name: 'Assignment template: line A–D, 10 000 units',
+        { id: 'assignment', mode: 'machines', ref: 'Reference lines', name: 'Line A–D with parallel machines, 10 000 units',
           cfg: { stations: [ST(20, { m: 1, dist: 'normal', cv: 0.1 }), ST(50, { m: 2, dist: 'normal', cv: 0.1 }), ST(100, { m: 6, dist: 'normal', cv: 0.1 }), ST(30, { m: 2, dist: 'normal', cv: 0.1 })],
                  buffers: [5, 5, 5], wip: 16, unit: 's', warmup: 600, stopAfter: 10000 } },
-        { id: 'best', mode: 'machines', ref: 'Best, worst and practical worst case', name: 'Best case: Penny Fab, 4 × 2 h, w = 4',
+        { id: 'best', mode: 'machines', ref: 'Best, worst and practical worst case', name: 'Best case: 4 stations × 2 h, w = 4',
           cfg: { stations: L([2, 2, 2, 2]), wip: 4, unit: 'h' } },
-        { id: 'worst', mode: 'machines', ref: 'Best, worst and practical worst case', name: 'Worst case: parts moved all together',
+        { id: 'worst', mode: 'machines', ref: 'Best, worst and practical worst case', name: 'Worst case: pallets of 2 (4 h for the first part, 0 h for the second)',
+          cfg: { stations: L([4, 4, 4, 4], { batch: 2 }), wip: 2, unit: 'h' } },
+        { id: 'worstLot', mode: 'machines', ref: 'Best, worst and practical worst case', name: 'Worst case, general form: all w parts travel together',
           cfg: { stations: L([2, 2, 2, 2], { move: 4 }), wip: 4, unit: 'h' } },
         { id: 'pwc', mode: 'machines', ref: 'Best, worst and practical worst case', name: 'Practical worst case: exponential times',
           cfg: { stations: L([2, 2, 2, 2], { dist: 'exp' }), wip: 4, unit: 'h', warmup: 50 } },
-        { id: 'unbal', mode: 'machines', ref: 'Unbalanced lines', name: 'Unbalanced line, multimachine stations A–D',
+        { id: 'unbal', mode: 'machines', ref: 'Unbalanced lines', name: 'Unbalanced line with parallel machines (A–D)',
           cfg: { stations: [ST(2, { m: 1 }), ST(5, { m: 2 }), ST(10, { m: 6 }), ST(3, { m: 2 })], wip: 8, unit: 'h' } },
         { id: 'unbalExp', mode: 'machines', ref: 'Unbalanced lines', name: 'Same unbalanced line, exponential times',
           cfg: { stations: [ST(2, { m: 1, dist: 'exp' }), ST(5, { m: 2, dist: 'exp' }), ST(10, { m: 6, dist: 'exp' }), ST(3, { m: 2, dist: 'exp' })], wip: 8, unit: 'h', warmup: 200 } },
-        { id: 'push', mode: 'machines', ref: 'Buffers and batches', name: 'Push line with 1-place buffers',
+        { id: 'pushRate', mode: 'machines', ref: 'Push and pull', name: 'Push: release at 90% of capacity, random arrivals',
+          cfg: { stations: L([2, 2, 2, 2], { dist: 'exp' }), wipMode: 'push', release: { rate: 0.45, arrivals: 'exp' }, unit: 'h', warmup: 500 } },
+        { id: 'conwip', mode: 'machines', ref: 'Push and pull', name: 'CONWIP on the same line: same TR with less WIP',
+          cfg: { stations: L([2, 2, 2, 2], { dist: 'exp' }), wip: 27, unit: 'h', warmup: 500 } },
+        { id: 'pushOver', mode: 'machines', ref: 'Push and pull', name: 'Push above capacity: the WIP explodes',
+          cfg: { stations: L([2, 2.5, 2, 2]), wipMode: 'push', release: { rate: 0.45, arrivals: 'det' }, unit: 'h' } },
+        { id: 'kanban', mode: 'machines', ref: 'Push and pull', name: 'Kanban: 2 cards per station',
+          cfg: { stations: L([2, 2, 2, 2], { dist: 'exp' }), wipMode: 'kanban', release: { cards: [2, 2, 2, 2] }, unit: 'h', warmup: 200 } },
+        { id: 'dbr', mode: 'machines', ref: 'Push and pull', name: 'Drum-Buffer-Rope: release tied to the bottleneck',
+          cfg: { stations: L([1.5, 1.5, 2, 1.5, 1.5], { dist: 'exp' }), wipMode: 'dbr', release: { rope: 10 }, unit: 'h', warmup: 200 } },
+        { id: 'push', mode: 'machines', ref: 'Buffers, batches and OEE', name: 'No WIP cap, 1-place buffers: blocking',
           cfg: { stations: L([5, 5, 5, 5], { dist: 'exp' }), buffers: [1, 1, 1], wipMode: 'free', unit: 's', warmup: 200 } },
-        { id: 'oven', mode: 'machines', ref: 'Buffers and batches', name: 'Oven: 2 parts together every 4 h',
+        { id: 'oven', mode: 'machines', ref: 'Buffers, batches and OEE', name: 'Oven: batches of 2 parts every 4 h',
           cfg: { stations: L([2, 4, 2, 2], k => ({ batch: k === 1 ? 2 : 1 })), wip: 6, unit: 'h' } },
+        { id: 'oeeMach', mode: 'machines', ref: 'Buffers, batches and OEE', name: 'Two parallel machines with different OEE',
+          cfg: { stations: [ST(2), ST(4, { m: 2, oee: 0.775, oeeM: [0.95, 0.6] }), ST(2)], wip: 8, unit: 'h' } },
         // ---- part 2: manpower ----
         { id: 'slide90', mode: 'labor', ref: 'Labor as the constraint', name: '5 stations 10–20–30–10–20, n = 2, w = 4, ample machines',
           cfg: { stations: L([10, 20, 30, 10, 20], { m: 2 }), speeds: [1, 1], policy: 'tied', wip: 4, warmup: 180 } },
-        { id: 'slide99', mode: 'labor', ref: 'Labor as the constraint', name: 'Same 5 stations, 1 machine each, random times',
+        { id: 'slide99', mode: 'labor', ref: 'Labor as the constraint', name: 'Same 5 stations, one machine each, random times',
           cfg: { stations: L([10, 20, 30, 10, 20], { dist: 'exp' }), speeds: [1, 1], policy: 'tied', wip: 4, warmup: 500 } },
-        { id: 'pizza2', mode: 'labor', ref: 'Labor as the constraint', name: 'Pizza shop: 8 customers, n = 2',
+        { id: 'pizza2', mode: 'labor', ref: 'Labor as the constraint', name: 'Take-away pizza shop: 8 customers, n = 2',
           cfg: { stations: L([3, 3, 4, 4, 3, 3], { m: 2 }), speeds: [1, 1], policy: 'tied', wip: 8, warmup: 40 } },
-        { id: 'pizza4', mode: 'labor', ref: 'Labor as the constraint', name: 'Pizza shop: n = 4 workers',
+        { id: 'pizza4', mode: 'labor', ref: 'Labor as the constraint', name: 'Take-away pizza shop: n = 4 workers',
           cfg: { stations: L([3, 3, 4, 4, 3, 3], { m: 4 }), speeds: [1, 1, 1, 1], policy: 'tied', wip: 8, warmup: 40 } },
-        { id: 'tend', mode: 'labor', ref: 'Labor as the constraint', name: 'One operator, three machines (automatic cycle)',
+        { id: 'tend', mode: 'labor', ref: 'Labor as the constraint', name: 'One operator tending three machines (automatic cycle)',
           cfg: { stations: [ST(1, { auto: 4, m: 3 }), ST(0.5)], speeds: [1], policy: 'dropping', wip: 6, warmup: 50 } },
         { id: 'bbSF', mode: 'labor', ref: 'Bucket brigade', name: 'Bucket brigade, slowest → fastest',
           cfg: { stations: L(new Array(10).fill(2)), speeds: [0.6, 1.0, 1.4], policy: 'bucket', wipMode: 'free', warmup: 40 } },
@@ -70,6 +84,8 @@
         { id: 'penny', mode: 'labor', ref: 'Dedicated workers and skills', name: 'One worker per station: the classic line',
           cfg: { stations: L([2, 2, 2, 2], { dist: 'exp' }), speeds: [1, 1, 1, 1], policy: 'zones', wip: 4, unit: 'h', warmup: 50 } }
     ];
+    const REL_DEFAULT = () => ({ rate: null, arrivals: 'det', cards: null, rope: null, drum: null });
+    const RMODE = { cap: 'conwip', free: 'free', push: 'push', kanban: 'kanban', dbr: 'dbr' };
 
     // ------------------------------------------------------------------
     // State
@@ -103,10 +119,12 @@
             workers: speeds.map(s => ({ speed: s })), skills: c.skills ? deepCopy(c.skills) : null,
             policy: c.policy || 'tied', wipMode: c.wipMode || 'cap', wip: c.wip || 4,
             walk: c.walk || 0, preempt: true, warmup: c.warmup || 0, seed: 1, unit: c.unit || 'min', chartWindow: 0,
-            stopAfter: c.stopAfter || 0
+            stopAfter: c.stopAfter || 0,
+            release: Object.assign(REL_DEFAULT(), c.release ? deepCopy(c.release) : {}),
+            stagger: c.stagger != null ? c.stagger : p.mode === 'labor'
         };
         while (out.buffers.length < N - 1) out.buffers.push(null);
-        out.showMore = stations.some(s => s.batch > 1 || s.move > 1 || s.oee < 1 || s.auto > 0);
+        out.showMore = stations.some(s => s.batch > 1 || s.move > 1 || s.oee < 1 || s.auto > 0 || s.oeeM);
         out.logStep = defaultLogStep(out);
         return out;
     }
@@ -116,9 +134,11 @@
     }
     function engineCfg(c) {
         return {
-            mode: c.mode, stations: c.stations, buffers: c.buffers.map(x => (x == null || x === '') ? Infinity : x),
+            mode: c.mode, buffers: c.buffers.map(x => (x == null || x === '') ? Infinity : x),
+            stations: c.stations.map(s => s.oeeM && s.oeeM.length > 1 ? Object.assign({}, s, { oee: s.oeeM }) : s),
             workers: c.workers, skills: c.skills, policy: c.policy,
-            wip: c.wipMode === 'free' ? Infinity : c.wip, walk: c.walk, preempt: c.preempt,
+            wip: c.wipMode === 'cap' ? c.wip : Infinity, walk: c.walk, preempt: c.preempt,
+            release: Object.assign(REL_DEFAULT(), c.release || {}, { mode: RMODE[c.wipMode] || 'conwip' }), stagger: !!c.stagger,
             warmup: c.warmup, seed: c.seed, traceLimit: 3000, stateLimit: 3000
         };
     }
@@ -241,14 +261,18 @@
         $('walkTime').value = cfg.walk;
         $('skillsBox').hidden = cfg.policy !== 'zones';
         if (cfg.policy === 'zones') renderSkills();
-        $('wipModeFree').checked = cfg.wipMode === 'free';
-        $('wipModeCap').checked = cfg.wipMode === 'cap';
-        $('freeLabel').textContent = cfg.mode === 'machines'
-            ? 'No WIP cap (push): S1 starts a new job whenever it can; only the buffers limit the WIP'
-            : 'No WIP cap: a new job starts whenever a worker (and S1) is free';
+        $('staggerChk').checked = !!cfg.stagger;
+        $('staggerRow').hidden = !(cfg.policy === 'tied' || cfg.policy === 'dropping');
+        document.querySelectorAll('input[name="wipMode"]').forEach(r => { r.checked = r.value === cfg.wipMode; });
+        $('freeLabel').innerHTML = cfg.mode === 'machines'
+            ? '<strong>No WIP cap</strong>: S1 starts a new job whenever it can; only the buffers limit the WIP'
+            : '<strong>No WIP cap</strong>: a new job starts whenever a worker (and S1) is free';
         $('wipCap').value = cfg.wip;
-        $('wipCap').disabled = cfg.wipMode === 'free';
-        document.querySelectorAll('[data-step="wipCap"]').forEach(b => b.disabled = cfg.wipMode === 'free');
+        $('relCap').hidden = cfg.wipMode !== 'cap';
+        $('relPush').hidden = cfg.wipMode !== 'push';
+        $('relKanban').hidden = cfg.wipMode !== 'kanban';
+        $('relDbr').hidden = cfg.wipMode !== 'dbr';
+        renderRelease();
         $('nStations').value = cfg.stations.length;
         $('warmup').value = cfg.warmup;
         $('seed').value = cfg.seed;
@@ -260,6 +284,31 @@
         document.querySelectorAll('.unit-label').forEach(el => el.textContent = cfg.unit);
         $('sweepVar').value = cfg.mode === 'machines' ? 'w' : $('sweepVar').value;
         renderSaved();
+    }
+
+    // release rules: values shown are the ones the engine uses (defaults filled in)
+    function renderRelease() {
+        const t = E.theory(engineCfg(cfg)), R = t.release, u = cfg.unit;
+        $('relRate').value = +R.rate.toPrecision(4);
+        $('relRateUnit').textContent = 'pcs/' + u;
+        $('relArr').value = R.arrivals;
+        const rho = R.rate / t.TRmax;
+        $('relPushHint').textContent = `Capacity of the line ${fmt(t.TRmax)} pcs/${u}: utilization ρ = ${(rho * 100).toFixed(0)}%. ` +
+            (rho >= 0.999 ? 'Above capacity: the queue before S1 grows without limit.' : R.arrivals === 'exp' || cfg.stations.some(s => s.dist !== 'det')
+                ? 'With variability the queues grow quickly as ρ approaches 100% (VUT equation).' : 'Regular arrivals and times below capacity: TR = rate and nobody waits.');
+        const cards = $('kanbanCards');
+        cards.innerHTML = R.cards.map((k, i) => `<label>S${i + 1}<input type="number" min="1" max="99" step="1" value="${k}" data-k="${i}" aria-label="Cards at S${i + 1}"></label>`).join('');
+        cards.querySelectorAll('input').forEach(inp => inp.addEventListener('change', e => {
+            const cs = R.cards.slice();
+            cs[+e.target.dataset.k] = Math.round(clampNum(e.target.value, 1, 99, cs[+e.target.dataset.k]));
+            cfg.release.cards = cs;
+            changed();
+        }));
+        $('relKanbanHint').textContent = `Total cards ${R.cards.reduce((x, y) => x + y, 0)}: the WIP never exceeds it. A station with a batch b needs at least b cards.`;
+        $('relDrum').innerHTML = `<option value="">auto: the bottleneck (S${t.bottleneck + 1})</option>` + cfg.stations.map((_, k) => `<option value="${k}">S${k + 1}</option>`).join('');
+        $('relDrum').value = cfg.release.drum == null ? '' : String(cfg.release.drum);
+        $('relRope').value = R.rope;
+        $('relDbrHint').textContent = `Drum S${R.drum + 1}, capacity ${fmt(t.rate[R.drum])} pcs/${u}. At most R = ${R.rope} jobs between the release and the end of the drum operation; the jobs past the drum do not count.`;
     }
 
     function currentSkills() {
@@ -305,7 +354,8 @@
             'Parts processed together in one cycle (oven, autoclave). The machine starts only when b parts are waiting.');
         h += row('Move lot', S.map((s, k) => num(k, 'move', 1, 50, 1, s.move, labor && (cfg.policy === 'tied' || cfg.policy === 'bucket'))).join(''), 'more',
             'Parts moved together to the next station (forklift, pallet). Move lot = w at every station gives the worst case.');
-        h += row('OEE', S.map((s, k) => num(k, 'oee', 0.01, 1, 0.01, s.oee)).join(''), 'more', 'Overall Equipment Effectiveness: process times are divided by the OEE.');
+        h += row('OEE', S.map((s, k) => `<td><input type="text" inputmode="decimal" class="oee-in" id="c_oee_${k}" data-k="${k}" data-key="oee" value="${s.oeeM && s.oeeM.length > 1 ? s.oeeM.join('; ') : s.oee}" title="One value for the station, or one per machine separated by ; (e.g. 0.95; 0.6)"></td>`).join(''), 'more',
+            'Overall Equipment Effectiveness: process times are divided by the OEE. With parallel machines give one value per machine, separated by a semicolon: 0.95; 0.6.');
         h += row(`Buffer after the station`, S.map((s, k) => k < N - 1
             ? `<td class="buf"><input type="number" id="c_buf_${k}" data-k="${k}" data-key="buf" min="0" max="500" step="1" placeholder="∞" value="${cfg.buffers[k] == null ? '' : cfg.buffers[k]}"></td>`
             : '<td class="buf mono">OUT</td>').join(''), 'sep', 'Places in the buffer between this station and the next one. Empty = unlimited, 0 = direct transfer.');
@@ -334,7 +384,14 @@
             case 'm': s.m = Math.round(clampNum(v, 1, 10, s.m)); break;
             case 'batch': s.batch = Math.round(clampNum(v, 1, 50, s.batch)); break;
             case 'move': s.move = Math.round(clampNum(v, 1, 50, s.move)); break;
-            case 'oee': s.oee = clampNum(v, 0.01, 1, s.oee); break;
+            case 'oee': {
+                const txt = String(v).trim();
+                const parts = txt.includes(';') ? txt.split(';') : /\s/.test(txt) ? txt.split(/,?\s+/) : (txt.includes('.') ? txt.split(',') : [txt]);
+                const xs = parts.map(x => x.trim().replace(',', '.')).filter(x => x !== '').map(x => clampNum(x, 0.01, 1, NaN)).filter(x => isFinite(x)).slice(0, 10);
+                if (xs.length === 1) { s.oee = xs[0]; delete s.oeeM; }
+                else if (xs.length > 1) { s.oeeM = xs; s.m = Math.max(s.m, xs.length); s.oee = +(xs.reduce((x, y) => x + y, 0) / xs.length).toFixed(4); }
+                break;
+            }
             case 'buf': cfg.buffers[k] = v === '' ? null : Math.round(clampNum(v, 0, 500, 1)); break;
         }
         changed();
@@ -345,12 +402,12 @@
         activePreset = null;
         const prev = appliedCfg;
         const structural = !sim || !prev || sim.t === 0 || prev.mode !== cfg.mode || prev.policy !== cfg.policy ||
-            prev.stations.length !== cfg.stations.length || prev.seed !== cfg.seed || prev.warmup !== cfg.warmup;
+            prev.stations.length !== cfg.stations.length || prev.seed !== cfg.seed || prev.warmup !== cfg.warmup || !!prev.stagger !== !!cfg.stagger;
         renderAll();
         if (structural) {
             const wasRunning = sim && sim.t > 0;
             rebuild();
-            if (wasRunning) notice('New run: the mode, the policy, the number of stations, the seed and the warm-up can only change from the start.');
+            if (wasRunning) notice('New run: the mode, the policy, the number of stations, the seed, the warm-up and the staggered start can only change from the start.');
         } else liveUpdate(prev);
         if (sweepDone) $('sweepStatus').textContent = 'The setup has changed: run the experiment again to update the curves.';
     }
@@ -374,7 +431,11 @@
     function describeDiff(a, b) {
         const out = [];
         const wTxt = c => c.wipMode === 'free' ? '∞' : String(c.wip);
-        if (wTxt(a) !== wTxt(b)) out.push(`w ${wTxt(a)}→${wTxt(b)}`);
+        const R = c => c.release || {};
+        const relTxt = c => ({ cap: 'CONWIP w ' + c.wip, free: 'no cap', push: `push ${R(c).rate}${R(c).arrivals === 'exp' ? ' random' : ''}`,
+            kanban: 'kanban ' + (R(c).cards ? R(c).cards.join('/') : 'auto'), dbr: 'DBR R ' + (R(c).rope || 'auto') + (R(c).drum != null ? ' S' + (R(c).drum + 1) : '') })[c.wipMode];
+        if (['cap', 'free'].includes(a.wipMode) && ['cap', 'free'].includes(b.wipMode)) { if (wTxt(a) !== wTxt(b)) out.push(`w ${wTxt(a)}→${wTxt(b)}`); }
+        else if (relTxt(a) !== relTxt(b)) out.push(`${relTxt(a)}→${relTxt(b)}`);
         if (b.mode === 'labor') {
             if (a.workers.length !== b.workers.length) out.push(`n ${a.workers.length}→${b.workers.length}`);
             else if (a.workers.some((w, j) => w.speed !== b.workers[j].speed)) out.push('speeds ' + b.workers.map(w => w.speed).join('/'));
@@ -386,6 +447,7 @@
         b.stations.forEach((s, k) => Object.keys(names).forEach(key => {
             if (a.stations[k][key] !== s[key]) out.push(`S${k + 1} ${names[key] ? names[key] + ' ' : ''}${key === 'dist' ? DIST_LABEL[a.stations[k][key]] : a.stations[k][key]}→${key === 'dist' ? DIST_LABEL[s[key]] : s[key]}`);
         }));
+        b.stations.forEach((s, k) => { if (JSON.stringify(a.stations[k].oeeM || null) !== JSON.stringify(s.oeeM || null) && s.oeeM) out.push(`S${k + 1} OEE ${s.oeeM.join('/')}`); });
         b.buffers.forEach((x, k) => { if (a.buffers[k] !== x) out.push(`B${k + 1} ${a.buffers[k] == null ? '∞' : a.buffers[k]}→${x == null ? '∞' : x}`); });
         return out;
     }
@@ -427,12 +489,22 @@
             if (id === 'nWorkers') setWorkers(cfg.workers.length + d);
             if (id === 'nStations') setStations(cfg.stations.length + d);
             if (id === 'wipCap') { cfg.wip = Math.round(clampNum(cfg.wip + d, 1, 500, cfg.wip)); changed(); }
+            if (id === 'relRope') { const r0 = E.theory(engineCfg(cfg)).release.rope; cfg.release.rope = Math.round(clampNum(r0 + d, 1, 500, r0)); changed(); }
         }));
         $('nWorkers').addEventListener('change', e => setWorkers(e.target.value));
         $('nStations').addEventListener('change', e => setStations(e.target.value));
         $('wipCap').addEventListener('change', e => { cfg.wip = Math.round(clampNum(e.target.value, 1, 500, cfg.wip)); changed(); });
-        $('wipModeFree').addEventListener('change', () => { cfg.wipMode = 'free'; changed(); });
-        $('wipModeCap').addEventListener('change', () => { cfg.wipMode = 'cap'; changed(); });
+        document.querySelectorAll('input[name="wipMode"]').forEach(r => r.addEventListener('change', () => {
+            if (!r.checked) return;
+            cfg.wipMode = r.value;
+            if (r.value === 'push' && !(cfg.release.rate > 0)) cfg.release.rate = +(0.9 * E.theory(engineCfg(cfg)).TRmax).toPrecision(2);
+            changed();
+        }));
+        $('relRate').addEventListener('change', e => { cfg.release.rate = clampNum(e.target.value, 1e-6, 1e6, cfg.release.rate || 1); changed(); });
+        $('relArr').addEventListener('change', e => { cfg.release.arrivals = e.target.value; changed(); });
+        $('relDrum').addEventListener('change', e => { cfg.release.drum = e.target.value === '' ? null : +e.target.value; changed(); });
+        $('relRope').addEventListener('change', e => { cfg.release.rope = Math.round(clampNum(e.target.value, 1, 500, 4)); changed(); });
+        $('staggerChk').addEventListener('change', e => { cfg.stagger = e.target.checked; changed(); });
         $('walkTime').addEventListener('change', e => { cfg.walk = clampNum(e.target.value, 0, 20, 0); changed(); });
         $('preemptSel').addEventListener('change', e => { cfg.preempt = e.target.value === '1'; changed(); });
         $('warmup').addEventListener('change', e => { cfg.warmup = clampNum(e.target.value, 0, 1e8, 0); changed(); });
@@ -496,6 +568,8 @@
             if (!Array.isArray(c.stations) || !Array.isArray(c.workers)) throw new Error('missing stations or workers');
             const base = presetToCfg(PRESETS[0]);
             cfg = Object.assign(base, c);
+            cfg.release = Object.assign(REL_DEFAULT(), c.release || {});
+            if (!RMODE[cfg.wipMode]) cfg.wipMode = 'cap';
             cfg.stations = c.stations.map(s => Object.assign(ST(1), s));
             if (!Array.isArray(cfg.buffers)) cfg.buffers = [];
             while (cfg.buffers.length < cfg.stations.length - 1) cfg.buffers.push(null);
@@ -799,7 +873,7 @@
         ctx.fillStyle = colors.ink; ctx.textAlign = 'center'; ctx.font = `600 12px ${colors.body}`;
         ctx.fillText('IN', inX + inW / 2, inY + 12);
         ctx.font = `11px ${colors.mono}`; ctx.fillStyle = colors.muted;
-        ctx.fillText(isFinite(sim.cfg.wip) ? 'queue ' + sim.queues[0].length : '∞ raw', inX + inW / 2, inY + 27);
+        ctx.fillText(sim.srcQueue() ? 'queue ' + sim.queues[0].length : '∞ raw', inX + inW / 2, inY + 27);
         drawStack(ctx, sim.queues[0], inX + inW / 2, inY + 44, inY + inH - 6, Math.floor((inW - 8) / 12), Infinity);
 
         // OUT
@@ -844,7 +918,7 @@
                 const b = [];
                 if (s.batch > 1) b.push('b' + s.batch);
                 if (s.move > 1) b.push('lot ' + s.move);
-                if (s.oee < 1) b.push('OEE ' + fmtShort(s.oee));
+                if (s.oees && s.oees.some(x => Math.abs(x - s.oees[0]) > 1e-9)) b.push('OEE ' + s.oees.map(fmtShort).join('/')); else if (s.oee < 1) b.push('OEE ' + fmtShort(s.oee));
                 if (s.auto > 0) b.push('auto');
                 ctx.font = `10px ${colors.mono}`; ctx.fillStyle = colors.accent;
                 ctx.fillText(b.join(' · '), cx, y + 40);
@@ -969,8 +1043,10 @@
     }
 
     function unstable() {
-        return !th.capped && (cfg.mode === 'machines' || cfg.policy === 'dropping' || cfg.policy === 'zones') &&
-            sim.cfg.buffers.slice(1).some(x => !isFinite(x)) && sim.jobs.size > 3 * Math.max(th.n, th.N) + 4;
+        const big = sim.jobs.size > 3 * Math.max(th.n, th.N) + 4;
+        if (th.release.mode === 'push') return th.rho >= 0.999 && big;
+        return th.release.mode === 'free' && (cfg.mode === 'machines' || cfg.policy === 'dropping' || cfg.policy === 'zones') &&
+            sim.cfg.buffers.slice(1).some(x => !isFinite(x)) && big;
     }
 
     function theoryRows(m) {
@@ -982,14 +1058,32 @@
         const grp = t => r.push(`<tr class="group"><td colspan="5">${t}</td></tr>`);
         const labor = cfg.mode === 'labor', n = th.n, w = th.w;
         grp('Line data');
-        row(labor ? 'Value-added time VAT (T<sub>0</sub>)' : 'Raw process time T<sub>0</sub>', 'Σ t<sub>k</sub> / OEE<sub>k</sub>', fmt(th.T0) + ' ' + u, '');
+        row(labor ? 'Value-added time VAT (T<sub>0</sub>)' : 'Raw process time T<sub>0</sub>', 'Σ t<sub>k</sub> / (b<sub>k</sub>·OEE<sub>k</sub>)', fmt(th.T0) + ' ' + u, '');
         row(`Bottleneck rate TR<sub>b</sub> (S${th.bottleneck + 1})`, 'min m<sub>k</sub>·b<sub>k</sub> / t<sub>k</sub>', rate(th.TRb) + (perHour(th.TRb) ? ' · ' + perHour(th.TRb) : ''), '');
         row('Critical WIP W<sub>0</sub>', 'TR<sub>b</sub> · T<sub>0</sub>', fmt(th.WIPc) + ' pcs', '');
         if (labor) row('Labor capacity (TH<sub>max</sub>)', th.carry ? 'Σv / VAT' : 'Σv / manual work per part', rate(th.TRlabor), '');
+        const RL = th.release;
+        if (RL.mode === 'push') {
+            grp('Release: push');
+            row('Release rate λ', 'set by the plan', rate(RL.rate), rate(m.TR), th.rho < 0.999 ? { key: 'TR', theo: RL.rate } : null);
+            row('Utilization ρ', 'λ / capacity', pct(th.rho), '', null, th.rho >= 0.999 ? 'delta-bad' : '');
+        } else if (RL.mode === 'kanban') {
+            const K = RL.cards.reduce((x, y) => x + y, 0);
+            grp('Release: kanban');
+            row('Cards in the line', 'Σ K<sub>k</sub> (' + RL.cards.join(' + ') + ')', K + ' pcs', fmt(m.WIP) + ' pcs', { key: 'WIP', theo: K, kind: 'bound' });
+        } else if (RL.mode === 'dbr') {
+            grp('Release: Drum-Buffer-Rope');
+            row(`Drum S${RL.drum + 1}: capacity`, 'm·b / t of the drum', rate(th.rate[RL.drum]), rate(m.TR), { key: 'TR', theo: th.rate[RL.drum], kind: 'bound' });
+            row('Rope R', 'jobs released and not past the drum', RL.rope + ' pcs', '', null);
+        }
 
         grp('Throughput');
-        row('Upper bound', labor ? 'min(labor, TR<sub>b</sub>)' + (th.capped ? '' : '') : (th.capped ? 'min(w/T<sub>0</sub>, TR<sub>b</sub>)' : 'TR<sub>b</sub>'),
-            rate(labor ? th.TRmax : (th.best ? th.best.TR : th.TRb)), rate(m.TR), { key: 'TR', theo: labor ? th.TRmax : (th.best ? th.best.TR : th.TRb), kind: 'bound' });
+        let ub = labor ? th.TRmax : (th.best ? th.best.TR : th.TRb);
+        if (RL.mode === 'push') ub = Math.min(ub, RL.rate);
+        const ubF = labor ? ['labor', 'TR<sub>b</sub>'] : th.capped ? ['w/T<sub>0</sub>', 'TR<sub>b</sub>'] : ['TR<sub>b</sub>'];
+        if (RL.mode === 'push') ubF.push('λ');
+        row('Upper bound', ubF.length > 1 ? 'min(' + ubF.join(', ') + ')' : ubF[0],
+            rate(ub), rate(m.TR), { key: 'TR', theo: ub, kind: 'bound' });
         const exactTied = labor && th.tied && th.carry && th.ample;
         if (exactTied) {
             const f = th.walk > 0 ? 'min(w,n) / (VAT + 2(N−1)·walk)' : (w < n ? 'w / VAT' : 'n / VAT');
@@ -1033,20 +1127,31 @@
         if (!th.capped) return null;
         const bufInf = sim.cfg.buffers.slice(1).every(x => !isFinite(x));
         const single = S.every(s => s.m === 1 && s.batch === 1);
-        if (th.deterministic && single && bufInf && S.every(s => s.move === th.w)) return 'worst';
+        // worst case: the w parts travel together, as a move lot or as a pallet processed in one go
+        if (th.deterministic && bufInf && S.every(s => s.m === 1 && ((s.batch === 1 && s.move === th.w) || (s.batch === th.w && s.move <= th.w)))) return 'worst';
         if (th.deterministic && th.onePiece && bufInf) return 'best';
         const te0 = th.te[0];
         if (S.every(s => s.dist === 'exp' && s.auto === 0) && th.onePiece && single && bufInf && th.te.every(t => Math.abs(t - te0) < 1e-9)) return 'pwc';
         return null;
     }
 
+    function releaseNote() {
+        const R = th.release;
+        if (R.mode === 'push') return th.rho >= 0.999
+            ? `Push above capacity (ρ = ${(th.rho * 100).toFixed(0)}%): the release plan ignores the line, the queue before S1 and the lead time grow without limit.`
+            : 'Push: jobs enter at the planned rate whatever happens in the line. The WIP is not controlled: with variability it grows quickly as ρ approaches 100%. Compare with CONWIP at the same TR.';
+        if (R.mode === 'kanban') return 'Kanban: each station holds a fixed number of cards, so the parts between two stations are capped (like a finite buffer with blocking) and the total WIP cannot exceed the cards.';
+        if (R.mode === 'dbr') return `Drum-Buffer-Rope: only the jobs not yet past the drum (S${R.drum + 1}) are capped. A rope long enough keeps the drum busy, TR approaches its capacity, and the faster stations after it carry little WIP.`;
+        return '';
+    }
     function theoryNote() {
         const p = cfg.policy, parts = [];
+        if (releaseNote()) parts.push(releaseNote());
         if (unstable()) parts.push(`The WIP keeps growing (now ${sim.jobs.size} jobs): the line is not stable, so Little's law cannot hold for the averages.`);
         if (cfg.mode === 'machines') {
             const ref = refCase();
             if (ref === 'best') parts.push('Deterministic times, one-piece flow, unlimited buffers: this is the best case, the simulation must match it exactly (after the warm-up).');
-            else if (ref === 'worst') parts.push('Parts moved all together (move lot = w): this is the worst case, TR = 1/T₀ and LT = w·T₀.');
+            else if (ref === 'worst') parts.push('The w parts travel together (a pallet, or a move lot of w): this is the worst case, TR = 1/T₀ and LT = w·T₀.');
             else if (ref === 'pwc') parts.push('Balanced line with exponential times and single machines: the practical worst case is exact here (it converges as the run gets longer).');
             else if (th.capped) parts.push('Best case, practical worst case and worst case are references: the real line sits between the best and the worst case.');
             if (!th.onePiece) parts.push('Batches or move lots: parts wait for their lot, so the lead time grows even when the capacity is the same.');
@@ -1076,7 +1181,9 @@
         $('kLT').textContent = m.exits ? fmt(m.LT) : '–';
         $('kLTsub').textContent = m.exits ? `${u} · in the line ${fmt(m.LTline)}, before S1 ${fmt(Math.max(0, m.LTqueue))}` : u;
         $('kWIP').textContent = m.time > 0 ? fmt(m.WIP) : '–';
-        $('kWIPsub').textContent = `pcs · now ${m.wipNow}${th.capped ? ' (cap ' + th.w + ')' : ' (no cap)'}`;
+        const RL = th.release;
+        $('kWIPsub').textContent = `pcs · now ${m.wipNow}` + ({ conwip: ` (cap ${th.w})`, free: ' (no cap)', push: ` (push ${fmtShort(+RL.rate.toPrecision(3))}/${u})`,
+            kanban: ` (kanban, ${RL.cards.reduce((x, y) => x + y, 0)} cards)`, dbr: ` (rope ${RL.rope})` })[RL.mode];
         if (cfg.mode === 'labor') {
             const blocked = m.workers.length ? m.workers.reduce((a, w) => a + w.blocked, 0) / m.workers.length : 0;
             $('kUtilLabel').textContent = 'Labor utilization';
@@ -1125,7 +1232,7 @@
         sim.workers.forEach(w => st[w.state]++);
         const qLine = sim.queues.slice(1).reduce((a, q) => a + q.length, 0);
         $('lineCaption').textContent = (cfg.mode === 'labor' ? `Workers now: ${st.working} working, ${st.blocked} blocked, ${st.walking} walking, ${st.idle + st.waiting + st.free} idle or waiting. ` : '') +
-            `Jobs: ${isFinite(sim.cfg.wip) ? sim.queues[0].length + ' waiting before S1, ' : ''}${sim.inLine} in the line${qLine ? ' (' + qLine + ' in buffers)' : ''}.`;
+            `Jobs: ${sim.srcQueue() ? sim.queues[0].length + ' waiting before S1, ' : ''}${sim.inLine} in the line${qLine ? ' (' + qLine + ' in buffers)' : ''}.`;
 
         // series
         const Wd = Math.max(2 * th.T0, 20 / Math.max(1e-9, cfg.mode === 'labor' ? th.TRmax : th.TRb));
@@ -1519,8 +1626,10 @@
                 c.skills = p === 'zones' ? c.skills : null;
                 c.traceLimit = 2; c.stateLimit = 2;
                 if (variable === 'n') { c.workers = Array.from({ length: x }, () => ({ speed: 1 })); c.skills = null; }
-                else c.wip = x;
-                if (!isFinite(c.wip) && (p === 'zones' || p === 'dropping' || p === 'machines')) c.wip = Math.max(2 * c.workers.length, 2 * c.stations.length);
+                else { c.wip = x; c.release = Object.assign({}, c.release, { mode: 'conwip' }); }
+                if (!isFinite(c.wip) && c.release.mode === 'free' && (p === 'zones' || p === 'dropping' || p === 'machines')) {
+                    c.wip = Math.max(2 * c.workers.length, 2 * c.stations.length); c.release = Object.assign({}, c.release, { mode: 'conwip' });
+                }
                 const t = E.theory(c);
                 const nJobs = random ? 2000 : 300;
                 const H = nJobs / Math.max(1e-9, t.TRmax);
@@ -1550,7 +1659,7 @@
         const ref = xs.map(x => {
             const c = Object.assign({}, c0);
             if (variable === 'n') c.workers = Array.from({ length: x }, () => ({ speed: 1 }));
-            else c.wip = x;
+            else { c.wip = x; c.release = Object.assign({}, c.release, { mode: 'conwip' }); }
             return { x, t: E.theory(c) };
         });
         lastSweep = { variable, xs, out, ref, unit: u };
@@ -1593,7 +1702,7 @@
             ? 'Every worker has speed 1.0; the WIP rule is kept (with no cap, zones and job dropping get w = 2n, otherwise their WIP never settles).'
             : (labor ? 'Current workers and policy settings; dashed lines are the references of part 1 (machines only) and the labor limit.' :
                 'The TR–WIP and LT–WIP curves of the chapter: dashed lines are the best case, the practical worst case and the worst case for this line.') +
-              (cfg.wipMode === 'free' ? ' The experiment always uses a CONWIP cap.' : '');
+              (cfg.wipMode !== 'cap' ? ' The experiment always uses a CONWIP cap.' : '');
     }
 
     function exportSweep() {
@@ -1650,7 +1759,8 @@
             mode: ec.mode, stations: ec.stations.map(x => Object.assign(ST(1), x)), buffers: new Array(ec.stations.length - 1).fill(null),
             workers: ec.workers.map(w => ({ speed: w.speed, name: w.name })), skills: ec.skills, policy: ec.policy,
             wipMode: isFinite(ec.wip) ? 'cap' : 'free', wip: isFinite(ec.wip) ? ec.wip : 4, walk: ec.walk, preempt: ec.preempt !== false,
-            warmup: 0, seed: ec.seed, unit: unit || 'min', chartWindow: 0, stopAfter: 0, showMore: true, logStep: 5
+            warmup: 0, seed: ec.seed, unit: unit || 'min', chartWindow: 0, stopAfter: 0, showMore: true, logStep: 5,
+            release: REL_DEFAULT(), stagger: false
         };
     }
     const api = {
@@ -1675,6 +1785,58 @@
         notice, refresh: () => refreshUi(true)
     };
 
+    // one tooltip box for every "?" icon, kept inside the window
+    function initTips() {
+        const box = $('tipBox');
+        let cur = null;
+        const show = el => {
+            cur = el;
+            box.textContent = el.dataset.tip;
+            box.hidden = false;
+            const r = el.getBoundingClientRect(), b = box.getBoundingClientRect();
+            const x = Math.max(8, Math.min(window.innerWidth - b.width - 8, r.left + r.width / 2 - b.width / 2));
+            let y = r.top - b.height - 8;
+            if (y < 8) y = r.bottom + 8;
+            box.style.left = x + 'px'; box.style.top = y + 'px';
+        };
+        const hide = () => { cur = null; box.hidden = true; };
+        const tipOf = e => e.target && e.target.closest ? e.target.closest('.tip') : null;
+        document.addEventListener('mouseover', e => { const t = tipOf(e); if (t) { if (t !== cur) show(t); } else if (cur) hide(); });
+        document.addEventListener('focusin', e => { const t = tipOf(e); if (t) show(t); else if (cur) hide(); });
+        document.addEventListener('click', e => { const t = tipOf(e); if (t) { e.preventDefault(); e.stopPropagation(); if (cur === t && !box.hidden) hide(); else show(t); } else if (cur) hide(); }, true);
+        document.addEventListener('keydown', e => { if (e.key === 'Escape' && cur) hide(); });
+        window.addEventListener('scroll', hide, true);
+    }
+
+    // every panel collapses to its title; the state is remembered in this browser
+    const COLLAPSE_KEY = 'flowLab.collapsed';
+    function readCollapsed() { try { return JSON.parse(localStorage.getItem(COLLAPSE_KEY) || '[]') || []; } catch (e) { return []; } }
+    function initCollapsible() {
+        const saved = readCollapsed();
+        document.querySelectorAll('.panel').forEach(p => {
+            if (p.id === 'challengePanel' || p.id === 'chResult') return;
+            const title = p.querySelector(':scope > .panel-title, :scope > .chart-title, :scope > .panel-head > .panel-title, :scope > .panel-head > .chart-title, :scope > .chart-head > .chart-title');
+            if (!title) return;
+            const key = p.dataset.panel || title.textContent.trim().slice(0, 60);
+            title.classList.add('collapsible-title');
+            title.tabIndex = 0;
+            title.setAttribute('role', 'button');
+            title.title = 'Show or hide';
+            const set = c => { p.classList.toggle('collapsed', c); title.setAttribute('aria-expanded', String(!c)); };
+            set(saved.includes(key));
+            const toggle = () => {
+                const c = !p.classList.contains('collapsed');
+                set(c);
+                const s = readCollapsed().filter(x => x !== key);
+                if (c) s.push(key);
+                try { localStorage.setItem(COLLAPSE_KEY, JSON.stringify(s)); } catch (e) { /* not saved */ }
+                if (!c) setTimeout(() => { layout(); draw(0); drawGantt(); Object.values(charts).forEach(ch => { if (ch && ch.resize) ch.resize(); }); }, 30);
+            };
+            title.addEventListener('click', e => { if (!e.target.closest('.tip')) toggle(); });
+            title.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } });
+        });
+    }
+
     function boot() {
         initTheme();
         readColors();
@@ -1686,6 +1848,8 @@
         $('sweepBtn').addEventListener('click', runSweep);
         $('sweepCsv').addEventListener('click', exportSweep);
         bindZoomButtons();
+        initTips();
+        initCollapsible();
         // deep link: index.html#pizza2 loads a scenario, #pizza2.run also starts it
         const hash = (location.hash || '').slice(1).split('.');
         exercise = hash.includes('exercise');
@@ -1712,7 +1876,10 @@
         window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => { layout(); draw(0); drawGantt(); }, 120); });
         if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { readColors(); draw(0); });
         requestAnimationFrame(frame);
-        window.flowLab = { get sim() { return sim; }, get cfg() { return cfg; }, get theory() { return th; }, get logRows() { return logRows; }, get jobRows() { return jobRows; } };
+        window.flowLab = {
+            // advance the line by dtSim and redraw as one animation frame of dtReal seconds (used to record GIFs)
+            frame(dtSim, dtReal) { advance(sim.t + dtSim); draw(dtReal); refreshUi(true); },
+            get sim() { return sim; }, get cfg() { return cfg; }, get theory() { return th; }, get logRows() { return logRows; }, get jobRows() { return jobRows; } };
     }
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
     else boot();

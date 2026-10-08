@@ -87,7 +87,7 @@ body {
     flex-direction: column;
     gap: 16px;
 }
-.mono, input[type="number"], output { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.mono, input[type="number"], input.oee-in, output { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 h1, h2, h3 { text-wrap: balance; margin: 0; }
 sub { font-size: 0.72em; }
 
@@ -116,7 +116,7 @@ h1 { font-size: clamp(26px, 3.4vw, 36px); font-weight: 700; letter-spacing: -0.0
 .btn-ghost { background: transparent; }
 .btn-small { font-size: 13px; padding: 5px 9px; }
 .btn-sq { width: 30px; height: 30px; padding: 0; justify-content: center; font-size: 16px; }
-input[type="number"], select {
+input[type="number"], input.oee-in, select {
     font-size: 14px; color: var(--ink); background: var(--surface-2);
     border: 1px solid var(--line); border-radius: 6px; padding: 5px 7px; min-width: 0;
 }
@@ -250,12 +250,26 @@ td { padding: 5px 6px; border-bottom: 1px solid var(--line); vertical-align: mid
 .sweep-charts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 12px; }
 @media (max-width: 760px) { .sweep-charts { grid-template-columns: minmax(0, 1fr); } }
 
-.notes-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; font-size: 14px; }
-@media (max-width: 900px) { .notes-grid { grid-template-columns: minmax(0, 1fr); } }
-.notes h3 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin-bottom: 6px; }
-.notes ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 5px; }
-.formulas { list-style: none; padding-left: 0 !important; }
-.formulas .f { font-family: var(--font-mono); font-size: 13px; background: var(--surface-2); border: 1px solid var(--line); border-radius: 4px; padding: 1px 6px; margin-right: 6px; display: inline-block; }
+.sweep-what { margin: 0; font-size: 14px; color: var(--muted); flex-basis: 100%; }
+
+/* release rules */
+.field-label { font-size: 14px; margin: 10px 0 4px; }
+.cards-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.cards-row label { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 12px; color: var(--muted); font-family: var(--font-mono); }
+.cards-row input { width: 52px; text-align: center; }
+.check-row { display: flex; align-items: center; gap: 6px; margin-top: 10px; font-size: 14px; }
+
+/* collapsible panels: the title is a button, the rest hides */
+.collapsible-title { cursor: pointer; user-select: none; display: inline-flex; align-items: center; gap: 6px; }
+.collapsible-title::before { content: '▾'; font-size: 12px; color: var(--muted); transition: transform 0.15s; display: inline-block; width: 12px; }
+.collapsible-title:hover::before, .collapsible-title:focus-visible::before { color: var(--accent); }
+.collapsible-title:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+.panel.collapsed .collapsible-title::before { transform: rotate(-90deg); }
+.panel.collapsed > :not(.panel-head):not(.chart-head):not(.collapsible-title) { display: none !important; }
+.panel.collapsed > .panel-head > :not(.collapsible-title),
+.panel.collapsed > .chart-head > :not(.collapsible-title) { display: none !important; }
+.panel.collapsed > .panel-head, .panel.collapsed > .chart-head, .setup .panel.collapsed > .collapsible-title { margin-bottom: 0; }
+.chart-grid .panel.collapsed { align-self: start; }
 
 @media (max-width: 760px) {
     .preset-list { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 6px; scroll-snap-type: x proximity; }
@@ -309,7 +323,8 @@ body.mode-labor .machines-only { display: none !important; }
 .config-table th[scope="row"] { text-align: left; text-transform: none; letter-spacing: 0; font-size: 13px; color: var(--muted); font-weight: 500; white-space: nowrap; position: sticky; left: 0; background: var(--surface); z-index: 1; }
 .config-table thead th { text-align: center; font-family: var(--font-mono); font-size: 13px; color: var(--ink); }
 .config-table td { text-align: center; padding: 4px 5px; }
-.config-table input[type="number"] { width: 66px; padding: 3px 5px; text-align: right; }
+.config-table input[type="number"], .config-table input.oee-in { width: 66px; padding: 3px 5px; text-align: right; }
+.config-table input.oee-in { width: 84px; }
 .config-table select { width: 104px; padding: 3px 4px; font-size: 13px; }
 .config-table tr.more[hidden] { display: none; }
 .config-table tr.stat td { font-family: var(--font-mono); font-size: 12.5px; color: var(--muted); }
@@ -329,10 +344,12 @@ body.mode-labor .machines-only { display: none !important; }
     width: 16px; height: 16px; border-radius: 50%; font-size: 11px; font-weight: 700;
     border: 1px solid var(--line); color: var(--muted); cursor: help; vertical-align: 1px; margin-left: 2px;
 }
-.tip:hover::after, .tip:focus::after {
-    content: attr(data-tip); position: absolute; left: 50%; bottom: 140%; transform: translateX(-50%);
-    width: 240px; padding: 8px 10px; border-radius: 6px; z-index: 20;
-    background: var(--ink); color: var(--surface); font-size: 12.5px; font-weight: 400; line-height: 1.4; text-transform: none; letter-spacing: 0;
+.tip:hover, .tip:focus-visible { border-color: var(--accent); color: var(--accent); outline: none; }
+/* one tooltip for the whole page, placed by app.js so that it stays inside the window */
+.tip-box {
+    position: fixed; z-index: 100; max-width: min(280px, calc(100vw - 16px)); padding: 8px 10px; border-radius: 6px;
+    background: var(--ink); color: var(--surface); font-size: 12.5px; font-weight: 400; line-height: 1.4;
+    text-transform: none; letter-spacing: 0; pointer-events: none; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
 }
 
 /* saved setups */

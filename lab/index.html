@@ -155,6 +155,7 @@
                     <label for="walkTime">Walking time per station <span class="tip" tabindex="0" data-tip="Time to walk from one station to the next. 0 = instant moves, as in the formulas.">?</span></label>
                     <div class="with-unit"><input id="walkTime" type="number" min="0" max="20" step="0.1" value="0"><span class="unit-label">min</span></div>
                 </div>
+                <label id="staggerRow" class="check check-row"><input id="staggerChk" type="checkbox"> Staggered start <span class="tip" tabindex="0" data-tip="Workers tied to jobs or job dropping: worker j starts j/n of a cycle later, so the workers spread along the line from the start. Same steady state, different start-up. Off = everybody starts at t = 0 (with deterministic times they can stay in pairs).">?</span></label>
                 <div id="skillsBox" class="skills" hidden>
                     <h3 class="sub-title">Skill matrix <span class="tip" tabindex="0" data-tip="Tick the stations each worker is trained for. A station with no ticks stops the line. Cross-training (two workers on the same station) lets the line rebalance itself when times vary.">?</span></h3>
                     <div class="table-scroll"><table id="skillsTable" class="skills-table"></table></div>
@@ -165,19 +166,53 @@
                 </div>
             </section>
 
-            <section class="panel">
+            <section class="panel" data-panel="release">
                 <h2 class="panel-title">Release of jobs (WIP)</h2>
-                <div class="radio-stack">
-                    <label class="radio"><input type="radio" name="wipMode" id="wipModeCap" value="cap"> <span>CONWIP: <span class="sym">w</span> jobs always in the system, queue before S1 included (a new job enters when one leaves)</span></label>
-                    <label class="radio"><input type="radio" name="wipMode" id="wipModeFree" value="free"> <span id="freeLabel">No WIP cap (push): S1 starts a new job whenever it can</span></label>
+                <div class="radio-stack" role="radiogroup" aria-label="Release rule">
+                    <label class="radio"><input type="radio" name="wipMode" value="cap"> <span><strong>CONWIP</strong> (pull): <span class="sym">w</span> jobs always in the system, queue before S1 included; a new job enters when one leaves</span></label>
+                    <label class="radio"><input type="radio" name="wipMode" value="free"> <span id="freeLabel">No WIP cap: S1 starts a new job whenever it can</span></label>
+                    <label class="radio"><input type="radio" name="wipMode" value="push"> <span><strong>Push</strong> (release plan): jobs enter at a fixed rate, whatever happens in the line</span></label>
+                    <label class="radio"><input type="radio" name="wipMode" value="kanban"> <span><strong>Kanban</strong> (pull): a station starts a job only with a free card; the card comes back when the next station takes the part</span></label>
+                    <label class="radio"><input type="radio" name="wipMode" value="dbr"> <span><strong>Drum-Buffer-Rope</strong>: a new job enters only when one has passed the bottleneck (the drum)</span></label>
                 </div>
-                <div class="field-row">
+                <div id="relCap" class="field-row">
                     <label for="wipCap">WIP <span class="sym">w</span></label>
                     <div class="stepper">
                         <button type="button" class="btn btn-sq" data-step="wipCap" data-d="-1" aria-label="Decrease WIP">−</button>
                         <input id="wipCap" type="number" min="1" max="500" value="4">
                         <button type="button" class="btn btn-sq" data-step="wipCap" data-d="1" aria-label="Increase WIP">+</button>
                     </div>
+                </div>
+                <div id="relPush" hidden>
+                    <div class="field-row">
+                        <label for="relRate">Release rate <span class="tip" tabindex="0" data-tip="Jobs released per time unit. Above the capacity of the line the queue before S1 grows without limit: push does not look at the line.">?</span></label>
+                        <div class="with-unit"><input id="relRate" type="number" min="0.00001" step="any" value="0.1"><span class="small-label" id="relRateUnit">pcs/min</span></div>
+                    </div>
+                    <div class="field-row">
+                        <label for="relArr">Arrivals</label>
+                        <select id="relArr"><option value="det">regular (one every 1/rate)</option><option value="exp">random (Poisson arrivals)</option></select>
+                    </div>
+                    <p id="relPushHint" class="caption"></p>
+                </div>
+                <div id="relKanban" hidden>
+                    <p class="field-label">Cards per station <span class="tip" tabindex="0" data-tip="A card authorizes one part at a station: in process, finished on the machine or in the buffer after it. When the next station takes the part, the card goes back and the station can start again. Total WIP ≤ total cards.">?</span></p>
+                    <div id="kanbanCards" class="cards-row"></div>
+                    <p id="relKanbanHint" class="caption"></p>
+                </div>
+                <div id="relDbr" hidden>
+                    <div class="field-row">
+                        <label for="relDrum">Drum</label>
+                        <select id="relDrum"></select>
+                    </div>
+                    <div class="field-row">
+                        <label for="relRope">Rope <span class="sym">R</span> <span class="tip" tabindex="0" data-tip="Jobs released and not yet past the drum. The rope keeps a time buffer in front of the bottleneck and nothing more: the stations after the drum are faster and drain the parts.">?</span></label>
+                        <div class="stepper">
+                            <button type="button" class="btn btn-sq" data-step="relRope" data-d="-1" aria-label="Shorter rope">−</button>
+                            <input id="relRope" type="number" min="1" max="500" value="4">
+                            <button type="button" class="btn btn-sq" data-step="relRope" data-d="1" aria-label="Longer rope">+</button>
+                        </div>
+                    </div>
+                    <p id="relDbrHint" class="caption"></p>
                 </div>
             </section>
 
@@ -263,7 +298,7 @@
             </section>
             <p id="convergence" class="convergence"></p>
 
-            <section class="panel" aria-labelledby="configTitle">
+            <section class="panel" data-panel="config" aria-labelledby="configTitle">
                 <div class="panel-head">
                     <h2 id="configTitle" class="panel-title">Stations and buffers</h2>
                     <div class="head-controls">
@@ -361,14 +396,15 @@
 
             <section class="panel ref-only" aria-labelledby="sweepTitle">
                 <div class="panel-head">
-                    <h2 id="sweepTitle" class="panel-title">Experiment: TR and LT as the WIP or the workers change</h2>
+                    <h2 id="sweepTitle" class="panel-title"><span class="machines-only">Experiment: TR and LT as the WIP changes</span><span class="labor-only">Experiment: TR and LT as the WIP or the workers change</span></h2>
                 </div>
                 <div class="sweep-controls">
-                    <div class="field-row">
+                    <p class="machines-only sweep-what">One run for each WIP w = 1 … max (CONWIP, same seed): TR and LT against w, with the best case, the practical worst case and the worst case.</p>
+                    <div class="field-row labor-only">
                         <label for="sweepVar">Vary</label>
                         <select id="sweepVar">
                             <option value="w">WIP w (CONWIP), from 1 to the max</option>
-                            <option value="n" class="labor-only">number of workers n = 1 … 10</option>
+                            <option value="n">number of workers n = 1 … 10</option>
                         </select>
                     </div>
                     <div class="field-row">
@@ -393,47 +429,11 @@
                 <p id="sweepNote" class="caption"></p>
             </section>
 
-            <section class="panel notes" aria-labelledby="notesTitle">
-                <h2 id="notesTitle" class="panel-title">Model, formulas and things to try</h2>
-                <div class="notes-grid">
-                    <div>
-                        <h3>What is simulated</h3>
-                        <ul>
-                            <li>A serial line of N stations. Station k has m<sub>k</sub> machines, a process time ST<sub>k</sub>, a process batch b<sub>k</sub> (parts processed together), a move lot (parts moved together), an OEE (times are divided by it) and, in part 2, an automatic cycle that the machine runs without the worker.</li>
-                            <li>Buffers have a capacity: a finished part that finds the next buffer full stays on its machine, which is blocked.</li>
-                            <li>WIP w counts every job in the system, including the queue before S1; LT goes from entry to exit, so WIP = TR · LT (Little).</li>
-                            <li>In part 2 every manual operation needs a worker; a worker with speed v does ST in ST/v.</li>
-                            <li>Exact event-driven simulation: with deterministic times the results match the formulas to the last digit.</li>
-                        </ul>
-                    </div>
-                    <div>
-                        <h3>Formulas</h3>
-                        <ul class="formulas">
-                            <li><span class="f">WIP = TR · LT</span> Little's law</li>
-                            <li><span class="f">TR<sub>b</sub> = min m·b/t</span> bottleneck rate</li>
-                            <li><span class="f">W<sub>0</sub> = TR<sub>b</sub> · T<sub>0</sub></span> critical WIP</li>
-                            <li><span class="f">best: TR = min(w/T<sub>0</sub>, TR<sub>b</sub>)</span></li>
-                            <li><span class="f">worst: TR = 1/T<sub>0</sub>, LT = w·T<sub>0</sub></span></li>
-                            <li><span class="f">PWC: TR = w/(W<sub>0</sub>+w−1)·TR<sub>b</sub></span></li>
-                            <li><span class="f">TR ≤ min(n/VAT, TR<sub>b</sub>)</span> labor or machines</li>
-                            <li><span class="f">LT<sub>wip</sub> = (w/n)·VAT</span> tied workers, w ≥ n</li>
-                        </ul>
-                    </div>
-                    <div>
-                        <h3>Things to try in class</h3>
-                        <ul>
-                            <li>Penny Fab: raise w from 1 to 8 and compare best case, worst case (move lot = w) and exponential times (PWC).</li>
-                            <li>Bottleneck preset: enlarge the 1-place buffer before S3 and see the blocking of S2 disappear.</li>
-                            <li>Pizza shop: from 2 to 4 workers, LT = 80 → 40 min (−50%).</li>
-                            <li>Bucket brigade: order slow → fast, then fast → slow, and watch the space–time diagram.</li>
-                            <li>One operator, three machines: add machines until the worker becomes the constraint.</li>
-                        </ul>
-                    </div>
-                </div>
-            </section>
         </main>
     </div>
 </div>
+
+<div id="tipBox" class="tip-box" role="tooltip" hidden></div>
 
 <script src="engine.js"></script>
 <script src="challenge.js"></script>

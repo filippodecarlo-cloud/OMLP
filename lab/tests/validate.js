@@ -574,6 +574,84 @@ function live(cfg, steps, T) {
     assert(G, `bucket brigade slowest → fastest (${g1} bikes) beats fastest → slowest (${g2})`, g1 > g2);
 }
 
+// ===========================================================================
+// RELEASE RULES, WORST CASE WITH A PALLET, OEE PER MACHINE, STAGGERED START
+// ===========================================================================
+{
+    const G = 'R. Worst case as in the slides: pallet of 2 parts';
+    // each station needs 4 h for the first part and 0 h for the second = a process batch of 2 in 4 h
+    const cfg = { mode: 'machines', stations: mline([4, 4, 4, 4], { batch: 2 }), wip: 2, warmup: 200 };
+    const r = run(cfg, 40000, true);
+    const th = theory(cfg);
+    check(G, 'theory(): T0 per part = 4 · 4/2 = 8 h', th.T0, 8, 1e-9);
+    check(G, 'theory(): W0 = r_b·T0 = 0.5 · 8 = 4', th.WIPc, 4, 1e-9);
+    check(G, 'pallet of 2, w = 2: TR = 1/T0 = 0.125', r.m.TR, 0.125, 0.003);
+    check(G, 'pallet of 2, w = 2: LT = w·T0 = 16 h', r.m.LT, 16, 0.003);
+    check(G, 'theory() worst case TR = measured', th.worst.TR, r.m.TR, 0.003);
+    check(G, 'theory() worst case LT = measured', th.worst.LT, r.m.LT, 0.003);
+    assert(G, 'invariants hold', r.errs.length === 0, r.errs.join('; '));
+}
+{
+    const G = 'S. Release rules: push, kanban, Drum-Buffer-Rope';
+    // backward compatibility
+    assert(G, 'no release given + finite w = CONWIP', theory({ mode: 'machines', stations: mline([2, 2]), wip: 3 }).release.mode === 'conwip');
+    assert(G, 'no release given + no cap = free', theory({ mode: 'machines', stations: mline([2, 2]), wip: Infinity }).release.mode === 'free');
+    // push, regular arrivals below capacity: TR = rate, LT = T0 (nobody waits)
+    const p1 = run({ mode: 'machines', stations: mline([2, 2, 2, 2]), release: { mode: 'push', rate: 0.2 }, warmup: 200 }, 20000, true);
+    check(G, 'push, regular, rate 0.2 < 0.5: TR = rate', p1.m.TR, 0.2, 0.003);
+    check(G, 'push, regular, rate 0.2: LT = T0 = 8', p1.m.LT, 8, 0.003);
+    assert(G, 'push invariants hold', p1.errs.length === 0, p1.errs.join('; '));
+    // push, Poisson arrivals, one exponential machine: M/M/1, LT = 1/(mu - lambda)
+    for (const lam of [0.25, 0.4]) {
+        const r = run({ mode: 'machines', stations: mline([2], { dist: 'exp' }), release: { mode: 'push', rate: lam, arrivals: 'exp' }, warmup: 5000, seed: 9 }, 2000000).m;
+        check(G, `M/M/1, lambda ${lam}, mu 0.5: TR = lambda`, r.TR, lam, 0.01);
+        check(G, `M/M/1, lambda ${lam}, mu 0.5: LT = 1/(mu-lambda) = ${1 / (0.5 - lam)}`, r.LT, 1 / (0.5 - lam), 0.04);
+    }
+    // push above capacity: the WIP grows without limit, TR = capacity
+    const fl = new FlowLine({ mode: 'machines', stations: mline([2, 4, 2]), release: { mode: 'push', rate: 0.3 } });
+    fl.advanceTo(2000); const a1 = fl.jobs.size; fl.advanceTo(8000); const a2 = fl.jobs.size;
+    assert(G, `push at 0.3 > capacity 0.25: WIP ${a1} -> ${a2} keeps growing`, a2 > 3 * a1 && a2 > 200);
+    assert(G, 'theory() warns when the release rate exceeds the capacity', theory({ mode: 'machines', stations: mline([2, 4, 2]), release: { mode: 'push', rate: 0.3 } }).warnings.some(w => /grows/.test(w)));
+    // kanban: K cards at S1 = blocking with a buffer of K-1 -> two exp machines TH = (K+1)/(K+2)
+    for (const K of [1, 2, 4]) {
+        const r = run({ mode: 'machines', stations: mline([1, 1], { dist: 'exp' }), release: { mode: 'kanban', cards: [K, 1] }, warmup: 1000, seed: 30 + K }, 400000).m;
+        check(G, `kanban, 2 exp. machines, ${K} cards at S1: TH = ${K + 1}/${K + 2}`, r.TR, (K + 1) / (K + 2), 0.015);
+    }
+    const kb = run({ mode: 'machines', stations: mline([2, 3, 2, 2], { dist: 'normal', cv: 0.3 }), release: { mode: 'kanban', cards: [2, 2, 2, 2] }, warmup: 500, seed: 4 }, 30000, true);
+    assert(G, `kanban: no station ever holds more parts than cards, WIP ${kb.sim.jobs.size} ≤ 8`, kb.errs.length === 0 && kb.sim.jobs.size <= 8, kb.errs.join('; '));
+    // DBR: the rope limits the jobs released and not yet through the drum
+    const dcfg = { mode: 'machines', stations: mline([1, 1, 2, 1, 1], { dist: 'exp' }), release: { mode: 'dbr', rope: 8 }, warmup: 2000, seed: 12 };
+    assert(G, 'DBR: the drum is the bottleneck (S3)', theory(dcfg).release.drum === 2);
+    const db = run(dcfg, 400000, true);
+    assert(G, 'DBR: rope respected at every check', db.errs.length === 0, db.errs.join('; '));
+    check(G, 'DBR with rope 8: TR close to the drum rate 0.5', db.m.TR, 0.5, 0.06);
+    const cw = run({ mode: 'machines', stations: mline([1, 1, 2, 1, 1], { dist: 'exp' }), wip: 8, warmup: 2000, seed: 12 }, 400000).m;
+    assert(G, `DBR (TR ${db.m.TR.toFixed(3)}) beats CONWIP with the same w = 8 (TR ${cw.TR.toFixed(3)})`, db.m.TR > cw.TR);
+    // live switch from CONWIP to push and back
+    const sw = new FlowLine({ mode: 'machines', stations: mline([2, 2, 2]), wip: 4 });
+    sw.advanceTo(1000);
+    sw.update({ mode: 'machines', stations: mline([2, 2, 2]), release: { mode: 'push', rate: 0.25 } });
+    sw.advanceTo(5000); sw.resetStats(); sw.advanceTo(15000);
+    check(G, 'live switch CONWIP -> push 0.25: TR = 0.25', sw.metrics().TR, 0.25, 0.01);
+}
+{
+    const G = 'T. OEE per machine and staggered start';
+    const cfg = { mode: 'machines', stations: [{ st: 1 }, { st: 4, m: 2, oee: [1, 0.5] }, { st: 1 }], wip: 20, warmup: 400 };
+    const r = run(cfg, 40000).m;
+    check(G, 'machines with OEE 1 and 0.5 (4 min): TR = 1/4 + 0.5/4 = 0.375', r.TR, 0.375, 0.003);
+    check(G, 'theory(): TR_b = 0.375', theory(cfg).TRb, 0.375, 1e-9);
+    const sc = { stations: line([10, 20, 30, 10, 20], 2), workers: workers(2), policy: 'tied', wip: 4, warmup: 900, stagger: true };
+    const st = run(sc, 90000, true);
+    check(G, 'staggered start, slide example: same TR = 2/90', st.m.TR, 2 / 90, 0.002);
+    check(G, 'staggered start: same LT = 180', st.m.LT, 180, 0.002);
+    const s2 = new LaborLine(sc); s2.advanceTo(30);
+    const busy = s2.workers.map(w => w.state);
+    assert(G, `staggered start: the 2nd worker waits half a cycle (${busy.join(', ')} at t = 30)`, busy[0] !== 'idle' && busy[1] === 'idle');
+    s2.advanceTo(400);
+    const ks = s2.workers.map(w => w.job ? w.job.k : -1);
+    assert(G, `staggered start: the workers are spread along the line (stations ${ks.map(k => k + 1).join(', ')})`, ks[0] !== ks[1]);
+}
+
 // ---------------------------------------------------------------------------
 const pad = (s, n) => (s + ' '.repeat(n)).slice(0, n);
 let lastG = '', nOk = 0;

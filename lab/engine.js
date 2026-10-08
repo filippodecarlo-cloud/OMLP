@@ -55,6 +55,15 @@
         }
     };
 
+    // how new jobs enter the line
+    const RELEASES = {
+        conwip: 'CONWIP: w jobs always in the system',
+        free: 'No cap: S1 starts a new job whenever it can',
+        push: 'Push: jobs released at a fixed rate',
+        kanban: 'Kanban: cards between the stations',
+        dbr: 'Drum-Buffer-Rope: release tied to the bottleneck'
+    };
+
     function mulberry32(a) {
         return function () {
             a |= 0; a = (a + 0x6D2B79F5) | 0;
@@ -116,10 +125,15 @@
             const dist = MAX_CV[s.dist] !== undefined ? s.dist : 'det';
             let cv = s.cv == null ? 0.5 : Math.max(0, +s.cv);
             cv = dist === 'exp' ? 1 : Math.min(cv, MAX_CV[dist]);
+            const m = Math.max(1, s.m | 0);
+            // OEE: one value for the station, or one per machine
+            const oees = (Array.isArray(s.oee) ? s.oee : [s.oee == null ? 1 : s.oee]).map(x => Math.min(1, Math.max(0.01, x == null || x === '' ? 1 : +x || 1)));
+            while (oees.length < m) oees.push(oees[oees.length - 1]);
+            oees.length = m;
             return {
-                st: Math.max(0, +s.st || 0), auto: Math.max(0, +s.auto || 0), m: Math.max(1, s.m | 0),
+                st: Math.max(0, +s.st || 0), auto: Math.max(0, +s.auto || 0), m,
                 batch: c.carry ? 1 : Math.max(1, s.batch | 0 || 1), move: c.carry ? 1 : Math.max(1, s.move | 0 || 1),
-                oee: Math.min(1, Math.max(0.01, s.oee == null ? 1 : +s.oee)), dist, cv
+                oee: oees.reduce((a, b) => a + b, 0) / m, oees, dist, cv
             };
         });
         c.stations.forEach(s => { if (s.st + s.auto <= 0) s.st = 1e-3; });
@@ -145,6 +159,24 @@
         } else c.skills = [];
         if (!(c.wip > 0)) c.wip = Infinity;
         c.wip = isFinite(c.wip) ? Math.max(1, Math.round(c.wip)) : Infinity;
+        const rel = cfg.release || {};
+        let rm = rel.mode || (isFinite(c.wip) ? 'conwip' : 'free');
+        if (!RELEASES[rm]) rm = 'conwip';
+        if (rm === 'conwip' && !isFinite(c.wip)) rm = 'free';
+        if (rm !== 'conwip') c.wip = Infinity;
+        const rates = c.stations.map(x => x.m * x.batch * x.oee / (x.st + x.auto));
+        const rb = Math.min(...rates);
+        const drum = Number.isInteger(rel.drum) && rel.drum >= 0 && rel.drum < N ? rel.drum : rates.indexOf(rb);
+        const upTime = c.stations.slice(0, drum + 1).reduce((a, x) => a + (x.st + x.auto) / x.oee / x.batch, 0);
+        c.release = {
+            mode: rm,
+            rate: +rel.rate > 0 ? +rel.rate : 0.9 * rb,
+            arrivals: rel.arrivals === 'exp' ? 'exp' : 'det',
+            cards: c.stations.map((x, k) => Math.max(x.batch, Math.round(+(rel.cards || [])[k] || x.m * x.batch + 1))),
+            drum, drumAuto: !(Number.isInteger(rel.drum) && rel.drum >= 0 && rel.drum < N),
+            rope: Math.max(1, Math.round(+rel.rope || Math.max(2, Math.ceil(1.5 * rb * upTime))))
+        };
+        c.stagger = !!cfg.stagger;
         return c;
     }
 
@@ -159,7 +191,7 @@
         const vMax = n ? Math.max(...speeds) : 1;
         const vRef = labor ? (equalSpeeds ? speeds[0] : vMax) : 1;
         const te = S.map(s => (s.st + s.auto) / s.oee);                      // time of one operation (one batch)
-        const T0 = te.reduce((a, b) => a + b, 0);                            // raw process time (VAT)
+        const T0 = te.reduce((a, b, k) => a + b / S[k].batch, 0);            // raw process time per part (VAT)
         const rate = S.map((s, k) => s.m * s.batch / te[k]);                 // station capacity [parts/time]
         const TRb = Math.min(...rate);
         const bottleneck = rate.indexOf(TRb);
@@ -176,7 +208,7 @@
         const out = {
             mode: c.mode, policy: c.policy, carry: c.carry, N, n, VAT: T0, T0, te, rate, TRb, TRbEff, bottleneck, WIPc,
             laborContent, TRlabor, TRmax, vSum, vMax, equalSpeeds, ample, deterministic, onePiece, walk: c.walk, capped, w,
-            binding: TRlabor < TRbEff - 1e-12 ? 'labor' : 'machines', warnings: []
+            binding: TRlabor < TRbEff - 1e-12 ? 'labor' : 'machines', warnings: [], release: c.release
         };
         if (w != null) {
             out.best = { TR: Math.min(w / T0, TRb), LT: Math.max(T0, w / TRb) };
@@ -209,7 +241,11 @@
         if (capped && c.wip < maxT) W.push(`WIP w = ${c.wip} is smaller than the largest move lot (${maxT} parts): the lot is never complete and the line stops.`);
         if (cfgIn.stations.some(s => (s.batch | 0) > 1 || (s.move | 0) > 1) && c.carry) W.push('Batches and move lots are ignored when workers carry the jobs (tied workers, bucket brigade).');
         if (cfgIn.buffers && cfgIn.buffers.some(x => x != null && isFinite(x)) && c.carry) W.push('Buffer sizes are ignored when workers carry the jobs: the job stays with the worker.');
-        if (!capped && (c.mode === 'machines' || c.policy === 'zones' || c.policy === 'dropping') && c.buffers.slice(1).some(x => !isFinite(x)))
+        if (c.release.mode === 'push') {
+            out.rho = c.release.rate / TRmax;
+            if (c.release.rate >= TRmax * 0.999) W.push(`Release rate ${+c.release.rate.toPrecision(3)} ≥ capacity ${+TRmax.toPrecision(3)}: the queue before S1 grows without limit.`);
+        }
+        if (c.release.mode === 'free' && (c.mode === 'machines' || c.policy === 'zones' || c.policy === 'dropping') && c.buffers.slice(1).some(x => !isFinite(x)))
             W.push('No WIP cap and unlimited buffers: if a downstream station is slower than the first one, the WIP grows without limit (push).');
         return out;
     }
@@ -246,6 +282,14 @@
             this.entryLog = [];       // {t}               first operation started (drained by the UI)
             this.handoffs = [];       // {t, j, wp}        bucket brigade take-overs
             this.trace = this.workers.map(() => []);
+            this.arrRng = mulberry32((((c.seed >>> 0) || 1) + 7919) >>> 0);
+            this.nextArrival = c.release.mode === 'push' ? 0 : Infinity;
+            // staggered start: worker j starts j/n of a cycle later (tied workers, zones, job dropping)
+            if (this.labor && c.stagger && (c.policy === 'tied' || c.policy === 'dropping') && this.n > 1) {
+                const vMean = c.workers.reduce((a, w) => a + w.speed, 0) / this.n;
+                const cycle = c.stations.reduce((a, x) => a + (x.st / vMean + x.auto) / x.oee / x.batch, 0);
+                this.workers.forEach((w, j) => { w.readyAt = j * cycle / this.n; });
+            }
             this.stalled = false;
             this.stopCompleted = 0;      // > 0: advanceTo() stops exactly when this many jobs are completed
             this.zeroSteps = 0;
@@ -261,7 +305,7 @@
             const first = skills.indexOf(true);
             return {
                 id: j, name: name || null, speed, x: this.cfg.policy === 'zones' && first >= 0 ? first : 0, skills,
-                state: 'free', job: null, slot: null, walk: null, since: 0, idleSince: this.t, leaving: false
+                state: 'free', job: null, slot: null, walk: null, since: 0, idleSince: this.t, leaving: false, readyAt: 0
             };
         }
         newStats() {
@@ -291,7 +335,7 @@
             this.updates++;
             n2.stations.forEach((s, k) => {
                 const old = c.stations[k];
-                ['st', 'auto', 'dist', 'cv', 'oee', 'batch', 'move'].forEach(key => { old[key] = s[key]; });
+                ['st', 'auto', 'dist', 'cv', 'oee', 'oees', 'batch', 'move'].forEach(key => { old[key] = s[key]; });
                 const slots = this.machines[k];
                 const active = slots.filter(x => !x.retire);
                 if (s.m > active.length) {
@@ -310,6 +354,10 @@
             this.slots = [].concat(...this.machines);
             c.buffers = n2.buffers;
             c.wip = n2.wip; c.walk = n2.walk; c.preempt = n2.preempt;
+            const wasPush = c.release.mode === 'push';
+            c.release = n2.release;
+            if (c.release.mode === 'push' && !wasPush) this.nextArrival = this.t;
+            if (c.release.mode !== 'push') this.nextArrival = Infinity;
             this.cumWork = [0];
             for (let k = 0; k < this.N; k++) this.cumWork.push(this.cumWork[k] + c.stations[k].st);
             // workers: matched by name when every worker has one, otherwise by position
@@ -394,15 +442,31 @@
             this.jobs.add(job);
             return job;
         }
+        // jobs wait in the queue before S1 (CONWIP, push, DBR) or raw material is always there (free, kanban)
+        srcQueue() { const m = this.cfg.release.mode; return m === 'conwip' || m === 'push' || m === 'dbr'; }
         release() {
-            if (isFinite(this.cfg.wip)) while (this.jobs.size < this.cfg.wip) this.queues[0].push(this.newJob());
+            const r = this.cfg.release;
+            if (r.mode === 'conwip') while (this.jobs.size < this.cfg.wip) this.queues[0].push(this.newJob());
+            else if (r.mode === 'push') {
+                while (this.nextArrival <= this.t + EPS) {
+                    this.queues[0].push(this.newJob());
+                    this.nextArrival += r.arrivals === 'exp' ? -Math.log(1 - this.arrRng()) / r.rate : 1 / r.rate;
+                }
+            } else if (r.mode === 'dbr') while (this.upToDrum() < r.rope) this.queues[0].push(this.newJob());
         }
+        // jobs released that have not yet finished the drum (bottleneck) operation
+        upToDrum() { let n = 0; const d = this.cfg.release.drum; for (const j of this.jobs) if (j.k <= d && j.state !== 'done') n++; return n; }
+        // kanban: station k may start b jobs only if it holds a free card for each
+        kanbanLoad(k) {
+            return this.machines[k].reduce((a, s) => a + s.jobs.length, 0) + (k + 1 < this.N ? this.queues[k + 1].length : 0) + this.outbox[k].length;
+        }
+        canStart(k, b) { return this.cfg.release.mode !== 'kanban' || this.kanbanLoad(k) + b <= this.cfg.release.cards[k]; }
         cap(k) { return this.cfg.buffers[k]; }
         space(k) { return this.cap(k) - this.queues[k].length; }
         doneSlots(k) { return this.machines[k].filter(s => s.phase === 'done' && s.jobs.length).sort((a, b) => a.since - b.since); }
         // parts that station k can pull right now
         available(k) {
-            if (k === 0) return isFinite(this.cfg.wip) ? Math.max(this.queues[0].length, 0) : Infinity;
+            if (k === 0) return this.srcQueue() ? this.queues[0].length : Infinity;
             let a = this.queues[k].length;
             if (this.cap(k) === 0 && this.cfg.stations[k - 1].move === 1) for (const s of this.doneSlots(k - 1)) a += s.jobs.length;
             return a;
@@ -441,8 +505,9 @@
             s.worker = w || null;
             s.phase = 'manual';
             if (!(s.dur > 0)) {
-                if (this.labor) { s.dur = this.sample(s.k) / st.oee; s.autoDur = st.auto / st.oee; }
-                else { s.dur = (this.sample(s.k) + st.auto) / st.oee; s.autoDur = 0; }   // machines run alone
+                const oee = (st.oees && st.oees[s.i]) || st.oee;          // this machine's OEE
+                if (this.labor) { s.dur = this.sample(s.k) / oee; s.autoDur = st.auto / oee; }
+                else { s.dur = (this.sample(s.k) + st.auto) / oee; s.autoDur = 0; }   // machines run alone
                 s.rem = s.dur;
             }
             s.jobs.forEach(j => { j.state = 'inproc'; j.k = s.k; });
@@ -569,7 +634,7 @@
             for (let k = this.N - 1; k >= 0; k--) {
                 const b = this.cfg.stations[k].batch;
                 const s = this.idleSlot(k);
-                if (s && this.available(k) >= b) { s.jobs = this.take(k, b); s.dur = 0; this.beginOp(s, null); return true; }
+                if (s && this.available(k) >= b && this.canStart(k, b)) { s.jobs = this.take(k, b); s.dur = 0; this.beginOp(s, null); return true; }
             }
             return false;
         }
@@ -578,17 +643,18 @@
             const walk = this.cfg.walk;
             const blocked = this.workers.filter(w => w.state === 'blocked').sort((a, b) => a.since - b.since || b.x - a.x);
             for (const w of blocked) {
-                const k = w.job.k, ns = this.idleSlot(k);
+                const k = w.job.k, ns = this.canStart(k, 1) ? this.idleSlot(k) : null;
                 if (ns) { this.moveWithJob(w, k, ns); return true; }
             }
             for (const w of this.workers) {
                 if (w.state !== 'free' && w.state !== 'idle') continue;
                 if (w.leaving) continue;
+                if (w.readyAt > this.t + EPS) { w.state = 'idle'; continue; }   // staggered start
                 if (w.x > EPS) {
                     if (walk === 0) w.x = 0;
                     else { w.state = 'walking'; w.walk = { purpose: 'start', to: 0 }; return true; }
                 }
-                if (this.available(0) >= 1) {
+                if (this.available(0) >= 1 && this.canStart(0, 1)) {
                     const s = this.idleSlot(0);
                     if (s) { w.job = this.take(0, 1)[0]; s.jobs = [w.job]; s.dur = 0; this.beginOp(s, w); return true; }
                 }
@@ -604,7 +670,7 @@
                 if (w.state === 'blocked') {
                     const k = w.job.k, d = W[j + 1];
                     const ok = !d || !d.job || d.x >= k - EPS;          // no overtaking
-                    if (ok) {
+                    if (ok && this.canStart(k, 1)) {
                         const ns = this.idleSlot(k);
                         if (ns) { this.moveWithJob(w, k, ns); return true; }
                     }
@@ -618,7 +684,7 @@
                         continue;
                     }
                     if (w.state === 'walking') { w.state = 'free'; w.walk = null; }
-                    if (this.available(0) >= 1) {
+                    if (this.available(0) >= 1 && this.canStart(0, 1)) {
                         const s = this.idleSlot(0);
                         if (s) { w.job = this.take(0, 1)[0]; s.jobs = [w.job]; s.dur = 0; this.beginOp(s, w); return true; }
                     }
@@ -642,11 +708,11 @@
         }
 
         resolveDropping() {
-            const free = this.workers.filter(w => (w.state === 'free' || w.state === 'idle') && !w.leaving);
+            const free = this.workers.filter(w => (w.state === 'free' || w.state === 'idle') && !w.leaving && !(w.readyAt > this.t + EPS));
             if (!free.length) return false;
             for (let k = this.N - 1; k >= 0; k--) {
                 const b = this.cfg.stations[k].batch;
-                if (this.available(k) < b) continue;
+                if (this.available(k) < b || !this.canStart(k, b)) continue;
                 const s = this.idleSlot(k);
                 if (!s) continue;
                 // nearest skilled worker; on a tie, the one who has been idle the longest
@@ -666,6 +732,7 @@
                 return true;
             }
             for (const w of free) if (w.state !== 'idle') { w.state = 'idle'; w.idleSince = this.t; }
+            for (const w of this.workers) if (w.readyAt > this.t + EPS && w.state === 'free') { w.state = 'idle'; w.idleSince = this.t; }
             return false;
         }
 
@@ -690,6 +757,8 @@
         nextEventDt() {
             let dt = Infinity;
             if (this.t < this.cfg.warmup - EPS) dt = this.cfg.warmup - this.t;
+            if (isFinite(this.nextArrival)) dt = Math.min(dt, Math.max(0, this.nextArrival - this.t));
+            for (const w of this.workers) if (w.readyAt > this.t + EPS) dt = Math.min(dt, w.readyAt - this.t);
             for (const s of this.slots) {
                 if (s.phase === 'manual') { const r = this.progressRate(s); if (r > 0) dt = Math.min(dt, Math.max(0, s.rem) / r); }
                 else if (s.phase === 'auto') dt = Math.min(dt, Math.max(0, s.autoRem));
@@ -795,7 +864,7 @@
                 this.recordTrace();
                 if (this.t >= T - EPS) break;
                 const next = this.nextEventDt();
-                this.stalled = !isFinite(next) && !this.active() && (this.jobs.size > 0 || !isFinite(this.cfg.wip));
+                this.stalled = !isFinite(next) && !this.active() && (this.jobs.size > 0 || !this.srcQueue());
                 const dt = Math.min(T - this.t, next);
                 if (dt <= EPS) { if (++this.zeroSteps > 100000) throw new Error('advanceTo(): stuck at t=' + this.t); }
                 else this.zeroSteps = 0;
@@ -862,10 +931,12 @@
                 for (let j = 1; j < this.n; j++) if (this.workers[j].x < this.workers[j - 1].x - 1e-6) errs.push('bucket order violated at t=' + this.t);
             }
             if (isFinite(this.cfg.wip) && (this.updates ? this.jobs.size < this.cfg.wip : this.jobs.size !== this.cfg.wip)) errs.push('CONWIP violated: ' + this.jobs.size);
+            if (!this.updates && this.cfg.release.mode === 'dbr' && this.upToDrum() > this.cfg.release.rope) errs.push('rope violated: ' + this.upToDrum());
+            if (!this.updates && this.cfg.release.mode === 'kanban') for (let k = 0; k < this.N; k++) if (this.kanbanLoad(k) > this.cfg.release.cards[k]) errs.push('kanban cards exceeded at S' + (k + 1));
             this.workers.forEach((w, j) => { if (w.id !== j) errs.push('worker ids out of order'); });
             return errs;
         }
     }
 
-    return { FlowLine, LaborLine: FlowLine, POLICIES, computeZones, zonesToSkills, theory, normalize, mulberry32, MAX_CV, NORMAL_MAX_CV: MAX_CV.normal };
+    return { FlowLine, LaborLine: FlowLine, POLICIES, RELEASES, computeZones, zonesToSkills, theory, normalize, mulberry32, MAX_CV, NORMAL_MAX_CV: MAX_CV.normal };
 });

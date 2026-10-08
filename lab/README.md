@@ -4,16 +4,20 @@ One simulator for both parts of **Factory Dynamics** (Operations Management and 
 Hopp & Spearman, *Factory Physics*, ch. 7. It merges the original *Factory Flow Simulation* (`../`) and the
 *Labor Flow Simulator* (`../labor/`).
 
-- **Part 1 · Machines**: CONWIP or push release, process times with deterministic, normal, exponential, uniform or
-  triangular distributions (mean + CV), parallel machines, process batches, move lots, OEE, finite buffers with
-  blocking. Best case, worst case (move lot = w) and practical worst case as references.
+- **Part 1 · Machines**: five release rules (CONWIP, no cap, push at a fixed rate with regular or Poisson arrivals,
+  kanban cards per station, Drum-Buffer-Rope with a rope on the bottleneck), process times with deterministic,
+  normal, exponential, uniform or triangular distributions (mean + CV), parallel machines with an OEE per machine,
+  process batches, move lots, finite buffers with blocking. Best case, worst case (a pallet of w parts, or a move lot
+  of w) and practical worst case as references.
 - **Part 2 · Manpower**: n workers with speeds and walking time; dedicated workers with a skill matrix, workers tied
-  to jobs, bucket brigade, job dropping; automatic machine cycles (one operator tending several machines).
+  to jobs, bucket brigade, job dropping; automatic machine cycles (one operator tending several machines); staggered
+  start of the workers (tied workers and job dropping), so that they spread along the line from the start.
 
 Charts: throughput, lead time and WIP over time, lead-time histogram, Little's law, cumulative entries and exits,
 machine states, Gantt of every machine, worker time split, space–time diagram, bucket-brigade take-over points,
 TR/LT experiment over w or n. The time charts zoom like the original simulator (mouse wheel or pinch, drag to pan,
-"Recent zoom" / "Full zoom"). Scenarios are chosen from a menu grouped by topic. Saved setups (browser), JSON
+"Recent zoom" / "Full zoom"). Scenarios are chosen from a menu grouped by topic. Every panel collapses to its title (the
+state is remembered in the browser); the "?" tips stay inside the window. Saved setups (browser), JSON
 download/upload (also the original simulator's `line_config.json`), installable app that works offline.
 
 ## Factory Challenge (team game)
@@ -57,7 +61,9 @@ Mode, policy, number of stations, seed and warm-up start a new run.
 ## Direct links to a scenario
 
 `index.html#<scenario>` loads a scenario, `index.html#<scenario>.run` also starts it.
-Part 1: `assignment`, `balanced`, `bottleneck`, `volatility`, `best`, `worst`, `pwc`, `unbal`, `unbalExp`, `push`, `oven`.
+Part 1: `assignment`, `balanced`, `bottleneck`, `volatility`, `best`, `worst` (pallets of 2: 4 h for the first part,
+0 h for the second), `worstLot` (move lot = w), `pwc`, `unbal`, `unbalExp`, `pushRate`, `conwip`, `pushOver`, `kanban`,
+`dbr`, `push` (no cap, 1-place buffers), `oven`, `oeeMach`.
 Part 2: `slide90`, `slide99`, `pizza2`, `pizza4`, `tend`, `bbSF`, `bbFS`, `bnEnd`, `dropFlood`, `dropCap`, `skills`, `penny`.
 
 ## Validation
@@ -66,12 +72,14 @@ Part 2: `slide90`, `slide99`, `pizza2`, `pizza4`, `tend`, `bbSF`, `bbFS`, `bnEnd
 node tests/validate.js
 ```
 
-178 checks (see `tests/validation-report.txt`): the 97 checks of the Labor Flow Simulator, plus best / worst /
+225 checks (see `tests/validation-report.txt`): the 97 checks of the Labor Flow Simulator, plus best / worst /
 practical worst case, two exponential machines with a buffer of B places (TH = (B+2)/(B+3)), parallel machines,
 OEE, batches, the presets of the original simulator (720 and 360 parts/h), machine tending and interference,
 skill matrix, stops and warnings, 240 random configurations with every feature (invariants, Little's law), and
 changes while running (w, n, speeds, machines, buffers, push/CONWIP) compared with the theory of the new situation,
-plus 120 random sequences of live changes.
+plus 120 random sequences of live changes; the worst case with a pallet of 2, push (TR = rate; M/M/1:
+LT = 1/(mu - lambda)), kanban (K cards = a buffer of K-1 places: TH = (K+1)/(K+2)), Drum-Buffer-Rope (rope respected,
+TR near the drum rate, better than CONWIP with the same w), OEE per machine and the staggered start.
 
 ## Model notes
 
