@@ -16,6 +16,15 @@ TR/LT experiment over w or n. The time charts zoom like the original simulator (
 "Recent zoom" / "Full zoom"). Scenarios are chosen from a menu grouped by topic. Saved setups (browser), JSON
 download/upload (also the original simulator's `line_config.json`), installable app that works offline.
 
+## Factory Challenge (team game)
+
+`index.html#ebike.challenge` opens the e-bike cell challenge: teams plan the shift (policy, order of the workers,
+temps, training, purchases, WIP cap), play a practice shift and then the official shift, which stops at three
+events (10:00 Carla is sick, 12:00 robot fault, 14:00 rush order) for emergency decisions at double price.
+At the end the app gives a team code. `leaderboard.html` recomputes every code with the same rules and random
+numbers, ranks the teams, gives the awards and shows reference plans for the debriefing.
+Rules, scenario and scoring are in `challenge.js`; tests in section Q of `tests/validate.js`.
+
 ## Exercise mode
 
 `index.html#<scenario>.exercise` (e.g. `#assignment.exercise`, the link of the assignment) hides what the students

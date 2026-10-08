@@ -134,7 +134,7 @@
             if (isFinite(cap)) cap = Math.max(Math.floor(cap), c.stations[k - 1].move > 1 ? c.stations[k - 1].move : 0, c.stations[k].batch > 1 ? c.stations[k].batch : 0);
             c.buffers.push(cap);
         }
-        c.workers = c.mode === 'machines' ? [] : (cfg.workers || [{ speed: 1 }]).map(w => ({ speed: Math.max(0.05, +w.speed || 1) }));
+        c.workers = c.mode === 'machines' ? [] : (cfg.workers || [{ speed: 1 }]).map(w => ({ speed: Math.max(0.05, +w.speed || 1), name: w.name || null }));
         const n = c.workers.length;
         if (c.mode === 'labor') {
             let skills = null;
@@ -236,7 +236,7 @@
             this.slots = [].concat(...this.machines);
             this.cumWork = [0];
             for (let k = 0; k < this.N; k++) this.cumWork.push(this.cumWork[k] + c.stations[k].st);
-            this.workers = c.workers.map((w, j) => this.makeWorker(j, w.speed, c.skills[j]));
+            this.workers = c.workers.map((w, j) => this.makeWorker(j, w.speed, c.skills[j], w.name));
             this.updates = 0;            // number of live changes applied with update()
             this.statsFrom = c.warmup;
             this.newStats();
@@ -257,10 +257,10 @@
         makeSlot(k, i) {
             return { k, i, jobs: [], phase: 'idle', rem: 0, dur: 0, autoRem: 0, worker: null, since: 0, state: 'idle', log: [], retire: false };
         }
-        makeWorker(j, speed, skills) {
+        makeWorker(j, speed, skills, name) {
             const first = skills.indexOf(true);
             return {
-                id: j, speed, x: this.cfg.policy === 'zones' && first >= 0 ? first : 0, skills,
+                id: j, name: name || null, speed, x: this.cfg.policy === 'zones' && first >= 0 ? first : 0, skills,
                 state: 'free', job: null, slot: null, walk: null, since: 0, idleSince: this.t, leaving: false
             };
         }
@@ -312,15 +312,28 @@
             c.wip = n2.wip; c.walk = n2.walk; c.preempt = n2.preempt;
             this.cumWork = [0];
             for (let k = 0; k < this.N; k++) this.cumWork.push(this.cumWork[k] + c.stations[k].st);
-            // workers: same index keeps the same person
+            // workers: matched by name when every worker has one, otherwise by position
             const active = this.workers.filter(w => !w.leaving);
             const m2 = n2.workers.length;
-            active.forEach((w, j) => {
-                if (j < m2) { w.speed = n2.workers[j].speed; w.skills = n2.skills[j]; }
-                else w.leaving = true;
-            });
-            for (let j = active.length; j < m2; j++) {
-                const w = this.makeWorker(this.workers.length, n2.workers[j].speed, n2.skills[j]);
+            const byName = active.every(w => w.name) && n2.workers.every(w => w.name);
+            const added = [];
+            if (byName) {
+                const names = n2.workers.map(w => w.name);
+                active.forEach(w => {
+                    const j = names.indexOf(w.name);
+                    if (j < 0) w.leaving = true;
+                    else { w.speed = n2.workers[j].speed; w.skills = n2.skills[j]; }
+                });
+                n2.workers.forEach((w, j) => { if (!active.some(a => a.name === w.name)) added.push(j); });
+            } else {
+                active.forEach((w, j) => {
+                    if (j < m2) { w.speed = n2.workers[j].speed; w.skills = n2.skills[j]; }
+                    else w.leaving = true;
+                });
+                for (let j = active.length; j < m2; j++) added.push(j);
+            }
+            for (const j of added) {
+                const w = this.makeWorker(this.workers.length, n2.workers[j].speed, n2.skills[j], n2.workers[j].name);
                 this.workers.push(w);
                 this.trace.push([]);
                 this.stats.w.push({ working: 0, blocked: 0, walking: 0, idle: 0 });

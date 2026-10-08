@@ -574,6 +574,7 @@
     }
     function bindRun() {
         $('startBtn').addEventListener('click', () => {
+            if (startGuard && !startGuard()) return;
             if (sim && stopReached()) { notice(`${cfg.stopAfter} jobs are already completed: raise “Stop after” (0 = no stop) or press Reset.`); return; }
             setRunning(true);
         });
@@ -601,7 +602,10 @@
     // grid time, so every row is the state at that instant plus what happened since the row before.
     const LOG_MAX = 100000, JOB_MAX = 200000;
     function stopReached() { return cfg.stopAfter > 0 && sim.completed >= cfg.stopAfter; }
+    // a stop at an exact time (used by the challenge: events and end of the shift)
+    let stopAt = null, clockFormat = null, startGuard = null;
     function advance(T) {
+        if (stopAt && T > stopAt.t) T = stopAt.t;
         sim.stopCompleted = cfg.stopAfter > 0 ? cfg.stopAfter : 0;
         try {
             while (cfg.logStep > 0 && nextLog <= T + 1e-9 && logRows.length < LOG_MAX && !stopReached()) {
@@ -620,6 +624,7 @@
             }
         } catch (err) { setRunning(false); showAlert(['Simulation stopped: ' + err.message], true); console.error(err); }
         collect();
+        if (stopAt && sim.t >= stopAt.t - 1e-9) { const f = stopAt.fn; stopAt = null; setRunning(false); refreshUi(true); f(); }
     }
     // move what the engine logged into the app (charts, job log, counters of the current log step)
     function collect() {
@@ -910,7 +915,7 @@
                 ctx.fillStyle = WORKER_COLORS[j % 10]; ctx.fill();
                 ctx.lineWidth = 3.5; ctx.strokeStyle = stateColor(w.state); ctx.stroke(); ctx.lineWidth = 1;
                 ctx.fillStyle = '#fff'; ctx.font = `600 11px ${colors.mono}`; ctx.textAlign = 'center';
-                ctx.fillText(String(j + 1), d.x, d.y + 0.5);
+                ctx.fillText(w.name ? w.name[0] : String(j + 1), d.x, d.y + 0.5);
                 if (w.state === 'blocked') { ctx.fillStyle = colors.blocked; ctx.font = `700 12px ${colors.body}`; ctx.fillText('!', d.x + 14, d.y - 12); }
             });
         }
@@ -1064,7 +1069,7 @@
     function refreshUi(force) {
         if (!sim) return;
         const m = sim.metrics(), u = cfg.unit;
-        $('clock').textContent = sim.t < 1000 ? sim.t.toFixed(1) : sim.t.toFixed(0);
+        $('clock').textContent = clockFormat ? clockFormat(sim.t) : sim.t < 1000 ? sim.t.toFixed(1) : sim.t.toFixed(0);
         logStatus();
         $('kTR').textContent = m.TR > 0 ? fmt(m.TR) : '–';
         $('kTRsub').textContent = `pcs/${u}` + (m.TR > 0 && perHour(m.TR) ? ' = ' + perHour(m.TR) : '') + (exercise ? '' : ` · bound ${fmt(cfg.mode === 'labor' ? th.TRmax : (th.best ? th.best.TR : th.TRb))}`);
@@ -1207,7 +1212,7 @@
     }
     // x range of a time chart, or null when the user zoomed by hand
     function xRange(key) {
-        const t1 = Math.max(sim.t, 1e-6);
+        const t1 = Math.max(sim.t, 1);
         if (views[key] === 'user') return null;
         if (views[key] === 'recent') { const w = recentWindow(key); return { min: Math.max(0, t1 - w), max: Math.max(t1, w) }; }
         return { min: 0, max: t1 };
@@ -1300,7 +1305,7 @@
 
     function updateCharts(m) {
         if (!charts.tr) return;
-        const from = 0, t1 = Math.max(sim.t, 1e-6);
+        const from = 0, t1 = Math.max(sim.t, 1);
         const line = y => [{ x: from, y }, { x: t1, y }];
         const inWin = () => true;
         const labor = cfg.mode === 'labor';
@@ -1375,7 +1380,7 @@
         if (!labor) return;
         // workers
         const wc = charts.workers;
-        wc.data.labels = m.workers.map((_, j) => 'W' + (j + 1) + ' (v ' + cfg.workers[j].speed + ')');
+        wc.data.labels = m.workers.map((_, j) => { const w = sim.workers[j]; return (w && w.name ? w.name : 'W' + (j + 1)) + (w ? ' (v ' + w.speed + ')' : ''); });
         ['working', 'blocked', 'walking', 'idle'].forEach((k, i) => wc.data.datasets[i].data = m.workers.map(w => +(w[k] * 100).toFixed(2)));
         wc.update('none');
         // space-time
@@ -1637,6 +1642,39 @@
         if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js', { scope: './' }).catch(() => { /* optional */ });
     }
 
+    // ------------------------------------------------------------------
+    // API for the Factory Challenge (challenge-ui.js)
+    // ------------------------------------------------------------------
+    function cfgFromEngine(ec, unit) {
+        return {
+            mode: ec.mode, stations: ec.stations.map(x => Object.assign(ST(1), x)), buffers: new Array(ec.stations.length - 1).fill(null),
+            workers: ec.workers.map(w => ({ speed: w.speed, name: w.name })), skills: ec.skills, policy: ec.policy,
+            wipMode: isFinite(ec.wip) ? 'cap' : 'free', wip: isFinite(ec.wip) ? ec.wip : 4, walk: ec.walk, preempt: ec.preempt !== false,
+            warmup: 0, seed: ec.seed, unit: unit || 'min', chartWindow: 0, stopAfter: 0, showMore: true, logStep: 5
+        };
+    }
+    const api = {
+        get sim() { return sim; },
+        get exits() { return exits; },
+        // new run (fresh = true) or change of the running line
+        applyEngineConfig(ec, fresh, unit, label) {
+            cfg = cfgFromEngine(ec, unit);
+            activePreset = null;
+            renderAll();
+            if (fresh || !sim) { rebuild(); return; }
+            sim.update(engineCfg(cfg));
+            th = E.theory(engineCfg(cfg));
+            appliedCfg = deepCopy(cfg);
+            if (label) { markers.push({ t: sim.t, short: label, label }); pendingEvents.push(`t=${+sim.t.toFixed(4)}: ${label}`); }
+            layout(); refreshUi(true); draw(0);
+        },
+        setRunning, isRunning: () => running, setSpeed: v => setSpeed(v),
+        stopAt(t, fn) { stopAt = t == null ? null : { t, fn }; },
+        setClock(fn) { clockFormat = fn; refreshUi(true); },
+        setStartGuard(fn) { startGuard = fn; },
+        notice, refresh: () => refreshUi(true)
+    };
+
     function boot() {
         initTheme();
         readColors();
@@ -1653,6 +1691,11 @@
         exercise = hash.includes('exercise');
         document.body.classList.toggle('exercise', exercise);
         $('exerciseBanner').hidden = !exercise;
+        const challengeId = hash.includes('challenge') && window.FlowChallenge && window.FlowChallenge.SCENARIOS[hash[0]] ? hash[0] : null;
+        if (challengeId) {
+            exercise = true;
+            document.body.classList.add('exercise', 'challenge');
+        }
         const first = PRESETS.find(p => p.id === hash[0]) || PRESETS[0];
         cfg = presetToCfg(first);
         activePreset = first.id;
@@ -1660,8 +1703,11 @@
         makeCharts();
         rebuild();
         setSpeed(Math.log10(Math.max(0.05, th.T0 / 8)));
-        if (hash.includes('run')) setRunning(true);
-        if (!exercise) setTimeout(runSweep, 800);
+        if (challengeId && window.FlowChallengeUI) window.FlowChallengeUI.init(api, challengeId);
+        else {
+            if (hash.includes('run')) setRunning(true);
+            if (!exercise) setTimeout(runSweep, 800);
+        }
         let rt = null;
         window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => { layout(); draw(0); drawGantt(); }, 120); });
         if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { readColors(); draw(0); });

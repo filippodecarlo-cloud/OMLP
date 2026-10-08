@@ -514,6 +514,66 @@ function live(cfg, steps, T) {
     assert(G, `removed workers always leave once free (${unfinished} runs still waiting)`, unfinished === 0);
 }
 
+// ===========================================================================
+// FACTORY CHALLENGE - scoring, codes, rules
+// ===========================================================================
+{
+    const G = 'Q. Factory Challenge (e-bike cell)';
+    const CH = require('../challenge.js');
+    const scn = CH.SCENARIOS.ebike;
+    const cp = o => JSON.parse(JSON.stringify(o));
+    const plan = mod => { const d = CH.baseDecision(scn); mod(d); return d; };
+    const good = plan(d => { d.policy = 'dropping'; d.wip = 6; d.hires = ['Elena']; d.buy.stdWork = true; });
+    const r1 = CH.runShift(scn, [{ t: 0, d: good }]);
+    const r2 = CH.runShift(scn, [{ t: 0, d: cp(good) }]);
+    assert(G, `the same plan gives the same result (deterministic): ${r1.profit} € = ${r2.profit} €`, r1.profit === r2.profit && r1.delivered === r2.delivered);
+    const code = CH.encode('Team A', 'ebike', r1.timeline, r1);
+    const back = CH.decode(code);
+    const r3 = CH.runShift(back.scenario, back.timeline);
+    assert(G, `team code round trip (${code.length} chars): recomputed profit ${r3.profit} € = ${r1.profit} €`, r3.profit === r1.profit && back.team === 'Team A');
+    let bad = false; try { CH.decode('FC1.xxx'); } catch (e) { bad = true; }
+    assert(G, 'a corrupted code is rejected', bad);
+    // the account adds up
+    const sum = Object.values(r1.account).reduce((a, b) => a + b, 0);
+    assert(G, `profit = sum of the account lines (${sum})`, sum === r1.profit);
+    check(G, 'revenue = 300 € × min(bikes, demand)', r1.account.revenue, 300 * Math.min(r1.delivered, 50), 1e-9);
+    // costs: hire + training for full flexibility + standard work
+    const c0 = CH.costOf(scn, CH.sanitize(scn, good, null), null, 0);
+    const trainNeeded = ['Anna', 'Bruno', 'Carla', 'Elena'].reduce((a, n) => a + CH.person(scn, n).skills.filter(v => !v).length, 0);
+    check(G, `start costs: Elena 420 + training ${trainNeeded} × 60 + standard work 250`, c0.reduce((a, c) => a + c.cost, 0), 420 + trainNeeded * 60 + 250, 1e-9);
+    // emergency prices are doubled
+    const later = cp(CH.sanitize(scn, good, null)); later.hires = later.hires.concat(['Dario']); later.buy.tpmRobot = true;
+    const c1 = CH.costOf(scn, CH.sanitize(scn, later, CH.sanitize(scn, good, null)), CH.sanitize(scn, good, null), 120);
+    check(G, 'during the shift prices × 2 (Dario 300, TPM 150, training of Dario 4 skills × 60)', c1.reduce((a, c) => a + c.cost, 0), 2 * (300 + 150 + 4 * 60), 1e-9);
+    // rules: policy and order cannot change during the shift, purchases cannot be undone
+    const cheat = cp(later); cheat.policy = 'zones'; cheat.order = ['Carla', 'Bruno', 'Anna', 'Elena']; cheat.buy = {};
+    const s1 = CH.sanitize(scn, cheat, CH.sanitize(scn, good, null));
+    assert(G, 'during the shift the policy, the order and the purchases are kept', s1.policy === 'dropping' && s1.order.join() === 'Anna,Bruno,Carla,Elena' && s1.buy.stdWork === true);
+    // Carla leaves at 10:00: with dedicated zones and nobody else on S5 the line stops
+    const zonesOnly = CH.runShift(scn, [{ t: 0, d: CH.baseDecision(scn) }]);
+    assert(G, `dedicated zones, nobody trained on S5: the line stops after Carla leaves (${zonesOnly.delivered} bikes)`, zonesOnly.stalled && zonesOnly.delivered < 25);
+    const covered = cp(CH.baseDecision(scn)); covered.skills.Bruno[4] = true;
+    const zr = CH.runShift(scn, [{ t: 0, d: CH.baseDecision(scn) }, { t: 120, d: covered }]);
+    assert(G, `...training Bruno on S5 at 10:00 keeps it running (${zr.delivered} bikes)`, !zr.stalled && zr.delivered > zonesOnly.delivered);
+    // practice shift: no events
+    const pr = CH.runShift(scn, [{ t: 0, d: CH.baseDecision(scn) }], { practice: true });
+    assert(G, `practice shift has no events (dedicated zones do not stop: ${pr.delivered} bikes)`, !pr.stalled && pr.practice);
+    // balance: the best plans are not "buy everything"
+    const all = plan(d => { d.policy = 'dropping'; d.wip = 8; scn.items.forEach(i => { d.buy[i.id] = true; }); d.hires = ['Dario', 'Elena']; });
+    const ra = CH.runShift(scn, [{ t: 0, d: all }]);
+    assert(G, `buying everything (${ra.profit} €) earns less than a focused plan (${r1.profit} €)`, ra.profit < r1.profit);
+    const mach = plan(d => { d.buy.robot2 = true; d.buy.booth2 = true; d.wip = 8; });
+    const mach1 = cp(mach); mach1.skills.Bruno[4] = true;
+    const rm = CH.runShift(scn, [{ t: 0, d: mach }, { t: 120, d: mach1 }]);
+    const org = plan(d => { d.policy = 'dropping'; d.wip = 4; });
+    const ro = CH.runShift(scn, [{ t: 0, d: org }]);
+    assert(G, `labor-bound line: new machines alone (${rm.profit} €) earn less than organization alone (${ro.profit} €)`, rm.profit < ro.profit);
+    const bbGood = plan(d => { d.policy = 'bucket'; d.wip = 0; d.order = ['Carla', 'Bruno', 'Anna']; });
+    const bbBad = plan(d => { d.policy = 'bucket'; d.wip = 0; d.order = ['Anna', 'Bruno', 'Carla']; });
+    const g1 = CH.runShift(scn, [{ t: 0, d: bbGood }]).delivered, g2 = CH.runShift(scn, [{ t: 0, d: bbBad }]).delivered;
+    assert(G, `bucket brigade slowest → fastest (${g1} bikes) beats fastest → slowest (${g2})`, g1 > g2);
+}
+
 // ---------------------------------------------------------------------------
 const pad = (s, n) => (s + ' '.repeat(n)).slice(0, n);
 let lastG = '', nOk = 0;

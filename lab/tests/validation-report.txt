@@ -209,4 +209,20 @@ P. Live changes (no restart) + restart of the statistics
   PASS  120 random runs with 4 live changes each: 0 failures
   PASS  removed workers always leave once free (0 runs still waiting)
 
-178/178 checks passed
+Q. Factory Challenge (e-bike cell)
+  PASS  the same plan gives the same result (deterministic): 12626 € = 12626 €
+  PASS  team code round trip (311 chars): recomputed profit 12626 € = 12626 €
+  PASS  a corrupted code is rejected
+  PASS  profit = sum of the account lines (12626)
+  PASS  revenue = 300 € × min(bikes, demand)                 sim 15000.0000  theory 15000.0000  (err 0.00%, tol 0.0%)
+  PASS  start costs: Elena 420 + training 12 × 60 + standard sim 1390.0000  theory 1390.0000  (err 0.00%, tol 0.0%)
+  PASS  during the shift prices × 2 (Dario 300, TPM 150, tra sim 1380.0000  theory 1380.0000  (err 0.00%, tol 0.0%)
+  PASS  during the shift the policy, the order and the purchases are kept
+  PASS  dedicated zones, nobody trained on S5: the line stops after Carla leaves (6 bikes)
+  PASS  ...training Bruno on S5 at 10:00 keeps it running (21 bikes)
+  PASS  practice shift has no events (dedicated zones do not stop: 30 bikes)
+  PASS  buying everything (10908 €) earns less than a focused plan (12626 €)
+  PASS  labor-bound line: new machines alone (708 €) earn less than organization alone (6894 €)
+  PASS  bucket brigade slowest → fastest (28 bikes) beats fastest → slowest (25)
+
+192/192 checks passed

@@ -398,3 +398,68 @@ body.mode-labor .machines-only { display: none !important; }
 /* exercise mode */
 body.exercise .ref-only { display: none !important; }
 .exercise-banner { margin: 0; border: 1px solid var(--waiting); border-left-width: 4px; background: var(--surface); border-radius: var(--r); padding: 8px 12px; font-size: 14px; }
+
+/* =====================================================================
+   Factory Challenge
+   ===================================================================== */
+body.challenge .modes, body.challenge .scenario-bar, body.challenge #exerciseBanner,
+body.challenge .setup > .panel:not(.challenge-panel), body.challenge #resetBtn, body.challenge #statsBtn,
+body.challenge .head-controls, body.challenge #configTable + .chip-row, body.challenge #configTable ~ .caption { display: none !important; }
+body.challenge .table-scroll:has(#configTable) + .chip-row, body.challenge .table-scroll:has(#configTable) ~ .caption { display: none !important; }
+body.challenge #configTable input, body.challenge #configTable select { pointer-events: none; background: transparent; border-color: transparent; }
+.challenge-panel { border: 2px solid var(--accent); }
+.ch-state { margin: 0 0 6px; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--accent); }
+.ch-state.event { color: var(--blocked); }
+.ch-state.running { color: var(--working); }
+.ch-brief { margin: 0 0 8px; font-size: 14px; }
+.ch-rules { font-size: 13.5px; margin: 6px 0; }
+.ch-rules summary { cursor: pointer; color: var(--accent); font-weight: 600; }
+.ch-rules ul { padding-left: 18px; margin: 6px 0; display: flex; flex-direction: column; gap: 4px; }
+.ch-free { font-size: 11px; font-weight: 600; color: var(--working); border: 1px solid currentColor; border-radius: 999px; padding: 0 6px; margin-left: 4px; text-transform: uppercase; }
+.ch-policy { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 8px; font-size: 13.5px; }
+.ch-radio, .ch-check { display: flex; gap: 6px; align-items: baseline; font-size: 13.5px; cursor: pointer; }
+.ch-radio input, .ch-check input { accent-color: var(--accent); }
+.ch-list { display: flex; flex-direction: column; gap: 5px; margin-top: 8px; }
+.ch-price { margin-left: auto; font-family: var(--font-mono); font-size: 12.5px; color: var(--muted); white-space: nowrap; padding-left: 8px; }
+.ch-crew { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 4px; }
+.ch-crew li { display: flex; align-items: center; gap: 8px; border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; background: var(--surface-2); font-size: 13.5px; }
+.ch-crew li.sick { opacity: 0.5; text-decoration: line-through; }
+.ch-dot { width: 22px; height: 22px; border-radius: 50%; color: #fff; font-weight: 700; font-size: 12px; display: inline-flex; align-items: center; justify-content: center; flex: none; }
+.ch-name { font-weight: 600; min-width: 46px; }
+.ch-speed { font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
+.ch-note { font-size: 12px; color: var(--muted); flex: 1; min-width: 0; }
+.ch-move { display: flex; gap: 2px; }
+.ch-move .btn-sq { width: 24px; height: 24px; font-size: 13px; }
+.ch-skills td.base { background: var(--accent-soft); }
+.ch-stations { font-size: 13px; }
+.ch-costs { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 8px; }
+.ch-costs-title { margin: 0 0 4px; font-size: 13px; font-weight: 600; }
+.ch-costs table { font-size: 13px; }
+.ch-costs td { padding: 3px 4px; }
+.ch-costs tr.tot td, .ch-account tr.tot td { font-weight: 700; border-top: 2px solid var(--line); }
+.ch-warn { color: var(--blocked); font-size: 13px; font-weight: 600; margin: 6px 0 0; }
+.ch-live { display: flex; flex-wrap: wrap; gap: 6px 14px; font-family: var(--font-mono); font-size: 13px; margin: 6px 0; }
+.ch-live:empty { display: none; }
+body.ch-running .challenge-panel input, body.ch-running .challenge-panel .btn-sq { pointer-events: none; opacity: 0.6; }
+.ch-event { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 62px); z-index: 6; }
+.ch-event-card { background: var(--surface); border: 2px solid var(--blocked); border-radius: var(--r); padding: 8px 12px; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.15);
+    display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; }
+.ch-event-num { font-size: 18px; font-weight: 800; color: var(--blocked); white-space: nowrap; }
+.ch-event-body { flex: 1 1 320px; min-width: 0; font-size: 14px; }
+.ch-event-hint { color: var(--muted); font-size: 13px; }
+.ch-event-body .ch-warn { display: block; }
+.ch-continue { font-size: 15px; padding: 8px 16px; }
+.ch-event-note { margin: 0 0 8px; padding: 6px 8px; border-left: 4px solid var(--blocked); background: var(--surface-2); font-size: 13.5px; }
+.ch-result { border: 2px solid var(--accent); }
+.ch-kpis { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; margin-bottom: 10px; }
+@media (max-width: 760px) { .ch-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.ch-kpis div { border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; display: flex; flex-direction: column; }
+.ch-kpis span { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+.ch-kpis strong { font-family: var(--font-mono); font-size: 20px; }
+.ch-account td { padding: 4px 6px; }
+.ch-code { width: 100%; font-family: var(--font-mono); font-size: 12px; padding: 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface-2); color: var(--ink); word-break: break-all; }
+
+/* the hidden attribute always wins over component display rules */
+[hidden] { display: none !important; }
+
+body.challenge .run-clock .unit-label, body.challenge .run-clock .clock-label { display: none; }

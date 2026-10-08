@@ -78,6 +78,7 @@
     </div>
 
     <p id="exerciseBanner" class="exercise-banner" hidden><strong>Exercise mode.</strong> The theoretical values (T₀, bottleneck rate, critical WIP, best, worst and practical worst case) and the WIP experiment are hidden: run the line at different WIP values, measure TR and LT, and build the curves yourself.</p>
+    <div id="chEvent" class="ch-event" role="alert" hidden></div>
     <p id="notice" class="notice" role="status" hidden></p>
     <div id="alertBox" class="alert" role="status" hidden></div>
 
@@ -85,6 +86,41 @@
 
         <!-- ================= SETUP ================= -->
         <aside class="setup" id="setup" aria-label="Line setup">
+
+            <section class="panel challenge-panel" id="challengePanel" hidden>
+                <h2 class="panel-title" id="chTitle">Factory Challenge</h2>
+                <p id="chState" class="ch-state plan">Plan your shift</p>
+                <p id="chEventNote" class="ch-event-note" hidden></p>
+                <p id="chBrief" class="ch-brief"></p>
+                <details class="ch-rules"><summary>Rules and prices</summary><div id="chRules"></div></details>
+                <div class="field-row"><label for="chTeam">Team name</label><input id="chTeam" type="text" maxlength="40" placeholder="e.g. Team Volta"></div>
+                <div id="chLive" class="ch-live"></div>
+
+                <h3 class="sub-title">Work organization <span class="ch-free">free</span></h3>
+                <div id="chPolicy" class="ch-policy" role="radiogroup" aria-label="Policy"></div>
+                <h3 class="sub-title">The team</h3>
+                <ol id="chCrew" class="ch-crew"></ol>
+                <p id="chOrderHint" class="caption"></p>
+                <div id="chTemps" class="ch-list"></div>
+                <h3 class="sub-title">Skills</h3>
+                <div class="table-scroll"><table id="chSkills" class="skills-table ch-skills"></table></div>
+                <p id="chSkillHint" class="caption"></p>
+                <h3 class="sub-title">Release of bikes (WIP)</h3>
+                <div class="field-row">
+                    <label for="chWip">CONWIP cap <span class="sym">w</span></label>
+                    <input id="chWip" type="number" min="1" max="200" step="1">
+                </div>
+                <label class="ch-check"><input id="chNoCap" type="checkbox"> No cap: a new bike starts whenever a worker and S1 are free</label>
+                <h3 class="sub-title">Purchases (per shift)</h3>
+                <div id="chItems" class="ch-list"></div>
+                <details class="ch-rules"><summary>The stations</summary><ul id="chStationList" class="ch-stations"></ul></details>
+                <div id="chCosts" class="ch-costs"></div>
+                <div class="chip-row">
+                    <button id="chPractice" class="btn" type="button">▶ Practice shift</button>
+                    <button id="chOfficial" class="btn btn-primary" type="button">▶ Official shift</button>
+                    <button id="chAbort" class="btn" type="button" hidden>Stop and go back to the plan</button>
+                </div>
+            </section>
 
             <section class="panel labor-only">
                 <h2 class="panel-title">Worker movement policy</h2>
@@ -196,6 +232,8 @@
 
         <!-- ================= LINE + RESULTS ================= -->
         <main class="results">
+
+            <section id="chResult" class="panel ch-result" aria-live="polite" hidden></section>
 
             <section class="panel line-panel" aria-labelledby="lineTitle">
                 <div class="panel-head">
@@ -398,6 +436,8 @@
 </div>
 
 <script src="engine.js"></script>
+<script src="challenge.js"></script>
+<script src="challenge-ui.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
