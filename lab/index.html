@@ -30,24 +30,14 @@
             <p class="author">Operations Management and Lean Production · Filippo De Carlo</p>
         </div>
         <div class="masthead-actions">
+            <div class="modes" role="radiogroup" aria-label="Part of the chapter">
+                <button type="button" class="mode-opt" data-mode="machines" role="radio" title="Part 1: stations run on their own (WIP, lead time, throughput, buffers, batches, OEE, variability)"><span class="mode-ref">Part 1</span> Machines</button>
+                <button type="button" class="mode-opt" data-mode="labor" role="radio" title="Part 2: workers run the machines (number of workers, speeds, tied workers, bucket brigades, job dropping, skills)"><span class="mode-ref">Part 2</span> Manpower</button>
+            </div>
             <button id="installBtn" class="btn" type="button" hidden>⤓ Install app</button>
             <button id="themeToggle" class="btn btn-ghost" type="button" aria-label="Toggle dark or light theme">◐ Theme</button>
         </div>
     </header>
-
-    <!-- Mode -->
-    <section class="modes" role="radiogroup" aria-label="Part of the chapter">
-        <button type="button" class="mode-opt" data-mode="machines" role="radio">
-            <span class="mode-ref">Part 1</span>
-            <span class="mode-name">Machines</span>
-            <span class="mode-desc">Stations run on their own: WIP, lead time, throughput, buffers, batches, OEE, variability.</span>
-        </button>
-        <button type="button" class="mode-opt" data-mode="labor" role="radio">
-            <span class="mode-ref">Part 2</span>
-            <span class="mode-name">Manpower</span>
-            <span class="mode-desc">Workers run the machines: number of workers, speeds, tied workers, bucket brigades, job dropping, skills.</span>
-        </button>
-    </section>
 
     <section class="scenario-bar" aria-label="Scenario">
         <span class="section-label">Scenario</span>
@@ -281,6 +271,8 @@
                         <li><span class="bar st-working"></span>processing</li>
                         <li><span class="bar st-auto"></span>automatic cycle</li>
                         <li><span class="bar st-blocked"></span>blocked</li>
+                        <li class="kanban-only"><span class="kcard"></span>free kanban card</li>
+                        <li class="kanban-only"><span class="kcard used"></span>card in use (on a part)</li>
                     </ul>
                 </div>
                 <div class="canvas-scroll">

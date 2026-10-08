@@ -790,7 +790,7 @@
             ink: g('--ink'), muted: g('--muted'), line: g('--line'), surface: g('--surface'), surface2: g('--surface-2'),
             accent: g('--accent'), working: g('--working'), blocked: g('--blocked'), walking: g('--walking'),
             idle: g('--idle'), waiting: g('--waiting'), machine: g('--machine'), machineEdge: g('--machine-edge'),
-            auto: g('--auto'), starved: g('--starved'),
+            auto: g('--auto'), starved: g('--starved'), kanban: g('--kanban') || '#f2c14e', kanbanEdge: g('--kanban-edge') || '#5a4300',
             mono: g('--font-mono') || 'monospace', body: g('--font-body') || 'sans-serif'
         };
     }
@@ -807,13 +807,15 @@
         const colW = (W - left - right) / N;
         const stW = Math.max(60, Math.min(118, colW * 0.62));
         const slotH = maxM > 5 ? 22 : 32;
-        const top = 18, head = badges ? 48 : 36;
+        const kanban = sim.cfg.release.mode === 'kanban';
+        const top = kanban ? 38 : 18, head = badges ? 48 : 36;
         const stH = head + maxM * slotH + 8;
         const lotY = top + stH + 8;
         const laneY = lotY + (anyLot ? 26 : 0) + (labor ? 28 : 0);
         const zoneY = laneY + 30;
         const H = labor ? zoneY + (cfg.policy === 'zones' ? 34 : 14) : lotY + (anyLot ? 26 : 8);
-        geo = { W, H, N, left, right, colW, stW, slotH, top, head, stH, laneY, zoneY, lotY, maxM, anyLot, badges, labor };
+        geo = { W, H, N, left, right, colW, stW, slotH, top, head, stH, laneY, zoneY, lotY, maxM, anyLot, badges, labor, kanban };
+        document.body.classList.toggle('rel-kanban', kanban);
         const dpr = window.devicePixelRatio || 1;
         cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
         cv.style.height = H + 'px';
@@ -834,12 +836,31 @@
         ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
         ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
     }
+    let tagCards = false;           // kanban: every part in the line carries a card
     function drawJob(ctx, job, x, y, size, faded) {
         ctx.save();
         ctx.fillStyle = jobColor(job.id);
         if (faded) ctx.globalAlpha = 0.45;
         roundRect(ctx, x - size / 2, y - size / 2, size, size, 2);
         ctx.fill();
+        ctx.restore();
+        if (tagCards) drawCard(ctx, x + size / 2 - 1, y - size / 2 - 3, 5.5, 8, true);
+    }
+    // a kanban card: yellow portrait card with a dark edge and two printed lines; used = empty dashed place
+    function drawCard(ctx, x, y, w, h, free) {
+        ctx.save();
+        roundRect(ctx, x, y, w, h, 1.2);
+        if (free) {
+            ctx.fillStyle = colors.kanban; ctx.fill();
+            ctx.strokeStyle = colors.kanbanEdge; ctx.lineWidth = 1.2; ctx.stroke();
+            if (h >= 11) {
+                ctx.fillStyle = colors.kanbanEdge;
+                ctx.fillRect(x + 2, y + h * 0.42, w - 4, 1); ctx.fillRect(x + 2, y + h * 0.66, w - 4, 1);
+                ctx.beginPath(); ctx.arc(x + w / 2, y + 2.6, 1, 0, Math.PI * 2); ctx.fill();
+            }
+        } else {
+            ctx.setLineDash([2, 2]); ctx.strokeStyle = colors.muted; ctx.lineWidth = 1; ctx.stroke();
+        }
         ctx.restore();
     }
     function workerTarget(w) {
@@ -875,6 +896,7 @@
         ctx.font = `11px ${colors.mono}`; ctx.fillStyle = colors.muted;
         ctx.fillText(sim.srcQueue() ? 'queue ' + sim.queues[0].length : '∞ raw', inX + inW / 2, inY + 27);
         drawStack(ctx, sim.queues[0], inX + inW / 2, inY + 44, inY + inH - 6, Math.floor((inW - 8) / 12), Infinity);
+        tagCards = geo.kanban;
 
         // OUT
         const outX = W - geo.right + 14, outW = geo.right - 22;
@@ -922,6 +944,19 @@
                 if (s.auto > 0) b.push('auto');
                 ctx.font = `10px ${colors.mono}`; ctx.fillStyle = colors.accent;
                 ctx.fillText(b.join(' · '), cx, y + 40);
+            }
+            // kanban post above the station: free cards (yellow) and cards in use (dashed places)
+            if (geo.kanban) {
+                const K = sim.cfg.release.cards[k], used = Math.min(K, sim.kanbanLoad(k)), free = K - used;
+                const cw = Math.min(10, (geo.stW - 6) / K - 3), ch = cw * 1.45;
+                if (cw >= 5) {
+                    const x0 = cx - (K * (cw + 3) - 3) / 2;
+                    for (let i = 0; i < K; i++) drawCard(ctx, x0 + i * (cw + 3), y - ch - 5, cw, ch, i < free);
+                } else {
+                    drawCard(ctx, cx - 22, y - 19, 9, 13, free > 0);
+                    ctx.fillStyle = colors.ink; ctx.font = `600 11px ${colors.mono}`; ctx.textAlign = 'left';
+                    ctx.fillText(`${free}/${K}`, cx - 9, y - 12);
+                }
             }
             const slots = sim.machines[k];
             const shown = Math.min(slots.length, geo.maxM);
@@ -985,15 +1020,17 @@
             sim.workers.forEach((w, j) => {
                 const d = disp[j];
                 if (w.job && w.state === 'walking' && w.walk && w.walk.purpose === 'carry') drawJob(ctx, w.job, d.x + 13, d.y - 11, 11);
-                ctx.beginPath(); ctx.arc(d.x, d.y, 11, 0, Math.PI * 2);
-                ctx.fillStyle = WORKER_COLORS[j % 10]; ctx.fill();
-                ctx.lineWidth = 3.5; ctx.strokeStyle = stateColor(w.state); ctx.stroke(); ctx.lineWidth = 1;
+                // outer ring = state, thin white ring, inner disc = the worker's own colour
+                ctx.beginPath(); ctx.arc(d.x, d.y, 13, 0, Math.PI * 2); ctx.fillStyle = stateColor(w.state); ctx.fill();
+                ctx.beginPath(); ctx.arc(d.x, d.y, 10, 0, Math.PI * 2); ctx.fillStyle = '#fff'; ctx.fill();
+                ctx.beginPath(); ctx.arc(d.x, d.y, 8.6, 0, Math.PI * 2); ctx.fillStyle = WORKER_COLORS[j % 10]; ctx.fill();
                 ctx.fillStyle = '#fff'; ctx.font = `600 11px ${colors.mono}`; ctx.textAlign = 'center';
                 ctx.fillText(w.name ? w.name[0] : String(j + 1), d.x, d.y + 0.5);
-                if (w.state === 'blocked') { ctx.fillStyle = colors.blocked; ctx.font = `700 12px ${colors.body}`; ctx.fillText('!', d.x + 14, d.y - 12); }
+                if (w.state === 'blocked') { ctx.fillStyle = colors.blocked; ctx.font = `700 12px ${colors.body}`; ctx.fillText('!', d.x + 16, d.y - 13); }
             });
         }
 
+        tagCards = false;
         // exits
         const now = performance.now();
         exitAnims = exitAnims.filter(e => now - e.t0 < 600);
