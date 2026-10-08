@@ -94,7 +94,7 @@
     let running = false, speed = 10, activePreset = null;
     let series = [], exits = [], entries = [], exitAnims = [], disp = [], logRows = [], nextLog = 0;
     let geo = null, charts = {}, colors = {};
-    let lastUi = 0, lastFrame = 0, sweepDone = false, lastAlert = null;
+    let lastUi = 0, lastFrame = 0, sweepDone = false, lastAlert = null, animPhase = 0, manualFrames = false;
     let deferredInstall = null;
     let appliedCfg = null;          // configuration the running line was built / last updated with
     let markers = [];               // live changes shown on the time charts {t, short, label}
@@ -764,7 +764,7 @@
         const dtReal = lastFrame ? Math.min(0.1, (ts - lastFrame) / 1000) : 0;
         lastFrame = ts;
         if (running && sim) advance(sim.t + speed * dtReal);
-        draw(dtReal);
+        if (!manualFrames) draw(dtReal);
         if (ts - lastUi > 250) { lastUi = ts; refreshUi(false); }
         requestAnimationFrame(frame);
     }
@@ -806,7 +806,7 @@
         const left = 92, right = 76;
         const colW = (W - left - right) / N;
         const stW = Math.max(60, Math.min(118, colW * 0.62));
-        const slotH = maxM > 5 ? 22 : 32;
+        const slotH = maxM > 5 ? (labor ? 26 : 22) : (labor ? 36 : 32);
         const kanban = sim.cfg.release.mode === 'kanban';
         const top = kanban ? 38 : 18, head = badges ? 48 : 36;
         const stH = head + maxM * slotH + 8;
@@ -846,6 +846,49 @@
         ctx.restore();
         if (tagCards) drawCard(ctx, x + size / 2 - 1, y - size / 2 - 3, 5.5, 8, true);
     }
+    // a worker: a small figure (helmet, face, shoulders, arms) in the worker's colour, on a white disc
+    // ringed with the colour of the state (working, blocked, walking, idle)
+    function drawWorker(ctx, x, y, col, state, label, moving, j) {
+        const R = 15.5;
+        ctx.save();
+        ctx.beginPath(); ctx.arc(x, y, R, 0, Math.PI * 2); ctx.fillStyle = stateColor(state); ctx.fill();
+        ctx.beginPath(); ctx.arc(x, y, R - 2.8, 0, Math.PI * 2); ctx.fillStyle = '#fff'; ctx.fill();
+        ctx.clip();
+        const ph = animPhase * 9 + j * 1.7;
+        ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+        // arms: raised with a wrench while working, swinging while walking, down otherwise
+        const sh = { l: { x: x - 7, y: y + 4.5 }, r: { x: x + 7, y: y + 4.5 } };
+        let hl, hr;
+        if (state === 'working' && !moving) {
+            const wig = Math.sin(ph) * 1.6;
+            hl = { x: x - 10.5, y: y - 3 + wig }; hr = { x: x + 10.5, y: y - 3 - wig };
+        } else if (moving || state === 'walking') {
+            const sw = Math.sin(ph) * 3;
+            hl = { x: x - 9.5, y: y + 9 + sw }; hr = { x: x + 9.5, y: y + 9 - sw };
+        } else { hl = { x: x - 9, y: y + 11 }; hr = { x: x + 9, y: y + 11 }; }
+        ctx.strokeStyle = col; ctx.lineWidth = 3.4;
+        ctx.beginPath(); ctx.moveTo(sh.l.x, sh.l.y); ctx.lineTo(hl.x, hl.y); ctx.moveTo(sh.r.x, sh.r.y); ctx.lineTo(hr.x, hr.y); ctx.stroke();
+        if (state === 'working' && !moving) {        // wrench in the right hand
+            ctx.strokeStyle = '#6b7a86'; ctx.lineWidth = 1.8;
+            ctx.beginPath(); ctx.moveTo(hr.x - 1, hr.y + 1); ctx.lineTo(hr.x + 3.5, hr.y - 4); ctx.stroke();
+            ctx.beginPath(); ctx.arc(hr.x + 4.2, hr.y - 4.8, 1.8, 0, Math.PI * 2); ctx.stroke();
+        }
+        // shoulders / body
+        ctx.fillStyle = col;
+        ctx.beginPath(); ctx.ellipse(x, y + 12, 9.5, 8.5, 0, Math.PI, 0); ctx.lineTo(x + 9.5, y + 16); ctx.lineTo(x - 9.5, y + 16); ctx.closePath(); ctx.fill();
+        // head and helmet
+        ctx.fillStyle = '#f3c9a0'; ctx.strokeStyle = '#3b3b3b'; ctx.lineWidth = 0.8;
+        ctx.beginPath(); ctx.arc(x, y - 1, 4.6, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = '#2b2b2b';
+        ctx.beginPath(); ctx.arc(x - 1.6, y - 0.6, 0.6, 0, Math.PI * 2); ctx.arc(x + 1.6, y - 0.6, 0.6, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = col;
+        ctx.beginPath(); ctx.arc(x, y - 2.2, 5, Math.PI, 0); ctx.closePath(); ctx.fill();
+        ctx.fillRect(x - 6.2, y - 2.6, 12.4, 1.4);
+        // number (or initial) on the chest
+        ctx.fillStyle = '#fff'; ctx.font = `700 8px ${colors.mono}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(label, x, y + 9.2);
+        ctx.restore();
+    }
     // a kanban card: yellow portrait card with a dark edge and two printed lines; used = empty dashed place
     function drawCard(ctx, x, y, w, h, free) {
         ctx.save();
@@ -866,7 +909,7 @@
     function workerTarget(w) {
         if (w.slot && (w.state === 'working' || w.state === 'blocked' || w.state === 'waiting')) {
             const r = slotRect(w.slot.k, Math.min(w.slot.i, geo.maxM - 1));
-            return { x: r.x + r.w - 13, y: r.y + r.h / 2, lane: false };
+            return { x: r.x + r.w - 15, y: r.y + r.h / 2, lane: false };
         }
         return { x: px(w.x), y: geo.laneY, lane: true };
     }
@@ -1005,28 +1048,43 @@
 
         // workers
         if (geo.labor) {
-            const minOp = Math.min(...S.map(s => (s.st + s.auto) / s.oee)) / (th.vMax || 1);
-            const kk = 14 * Math.max(1, speed / Math.max(1e-6, 2 * minOp));
-            const a = dtReal > 0 ? 1 - Math.exp(-dtReal * kk) : 1;
+            animPhase += dtReal;
             const targets = sim.workers.map(workerTarget);
             const groups = {};
             targets.forEach((t, j) => { if (t.lane) { const key = Math.round(t.x / 6); (groups[key] = groups[key] || []).push(j); } });
-            Object.values(groups).forEach(g => g.forEach((j, i) => { targets[j].x += (i - (g.length - 1) / 2) * 25; }));
+            Object.values(groups).forEach(g => g.forEach((j, i) => { targets[j].x += (i - (g.length - 1) / 2) * 32; }));
+            // the figure walks to its new place along the walkway: a move is never instantaneous on screen
+            // (at most about half a second of real time, so the picture never lags far behind the simulation)
             sim.workers.forEach((w, j) => {
-                const t = targets[j];
-                if (!disp[j] || dtReal === 0) disp[j] = { x: t.x, y: t.y };
-                else { disp[j].x += (t.x - disp[j].x) * a; disp[j].y += (t.y - disp[j].y) * a; }
+                const t = targets[j], key = Math.round(t.x) + ',' + Math.round(t.y);
+                let d = disp[j];
+                if (!d || dtReal === 0) { disp[j] = { x: t.x, y: t.y, key, path: [], v: 0, moving: false }; return; }
+                if (d.key !== key) {
+                    d.key = key;
+                    const path = [];
+                    if (Math.abs(t.x - d.x) > geo.colW * 0.6 && !t.lane) {
+                        if (Math.abs(d.y - geo.laneY) > 1) path.push({ x: d.x, y: geo.laneY });
+                        path.push({ x: t.x, y: geo.laneY });
+                    } else if (Math.abs(t.x - d.x) > geo.colW * 0.6 && Math.abs(d.y - geo.laneY) > 1) path.push({ x: d.x, y: geo.laneY });
+                    path.push({ x: t.x, y: t.y });
+                    let len = 0, px0 = d.x, py0 = d.y;
+                    path.forEach(p => { len += Math.hypot(p.x - px0, p.y - py0); px0 = p.x; py0 = p.y; });
+                    d.path = path;
+                    d.v = Math.max(len / 0.45, 160);
+                }
+                let step = d.v * dtReal;
+                d.moving = d.path.length > 0;
+                while (step > 0 && d.path.length) {
+                    const p = d.path[0], dist = Math.hypot(p.x - d.x, p.y - d.y);
+                    if (dist <= step) { d.x = p.x; d.y = p.y; step -= dist; d.path.shift(); }
+                    else { d.x += (p.x - d.x) * step / dist; d.y += (p.y - d.y) * step / dist; step = 0; }
+                }
             });
             sim.workers.forEach((w, j) => {
                 const d = disp[j];
-                if (w.job && w.state === 'walking' && w.walk && w.walk.purpose === 'carry') drawJob(ctx, w.job, d.x + 13, d.y - 11, 11);
-                // outer ring = state, thin white ring, inner disc = the worker's own colour
-                ctx.beginPath(); ctx.arc(d.x, d.y, 13, 0, Math.PI * 2); ctx.fillStyle = stateColor(w.state); ctx.fill();
-                ctx.beginPath(); ctx.arc(d.x, d.y, 10, 0, Math.PI * 2); ctx.fillStyle = '#fff'; ctx.fill();
-                ctx.beginPath(); ctx.arc(d.x, d.y, 8.6, 0, Math.PI * 2); ctx.fillStyle = WORKER_COLORS[j % 10]; ctx.fill();
-                ctx.fillStyle = '#fff'; ctx.font = `600 11px ${colors.mono}`; ctx.textAlign = 'center';
-                ctx.fillText(w.name ? w.name[0] : String(j + 1), d.x, d.y + 0.5);
-                if (w.state === 'blocked') { ctx.fillStyle = colors.blocked; ctx.font = `700 12px ${colors.body}`; ctx.fillText('!', d.x + 16, d.y - 13); }
+                if (w.job && w.state === 'walking' && w.walk && w.walk.purpose === 'carry') drawJob(ctx, w.job, d.x + 16, d.y - 13, 11);
+                drawWorker(ctx, d.x, d.y, WORKER_COLORS[j % 10], w.state, w.name ? w.name[0] : String(j + 1), d.moving || w.state === 'walking', j);
+                if (w.state === 'blocked') { ctx.fillStyle = colors.blocked; ctx.font = `700 13px ${colors.body}`; ctx.textAlign = 'center'; ctx.fillText('!', d.x + 17, d.y - 14); }
             });
         }
 
@@ -1915,8 +1973,8 @@
         requestAnimationFrame(frame);
         window.flowLab = {
             // advance the line by dtSim and redraw as one animation frame of dtReal seconds (used to record GIFs)
-            frame(dtSim, dtReal) { advance(sim.t + dtSim); draw(dtReal); refreshUi(true); },
-            get sim() { return sim; }, get cfg() { return cfg; }, get theory() { return th; }, get logRows() { return logRows; }, get jobRows() { return jobRows; } };
+            frame(dtSim, dtReal) { manualFrames = true; advance(sim.t + dtSim); draw(dtReal); refreshUi(true); },
+            get sim() { return sim; }, get disp() { return disp; }, get cfg() { return cfg; }, get theory() { return th; }, get logRows() { return logRows; }, get jobRows() { return jobRows; } };
     }
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
     else boot();
