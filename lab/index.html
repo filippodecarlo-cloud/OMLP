@@ -77,6 +77,7 @@
         <div class="run-clock mono"><span class="clock-label">t =</span> <span id="clock">0.0</span> <span class="unit-label">min</span></div>
     </div>
 
+    <p id="exerciseBanner" class="exercise-banner" hidden><strong>Exercise mode.</strong> The theoretical values (T₀, bottleneck rate, critical WIP, best, worst and practical worst case) and the WIP experiment are hidden: run the line at different WIP values, measure TR and LT, and build the curves yourself.</p>
     <p id="notice" class="notice" role="status" hidden></p>
     <div id="alertBox" class="alert" role="status" hidden></div>
 
@@ -251,7 +252,7 @@
                 <p class="caption">Empty buffer field = unlimited. A buffer always has room for a whole batch of the next station and a whole move lot of the previous one. Statistics in the last rows refer to the time after the warm-up.</p>
             </section>
 
-            <section class="panel" aria-labelledby="theoryTitle">
+            <section class="panel ref-only" aria-labelledby="theoryTitle">
                 <div class="panel-head">
                     <h2 id="theoryTitle" class="panel-title">Simulation vs theory</h2>
                     <span id="bindingPill" class="pill"></span>
@@ -318,9 +319,9 @@
                 </section>
             </div>
 
-            <p class="caption zoom-hint">Charts with the zoom buttons: mouse wheel or pinch to zoom on the time axis, drag to move along it. After a manual zoom the chart stops following the run; “Recent zoom” follows the last part of the run again (its length is the zoom window in the run settings), “Full zoom” shows everything.</p>
+            <p class="caption zoom-hint ref-only">Charts with the zoom buttons: mouse wheel or pinch to zoom on the time axis, drag to move along it. After a manual zoom the chart stops following the run; “Recent zoom” follows the last part of the run again (its length is the zoom window in the run settings), “Full zoom” shows everything.</p>
 
-            <section class="panel" aria-labelledby="sweepTitle">
+            <section class="panel ref-only" aria-labelledby="sweepTitle">
                 <div class="panel-head">
                     <h2 id="sweepTitle" class="panel-title">Experiment: TR and LT as the WIP or the workers change</h2>
                 </div>

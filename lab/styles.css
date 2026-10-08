@@ -394,3 +394,7 @@ body.mode-labor .machines-only { display: none !important; }
 .zoom-btns .btn[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); color: var(--ink); }
 .chart-box canvas { touch-action: pan-y; }
 .zoom-hint { margin: -4px 0 0; }
+
+/* exercise mode */
+body.exercise .ref-only { display: none !important; }
+.exercise-banner { margin: 0; border: 1px solid var(--waiting); border-left-width: 4px; background: var(--surface); border-radius: var(--r); padding: 8px 12px; font-size: 14px; }

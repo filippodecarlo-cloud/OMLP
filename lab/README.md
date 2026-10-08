@@ -16,6 +16,13 @@ TR/LT experiment over w or n. The time charts zoom like the original simulator (
 "Recent zoom" / "Full zoom"). Scenarios are chosen from a menu grouped by topic. Saved setups (browser), JSON
 download/upload (also the original simulator's `line_config.json`), installable app that works offline.
 
+## Exercise mode
+
+`index.html#<scenario>.exercise` (e.g. `#assignment.exercise`, the link of the assignment) hides what the students
+must compute: T0, bottleneck rate and critical WIP, best / worst / practical worst case, the theory table, the
+capacity row, the bottleneck highlight and the WIP experiment. They measure TR and LT with one run per WIP value and
+build the real curve and the reference curves themselves. The link without `.exercise` shows everything.
+
 ## Exported data
 
 - **Time series (CSV)**: one row exactly every *log step* (run settings, in the time unit of the line: with times in

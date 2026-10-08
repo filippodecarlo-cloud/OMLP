@@ -85,6 +85,8 @@
     let noticeTimer = null;
     let chartsUnit = null;
     let lastSweep = null;
+    // exercise mode (link #scenario.exercise): the theoretical references are hidden, students build them
+    let exercise = false;
     let jobRows = [], stepExits = 0, stepLT = 0, pendingEvents = [], logBase = 0, logFullShown = false;
     // view of each time chart: 'all' (whole run), 'recent' (follows the zoom window), 'user' (zoomed or panned by hand)
     const DEFAULT_VIEWS = { tr: 'all', lt: 'all', cum: 'all', space: 'recent', handoff: 'recent' };
@@ -195,7 +197,7 @@
         renderAll();
         rebuild();
         setSpeed(Math.log10(Math.max(0.05, th.T0 / 8)));
-        setTimeout(runSweep, 300);
+        if (!exercise) setTimeout(runSweep, 300);
     }
 
     function buildPolicies() {
@@ -309,7 +311,8 @@
             : '<td class="buf mono">OUT</td>').join(''), 'sep', 'Places in the buffer between this station and the next one. Empty = unlimited, 0 = direct transfer.');
         // statistics, filled by refreshUi()
         const stat = (label, key, tip) => row(label, S.map((_, k) => `<td id="s_${key}_${k}">–</td>`).join(''), 'stat', tip);
-        h += stat(`Capacity m·b/t [pcs/${u}]`, 'cap', 'Maximum rate of the station. The lowest one is the bottleneck TR_b (underlined).');
+        h += row(`Capacity m·b/t [pcs/${u}]`, S.map((_, k) => `<td id="s_cap_${k}">–</td>`).join(''), 'stat ref-only', 'Maximum rate of the station. The lowest one is the bottleneck TR_b (underlined).');
+        void stat;
         h += stat('Processing', 'work', 'Share of time the machines are processing (or running their automatic cycle).');
         h += stat('Blocked', 'block', 'Finished parts that cannot leave because the next buffer is full (or the worker is blocked).');
         if (labor) h += stat('Waiting for a worker', 'wait', 'A part is ready on the machine but no worker is there yet.');
@@ -824,7 +827,7 @@
         // stations, buffers, move lots
         for (let k = 0; k < N; k++) {
             const s = S[k], cx = px(k), x = cx - geo.stW / 2, y = geo.top;
-            const isB = th.bottleneck === k && th.rate.filter(r => Math.abs(r - th.TRb) < 1e-12).length === 1;
+            const isB = !exercise && th.bottleneck === k && th.rate.filter(r => Math.abs(r - th.TRb) < 1e-12).length === 1;
             ctx.fillStyle = colors.surface; ctx.strokeStyle = isB ? colors.waiting : colors.machineEdge; ctx.lineWidth = isB ? 2 : 1.2;
             roundRect(ctx, x, y, geo.stW, geo.stH, 6); ctx.fill(); ctx.stroke();
             ctx.fillStyle = colors.ink; ctx.textAlign = 'center'; ctx.font = `600 13px ${colors.body}`;
@@ -1064,7 +1067,7 @@
         $('clock').textContent = sim.t < 1000 ? sim.t.toFixed(1) : sim.t.toFixed(0);
         logStatus();
         $('kTR').textContent = m.TR > 0 ? fmt(m.TR) : '–';
-        $('kTRsub').textContent = `pcs/${u}` + (m.TR > 0 && perHour(m.TR) ? ' = ' + perHour(m.TR) : '') + ` · bound ${fmt(cfg.mode === 'labor' ? th.TRmax : (th.best ? th.best.TR : th.TRb))}`;
+        $('kTRsub').textContent = `pcs/${u}` + (m.TR > 0 && perHour(m.TR) ? ' = ' + perHour(m.TR) : '') + (exercise ? '' : ` · bound ${fmt(cfg.mode === 'labor' ? th.TRmax : (th.best ? th.best.TR : th.TRb))}`);
         $('kLT').textContent = m.exits ? fmt(m.LT) : '–';
         $('kLTsub').textContent = m.exits ? `${u} · in the line ${fmt(m.LTline)}, before S1 ${fmt(Math.max(0, m.LTqueue))}` : u;
         $('kWIP').textContent = m.time > 0 ? fmt(m.WIP) : '–';
@@ -1075,10 +1078,17 @@
             $('kUtil').textContent = m.time > 0 ? pct(m.laborUtil) : '–';
             $('kUtilsub').textContent = m.time > 0 ? `working · blocked ${pct(blocked)}` : 'working';
         } else {
-            const b = m.stations[th.bottleneck];
-            $('kUtilLabel').textContent = `Bottleneck S${th.bottleneck + 1} utilization`;
-            $('kUtil').textContent = m.time > 0 ? pct(b.working) : '–';
-            $('kUtilsub').textContent = m.time > 0 ? `blocked ${pct(b.blocked)} · starved ${pct(b.idle)}` : 'processing';
+            if (exercise) {
+                const avg = k => m.stations.reduce((a, x) => a + x[k], 0) / m.stations.length;
+                $('kUtilLabel').textContent = 'Machines, average';
+                $('kUtil').textContent = m.time > 0 ? pct(avg('working')) : '–';
+                $('kUtilsub').textContent = m.time > 0 ? `processing · blocked ${pct(avg('blocked'))} · starved ${pct(avg('idle'))}` : 'processing';
+            } else {
+                const b = m.stations[th.bottleneck];
+                $('kUtilLabel').textContent = `Bottleneck S${th.bottleneck + 1} utilization`;
+                $('kUtil').textContent = m.time > 0 ? pct(b.working) : '–';
+                $('kUtilsub').textContent = m.time > 0 ? `blocked ${pct(b.blocked)} · starved ${pct(b.idle)}` : 'processing';
+            }
         }
         $('kDone').textContent = String(m.completed);
         $('kDonesub').textContent = cfg.warmup > 0 ? `${m.exits} after warm-up` : `N = ${th.N} stations${cfg.mode === 'labor' ? ', n = ' + th.n + ' workers' : ''}`;
@@ -1301,6 +1311,8 @@
         tr.data.datasets[2].data = labor ? line(th.TRlabor) : [];
         tr.data.datasets[2].hidden = tr.data.datasets[2].modeHidden = !labor;
         tr.data.datasets[3].data = line(labor ? th.TRbEff : th.TRb);
+        tr.data.datasets[3].hidden = tr.data.datasets[3].modeHidden = exercise;
+        if (exercise) tr.data.datasets[2].hidden = tr.data.datasets[2].modeHidden = true;
         applyX(tr, 'tr');
         tr.options.scales.y.suggestedMax = Math.max(labor ? th.TRlabor : 0, th.TRbEff, th.TRb) * 1.15;
         tr.update('none');
@@ -1311,7 +1323,8 @@
         const exactTied = labor && th.tied && th.carry && th.ample;
         const ref = !labor ? refCase() : null;
         const ltRef = exactTied ? th.tied.LTwip : ref ? th[ref].LT : null;
-        lt.data.datasets[2].data = ltRef ? line(ltRef) : [];
+        lt.data.datasets[2].data = ltRef && !exercise ? line(ltRef) : [];
+        lt.data.datasets[2].modeHidden = exercise;
         lt.data.datasets[3].data = series.filter(inWin).map(s => ({ x: s.t, y: s.wipNow }));
         applyX(lt, 'lt');
         lt.update('none');
@@ -1637,6 +1650,9 @@
         bindZoomButtons();
         // deep link: index.html#pizza2 loads a scenario, #pizza2.run also starts it
         const hash = (location.hash || '').slice(1).split('.');
+        exercise = hash.includes('exercise');
+        document.body.classList.toggle('exercise', exercise);
+        $('exerciseBanner').hidden = !exercise;
         const first = PRESETS.find(p => p.id === hash[0]) || PRESETS[0];
         cfg = presetToCfg(first);
         activePreset = first.id;
@@ -1645,7 +1661,7 @@
         rebuild();
         setSpeed(Math.log10(Math.max(0.05, th.T0 / 8)));
         if (hash.includes('run')) setRunning(true);
-        setTimeout(runSweep, 800);
+        if (!exercise) setTimeout(runSweep, 800);
         let rt = null;
         window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => { layout(); draw(0); drawGantt(); }, 120); });
         if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { readColors(); draw(0); });
