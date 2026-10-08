@@ -824,7 +824,7 @@
                 ks.forEach(k => { roundRect(ctx, px(k) - geo.colW / 2 + 6, y, geo.colW - 12, 4, 2); ctx.fill(); });
                 ctx.globalAlpha = 1;
                 ctx.fillStyle = WORKER_COLORS[j % 10]; ctx.font = `600 10px ${colors.mono}`; ctx.textAlign = 'right';
-                ctx.fillText('W' + (j + 1), x0 - 2, y + 2);
+                ctx.fillText(w.name || 'W' + (j + 1), x0 - 2, y + 2);
                 void x1;
             });
         }
