@@ -15,10 +15,19 @@ machine states, Gantt of every machine, worker time split, space–time diagram,
 TR/LT experiment over w or n. Saved setups (browser), JSON download/upload (also the original simulator's
 `line_config.json`), CSV log, installable app that works offline.
 
+## Changes while the line runs
+
+WIP and release rule, number of workers and speeds, skills, walking time, take-over rule, process times,
+distributions, machines, batches, move lots, OEE, automatic cycles and buffer sizes change **without restarting**:
+operations in progress finish with the old values, removed workers finish their job and leave, removed machines
+leave when free, a lower WIP cap or buffer drains by itself. Every change is marked on the time charts and on the
+Gantt. "Restart statistics" keeps the line running and starts the averages again, to measure the new situation.
+Mode, policy, number of stations, seed and warm-up start a new run.
+
 ## Direct links to a scenario
 
 `index.html#<scenario>` loads a scenario, `index.html#<scenario>.run` also starts it.
-Part 1: `balanced`, `bottleneck`, `volatility`, `best`, `worst`, `pwc`, `push`, `oven`.
+Part 1: `balanced`, `bottleneck`, `volatility`, `best`, `worst`, `pwc`, `unbal`, `unbalExp`, `push`, `oven`.
 Part 2: `slide90`, `slide99`, `pizza2`, `pizza4`, `tend`, `bbSF`, `bbFS`, `bnEnd`, `dropFlood`, `dropCap`, `skills`, `penny`.
 
 ## Validation
@@ -27,10 +36,12 @@ Part 2: `slide90`, `slide99`, `pizza2`, `pizza4`, `tend`, `bbSF`, `bbFS`, `bnEnd
 node tests/validate.js
 ```
 
-156 checks (see `tests/validation-report.txt`): the 97 checks of the Labor Flow Simulator, plus best / worst /
+178 checks (see `tests/validation-report.txt`): the 97 checks of the Labor Flow Simulator, plus best / worst /
 practical worst case, two exponential machines with a buffer of B places (TH = (B+2)/(B+3)), parallel machines,
 OEE, batches, the presets of the original simulator (720 and 360 parts/h), machine tending and interference,
-skill matrix, stops and warnings, and 240 random configurations with every feature (invariants, Little's law).
+skill matrix, stops and warnings, 240 random configurations with every feature (invariants, Little's law), and
+changes while running (w, n, speeds, machines, buffers, push/CONWIP) compared with the theory of the new situation,
+plus 120 random sequences of live changes.
 
 ## Model notes
 

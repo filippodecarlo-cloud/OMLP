@@ -58,7 +58,8 @@
             <button id="startBtn" class="btn btn-primary" type="button">▶ Start</button>
             <button id="pauseBtn" class="btn" type="button" disabled>❚❚ Pause</button>
             <button id="stepBtn" class="btn" type="button" title="Advance to the next event">⏭ Next event</button>
-            <button id="resetBtn" class="btn" type="button">↺ Reset</button>
+            <button id="resetBtn" class="btn" type="button" title="Start again from an empty line">↺ Reset</button>
+            <button id="statsBtn" class="btn" type="button" title="Keep the line running, start the averages again from now">⟲ Restart statistics</button>
         </div>
         <div class="run-speed">
             <label for="speedRange">Speed</label>
@@ -69,6 +70,7 @@
         <div class="run-clock mono"><span class="clock-label">t =</span> <span id="clock">0.0</span> <span class="unit-label">min</span></div>
     </div>
 
+    <p id="notice" class="notice" role="status" hidden></p>
     <div id="alertBox" class="alert" role="status" hidden></div>
 
     <div class="workspace">
@@ -137,6 +139,7 @@
 
             <section class="panel">
                 <h2 class="panel-title">Run settings</h2>
+                <p class="caption live-hint">While the line runs you can change the WIP, the workers and their speeds, the skills, the walking time, the times, distributions, machines, batches, lots, OEE and buffers: operations in progress finish with the old values. The mode, the policy, the number of stations, the seed and the warm-up start a new run.</p>
                 <div class="field-row">
                     <label for="warmup">Warm-up <span class="tip" tabindex="0" data-tip="Statistics start after this time, so that the empty start-up of the line does not bias the averages.">?</span></label>
                     <div class="with-unit"><input id="warmup" type="number" min="0" step="10" value="0"><span class="unit-label">min</span></div>

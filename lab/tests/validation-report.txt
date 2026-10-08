@@ -185,4 +185,28 @@ O. Fuzz on every feature (invariants, no unexplained stop, Little)
   PASS  240 random runs with batches, move lots, buffers, automatic cycles, OEE, skills: 0 failures (8 stops caused by incomplete move lots)
   PASS  Little's law on 225 stable runs: worst |WIP - TR·LT|/WIP = 0.35%
 
-156/156 checks passed
+P. Live changes (no restart) + restart of the statistics
+  PASS  Penny Fab, w 2 → 6 while running: TR = 0.5           sim 0.5000  theory 0.5000  (err 0.00%, tol 0.3%)
+  PASS  Penny Fab, w 2 → 6 while running: LT = w/r_b = 12    sim 12.0000  theory 12.0000  (err 0.00%, tol 0.3%)
+  PASS  Penny Fab, w 6 → 2: the extra jobs drain, TR = 2/8   sim 0.2498  theory 0.2500  (err 0.06%, tol 0.3%)
+  PASS  ...and the WIP settles at 2 (2), invariants ok (0)
+  PASS  pizza shop, 2 → 4 workers while running: LT = 40     sim 40.0000  theory 40.0000  (err 0.00%, tol 0.3%)
+  PASS  ...TR = 0.20                                         sim 0.2000  theory 0.2000  (err 0.00%, tol 0.3%)
+  PASS  pizza shop, 4 → 2 workers: they leave after their jo sim 80.0000  theory 80.0000  (err 0.00%, tol 0.3%)
+  PASS  ...2 workers left (2), invariants ok (0)
+  PASS  bucket brigade 3 → 2 workers (0.6, 1.0): TR = 1.6/20 sim 0.0800  theory 0.0800  (err 0.00%, tol 1.0%)
+  PASS  ...order kept, invariants ok (0)
+  PASS  ...and back to 3 workers: TR = 3/20 again            sim 0.1500  theory 0.1500  (err 0.00%, tol 1.0%)
+  PASS  slide 90 example, speeds 1 → 2 while running: TR = 4 sim 0.0444  theory 0.0444  (err 0.03%, tol 0.5%)
+  PASS  S2 from 1 to 3 machines while running: TR = 0.5      sim 0.5000  theory 0.5000  (err 0.00%, tol 0.3%)
+  PASS  S2 from 3 to 1 machine: the extra machines leave whe sim 0.1666  theory 0.1667  (err 0.03%, tol 0.3%)
+  PASS  ...S2 has 1 machine left (1)
+  PASS  two exp. machines, buffer 3 → 0 while running: TH =  sim 0.6666  theory 0.6667  (err 0.02%, tol 1.5%)
+  PASS  CONWIP → push with buffers 2: TR = bottleneck 1/4    sim 0.2500  theory 0.2500  (err 0.00%, tol 0.3%)
+  PASS  ...the buffers cap the WIP (7 ≤ 7)
+  PASS  push (flooding) → CONWIP 3: the WIP drains down to 3 (3)
+  PASS  ...then best case with w = 3: LT = max(T0, w/r_b) =  sim 12.0000  theory 12.0000  (err 0.00%, tol 0.3%)
+  PASS  120 random runs with 4 live changes each: 0 failures
+  PASS  removed workers always leave once free (0 runs still waiting)
+
+178/178 checks passed

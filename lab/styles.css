@@ -356,3 +356,6 @@ body.mode-labor .machines-only { display: none !important; }
 .gantt-box { position: relative; overflow-x: auto; }
 #gantt { display: block; width: 100%; min-width: 560px; }
 .chart-card .panel-head { margin-bottom: 4px; }
+
+.notice { margin: 0; border: 1px solid var(--accent); background: var(--accent-soft); border-radius: var(--r); padding: 7px 12px; font-size: 14px; }
+.live-hint { margin: 0 0 4px; }

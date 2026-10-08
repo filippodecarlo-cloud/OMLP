@@ -232,37 +232,121 @@
             this.inLine = 0;
             this.queues = Array.from({ length: this.N }, () => []);
             this.outbox = Array.from({ length: this.N }, () => []);
-            this.machines = c.stations.map((s, k) => Array.from({ length: s.m }, (_, i) => ({
-                k, i, jobs: [], phase: 'idle', rem: 0, dur: 0, autoRem: 0, worker: null, since: 0, state: 'idle'
-            })));
+            this.machines = c.stations.map((s, k) => Array.from({ length: s.m }, (_, i) => this.makeSlot(k, i)));
             this.slots = [].concat(...this.machines);
             this.cumWork = [0];
             for (let k = 0; k < this.N; k++) this.cumWork.push(this.cumWork[k] + c.stations[k].st);
-            this.workers = c.workers.map((w, j) => {
-                const first = c.skills[j].indexOf(true);
-                return {
-                    id: j, speed: w.speed, x: c.policy === 'zones' && first >= 0 ? first : 0, skills: c.skills[j],
-                    state: 'free', job: null, slot: null, walk: null, since: 0, idleSince: 0
-                };
-            });
-            this.stats = {
-                exits: 0, sumLT: 0, sumLTline: 0, wipArea: 0, lineArea: 0, time: 0,
-                w: this.workers.map(() => ({ working: 0, blocked: 0, walking: 0, idle: 0 })),
-                st: c.stations.map(() => ({ working: 0, blocked: 0, waitWorker: 0, idle: 0 })),
-                buf: c.stations.map(() => ({ area: 0, max: 0 })), out: c.stations.map(() => 0)
-            };
+            this.workers = c.workers.map((w, j) => this.makeWorker(j, w.speed, c.skills[j]));
+            this.updates = 0;            // number of live changes applied with update()
+            this.statsFrom = c.warmup;
+            this.newStats();
             this.completed = 0;
             this.started = 0;
             this.exitLog = [];        // {t, lt, ltLine}   drained by the UI
             this.entryLog = [];       // {t}               first operation started (drained by the UI)
             this.handoffs = [];       // {t, j, wp}        bucket brigade take-overs
             this.trace = this.workers.map(() => []);
-            this.stateLog = this.slots.map(() => []);
             this.stalled = false;
             this.zeroSteps = 0;
             this.release();
             this.resolve();
             this.recordTrace();
+        }
+
+        makeSlot(k, i) {
+            return { k, i, jobs: [], phase: 'idle', rem: 0, dur: 0, autoRem: 0, worker: null, since: 0, state: 'idle', log: [], retire: false };
+        }
+        makeWorker(j, speed, skills) {
+            const first = skills.indexOf(true);
+            return {
+                id: j, speed, x: this.cfg.policy === 'zones' && first >= 0 ? first : 0, skills,
+                state: 'free', job: null, slot: null, walk: null, since: 0, idleSince: this.t, leaving: false
+            };
+        }
+        newStats() {
+            this.stats = {
+                exits: 0, sumLT: 0, sumLTline: 0, wipArea: 0, lineArea: 0, time: 0,
+                w: this.workers.map(() => ({ working: 0, blocked: 0, walking: 0, idle: 0 })),
+                st: this.cfg.stations.map(() => ({ working: 0, blocked: 0, waitWorker: 0, idle: 0 })),
+                buf: this.cfg.stations.map(() => ({ area: 0, max: 0 })), out: this.cfg.stations.map(() => 0)
+            };
+        }
+
+        // statistics start again from now (the line keeps running)
+        resetStats() {
+            this.cfg.warmup = this.t;
+            this.statsFrom = this.t;
+            this.newStats();
+        }
+
+        // ---------------- live changes ----------------
+        // Applies a new configuration to the running line. Mode, policy and number of
+        // stations cannot change (a new line is needed). Operations in progress keep the
+        // time they already drew; removed workers finish their job, removed machines
+        // finish their batch, a smaller WIP cap or buffer drains by itself.
+        update(cfgNew) {
+            const c = this.cfg, n2 = normalize(Object.assign({}, cfgNew, { warmup: c.warmup, seed: c.seed }));
+            if (n2.mode !== c.mode || n2.policy !== c.policy || n2.stations.length !== this.N) throw new Error('This change needs a new run (reset).');
+            this.updates++;
+            n2.stations.forEach((s, k) => {
+                const old = c.stations[k];
+                ['st', 'auto', 'dist', 'cv', 'oee', 'batch', 'move'].forEach(key => { old[key] = s[key]; });
+                const slots = this.machines[k];
+                const active = slots.filter(x => !x.retire);
+                if (s.m > active.length) {
+                    let add = s.m - active.length;
+                    for (const x of slots) if (x.retire && add > 0) { x.retire = false; add--; }       // un-retire first
+                    for (let i = 0; i < add; i++) slots.push(this.makeSlot(k, slots.length));
+                } else if (s.m < active.length) {
+                    let drop = active.length - s.m;
+                    for (const x of active.slice().reverse()) {                                     // idle machines go first
+                        if (drop > 0 && x.phase === 'idle') { x.retire = true; drop--; }
+                    }
+                    for (const x of active.slice().reverse()) if (drop > 0 && !x.retire) { x.retire = true; drop--; }
+                }
+                old.m = s.m;
+            });
+            this.slots = [].concat(...this.machines);
+            c.buffers = n2.buffers;
+            c.wip = n2.wip; c.walk = n2.walk; c.preempt = n2.preempt;
+            this.cumWork = [0];
+            for (let k = 0; k < this.N; k++) this.cumWork.push(this.cumWork[k] + c.stations[k].st);
+            // workers: same index keeps the same person
+            const active = this.workers.filter(w => !w.leaving);
+            const m2 = n2.workers.length;
+            active.forEach((w, j) => {
+                if (j < m2) { w.speed = n2.workers[j].speed; w.skills = n2.skills[j]; }
+                else w.leaving = true;
+            });
+            for (let j = active.length; j < m2; j++) {
+                const w = this.makeWorker(this.workers.length, n2.workers[j].speed, n2.skills[j]);
+                this.workers.push(w);
+                this.trace.push([]);
+                this.stats.w.push({ working: 0, blocked: 0, walking: 0, idle: 0 });
+            }
+            c.workers = n2.workers; c.skills = n2.skills;
+            this.n = this.workers.length;
+            this.prune();
+            this.resolve();
+            this.recordTrace();
+        }
+
+        // remove machines and workers that were asked to leave, as soon as they are free
+        prune() {
+            let changed = false;
+            this.machines.forEach((slots, k) => {
+                const keep = slots.filter(x => !(x.retire && x.phase === 'idle'));
+                if (keep.length !== slots.length) { keep.forEach((x, i) => { x.i = i; }); this.machines[k] = keep; changed = true; }
+            });
+            if (changed) this.slots = [].concat(...this.machines);
+            const gone = this.workers.map((w, j) => (w.leaving && !w.job && !w.slot && !(w.state === 'walking' && w.walk && (w.walk.purpose === 'carry' || w.walk.purpose === 'claim'))) ? j : -1).filter(j => j >= 0);
+            if (gone.length) {
+                for (const j of gone.reverse()) { this.workers.splice(j, 1); this.trace.splice(j, 1); this.stats.w.splice(j, 1); }
+                this.workers.forEach((w, j) => { w.id = j; });
+                this.n = this.workers.length;
+                changed = true;
+            }
+            return changed;
         }
 
         // ---------------- random times ----------------
@@ -304,7 +388,7 @@
         doneSlots(k) { return this.machines[k].filter(s => s.phase === 'done' && s.jobs.length).sort((a, b) => a.since - b.since); }
         // parts that station k can pull right now
         available(k) {
-            if (k === 0) return isFinite(this.cfg.wip) ? this.queues[0].length : Infinity;
+            if (k === 0) return isFinite(this.cfg.wip) ? Math.max(this.queues[0].length, 0) : Infinity;
             let a = this.queues[k].length;
             if (this.cap(k) === 0 && this.cfg.stations[k - 1].move === 1) for (const s of this.doneSlots(k - 1)) a += s.jobs.length;
             return a;
@@ -312,7 +396,7 @@
         take(k, b) {
             const out = [];
             while (out.length < b) {
-                if (k === 0) { out.push(isFinite(this.cfg.wip) ? this.queues[0].shift() : this.newJob()); continue; }
+                if (k === 0) { out.push(this.queues[0].length ? this.queues[0].shift() : this.newJob()); continue; }
                 if (this.queues[k].length) { out.push(this.queues[k].shift()); continue; }
                 const s = this.doneSlots(k - 1)[0];                // direct transfer (buffer of size 0)
                 out.push(s.jobs.shift());
@@ -320,7 +404,7 @@
             }
             return out;
         }
-        idleSlot(k) { return this.machines[k].find(s => s.phase === 'idle'); }
+        idleSlot(k) { return this.machines[k].find(s => s.phase === 'idle' && !s.retire); }
         freeSlot(s) { s.jobs = []; s.phase = 'idle'; s.worker = null; s.rem = 0; s.dur = 0; s.autoRem = 0; }
 
         workPos(job, slot) {
@@ -454,6 +538,7 @@
             while (changed) {
                 if (++guard > 20000) throw new Error('resolve(): no convergence (' + this.cfg.mode + '/' + this.cfg.policy + ')');
                 this.release();
+                if (this.updates && this.prune()) { changed = true; continue; }
                 changed = this.cfg.carry ? false : this.flush();
                 if (changed) continue;
                 if (!this.labor) changed = this.resolveMachines();
@@ -482,6 +567,7 @@
             }
             for (const w of this.workers) {
                 if (w.state !== 'free' && w.state !== 'idle') continue;
+                if (w.leaving) continue;
                 if (w.x > EPS) {
                     if (walk === 0) w.x = 0;
                     else { w.state = 'walking'; w.walk = { purpose: 'start', to: 0 }; return true; }
@@ -540,7 +626,7 @@
         }
 
         resolveDropping() {
-            const free = this.workers.filter(w => w.state === 'free' || w.state === 'idle');
+            const free = this.workers.filter(w => (w.state === 'free' || w.state === 'idle') && !w.leaving);
             if (!free.length) return false;
             for (let k = this.N - 1; k >= 0; k--) {
                 const b = this.cfg.stations[k].batch;
@@ -619,11 +705,11 @@
 
         recordStates() {
             const lim = this.cfg.stateLimit;
-            this.slots.forEach((s, i) => {
+            this.slots.forEach(s => {
                 const st = this.slotState(s);
-                if (st === s.state && this.stateLog[i].length) return;
+                if (st === s.state && s.log.length) return;
                 s.state = st;
-                const log = this.stateLog[i];
+                const log = s.log;
                 const last = log[log.length - 1];
                 if (last && Math.abs(last.t - this.t) <= EPS) last.s = st; else log.push({ t: this.t, s: st });
                 if (log.length > lim) log.splice(0, log.length - lim);
@@ -746,19 +832,20 @@
             this.slots.forEach(s => {
                 if (s.phase === 'idle' && s.jobs.length) errs.push('idle slot with jobs at S' + (s.k + 1));
                 if (s.phase !== 'idle' && !s.jobs.length) errs.push('busy slot without jobs at S' + (s.k + 1));
-                if (s.jobs.length > this.cfg.stations[s.k].batch) errs.push('batch overflow at S' + (s.k + 1));
+                if (!this.updates && s.jobs.length > this.cfg.stations[s.k].batch) errs.push('batch overflow at S' + (s.k + 1));
                 if (s.worker && s.worker.slot !== s) errs.push('slot/worker link broken at S' + (s.k + 1));
             });
-            for (let k = 1; k < this.N; k++) if (this.queues[k].length > this.cap(k)) errs.push('buffer overflow before S' + (k + 1));
+            if (!this.updates) for (let k = 1; k < this.N; k++) if (this.queues[k].length > this.cap(k)) errs.push('buffer overflow before S' + (k + 1));
             for (const w of this.workers) {
                 if (w.state === 'working' && (!w.slot || w.slot.worker !== w || w.slot.phase !== 'manual')) errs.push('worker ' + w.id + ' working without a machine');
                 if (w.job && !seen.has(w.job.id)) errs.push('worker ' + w.id + ' holds a job that is nowhere');
-                if (w.slot && !w.skills[w.slot.k]) errs.push('worker ' + w.id + ' at a station outside his skills');
+                if (!this.updates && w.slot && !w.skills[w.slot.k]) errs.push('worker ' + w.id + ' at a station outside his skills');
             }
             if (this.cfg.policy === 'bucket' && this.labor) {
                 for (let j = 1; j < this.n; j++) if (this.workers[j].x < this.workers[j - 1].x - 1e-6) errs.push('bucket order violated at t=' + this.t);
             }
-            if (isFinite(this.cfg.wip) && this.jobs.size !== this.cfg.wip) errs.push('CONWIP violated: ' + this.jobs.size);
+            if (isFinite(this.cfg.wip) && (this.updates ? this.jobs.size < this.cfg.wip : this.jobs.size !== this.cfg.wip)) errs.push('CONWIP violated: ' + this.jobs.size);
+            this.workers.forEach((w, j) => { if (w.id !== j) errs.push('worker ids out of order'); });
             return errs;
         }
     }

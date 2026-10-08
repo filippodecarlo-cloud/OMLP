@@ -33,6 +33,10 @@
           cfg: { stations: L([2, 2, 2, 2], { move: 4 }), wip: 4, unit: 'h' } },
         { id: 'pwc', mode: 'machines', ref: 'Slides 33–42', name: 'Practical worst case: exponential times',
           cfg: { stations: L([2, 2, 2, 2], { dist: 'exp' }), wip: 4, unit: 'h', warmup: 50 } },
+        { id: 'unbal', mode: 'machines', ref: 'Slides 57–65', name: 'Unbalanced line, multimachine stations A–D',
+          cfg: { stations: [ST(2, { m: 1 }), ST(5, { m: 2 }), ST(10, { m: 6 }), ST(3, { m: 2 })], wip: 8, unit: 'h' } },
+        { id: 'unbalExp', mode: 'machines', ref: 'Slides 66–71', name: 'Same unbalanced line, exponential times',
+          cfg: { stations: [ST(2, { m: 1, dist: 'exp' }), ST(5, { m: 2, dist: 'exp' }), ST(10, { m: 6, dist: 'exp' }), ST(3, { m: 2, dist: 'exp' })], wip: 8, unit: 'h', warmup: 200 } },
         { id: 'push', mode: 'machines', ref: 'Buffers', name: 'Push line with 1-place buffers',
           cfg: { stations: L([5, 5, 5, 5], { dist: 'exp' }), buffers: [1, 1, 1], wipMode: 'free', unit: 's', warmup: 200 } },
         { id: 'oven', mode: 'machines', ref: 'Batches', name: 'Oven: 2 parts together every 4 h',
@@ -73,6 +77,10 @@
     let geo = null, charts = {}, colors = {};
     let lastUi = 0, lastFrame = 0, sweepDone = false, lastAlert = null;
     let deferredInstall = null;
+    let appliedCfg = null;          // configuration the running line was built / last updated with
+    let markers = [];               // live changes shown on the time charts {t, short, label}
+    let noticeTimer = null;
+    let chartsUnit = null;
 
     const deepCopy = o => JSON.parse(JSON.stringify(o));
     function presetToCfg(p) {
@@ -296,11 +304,61 @@
         changed();
     }
 
+    // a change is applied to the running line, unless it needs a new one
     function changed() {
         activePreset = null;
+        const prev = appliedCfg;
+        const structural = !sim || !prev || sim.t === 0 || prev.mode !== cfg.mode || prev.policy !== cfg.policy ||
+            prev.stations.length !== cfg.stations.length || prev.seed !== cfg.seed || prev.warmup !== cfg.warmup;
         renderAll();
-        rebuild();
+        if (structural) {
+            const wasRunning = sim && sim.t > 0;
+            rebuild();
+            if (wasRunning) notice('New run: the mode, the policy, the number of stations, the seed and the warm-up can only change from the start.');
+        } else liveUpdate(prev);
         if (sweepDone) $('sweepStatus').textContent = 'The setup has changed: run the experiment again to update the curves.';
+    }
+
+    function liveUpdate(prev) {
+        try { sim.update(engineCfg(cfg)); }
+        catch (err) { rebuild(); notice('New run: ' + err.message); return; }
+        th = E.theory(engineCfg(cfg));
+        appliedCfg = deepCopy(cfg);
+        const d = describeDiff(prev, cfg);
+        if (d.length) {
+            markers.push({ t: sim.t, short: d.length === 1 ? d[0] : d[0] + ' …', label: d.join(', ') });
+            notice(`Changed at t = ${fmtShort(+sim.t.toFixed(2))} ${cfg.unit} while running: ${d.join(', ')}. The averages still include the time before; press “Restart statistics” to measure the new situation.`);
+        }
+        layout();
+        refreshUi(true);
+        draw(0);
+    }
+
+    function describeDiff(a, b) {
+        const out = [];
+        const wTxt = c => c.wipMode === 'free' ? '∞' : String(c.wip);
+        if (wTxt(a) !== wTxt(b)) out.push(`w ${wTxt(a)}→${wTxt(b)}`);
+        if (b.mode === 'labor') {
+            if (a.workers.length !== b.workers.length) out.push(`n ${a.workers.length}→${b.workers.length}`);
+            else if (a.workers.some((w, j) => w.speed !== b.workers[j].speed)) out.push('speeds ' + b.workers.map(w => w.speed).join('/'));
+            if (a.walk !== b.walk) out.push(`walk ${a.walk}→${b.walk}`);
+            if (a.preempt !== b.preempt) out.push('take-over rule');
+            if (JSON.stringify(a.skills) !== JSON.stringify(b.skills)) out.push('skills');
+        }
+        const names = { st: 'ST', auto: 'auto', dist: '', cv: 'CV', m: 'm', batch: 'b', move: 'lot', oee: 'OEE' };
+        b.stations.forEach((s, k) => Object.keys(names).forEach(key => {
+            if (a.stations[k][key] !== s[key]) out.push(`S${k + 1} ${names[key] ? names[key] + ' ' : ''}${key === 'dist' ? DIST_LABEL[a.stations[k][key]] : a.stations[k][key]}→${key === 'dist' ? DIST_LABEL[s[key]] : s[key]}`);
+        }));
+        b.buffers.forEach((x, k) => { if (a.buffers[k] !== x) out.push(`B${k + 1} ${a.buffers[k] == null ? '∞' : a.buffers[k]}→${x == null ? '∞' : x}`); });
+        return out;
+    }
+
+    function notice(text) {
+        const el = $('notice');
+        el.textContent = text;
+        el.hidden = false;
+        clearTimeout(noticeTimer);
+        noticeTimer = setTimeout(() => { el.hidden = true; }, 12000);
     }
 
     function setWorkers(n) {
@@ -447,6 +505,9 @@
         try { sim = new E.FlowLine(engineCfg(cfg)); }
         catch (err) { showAlert(['The setup is not valid: ' + err.message], true); return; }
         th = E.theory(engineCfg(cfg));
+        if (chartsUnit !== cfg.unit) makeCharts();          // axis titles carry the time unit
+        appliedCfg = deepCopy(cfg);
+        markers = [];
         series = []; exits = []; entries = []; exitAnims = []; logRows = []; nextLog = 0;
         disp = sim.workers.map(() => null);
         lastAlert = null;
@@ -476,6 +537,13 @@
             refreshUi(true);
         });
         $('speedRange').addEventListener('input', e => setSpeed(e.target.value));
+        $('statsBtn').addEventListener('click', () => {
+            if (!sim || sim.t === 0) return;
+            sim.resetStats();
+            markers.push({ t: sim.t, short: 'statistics', label: 'statistics restarted' });
+            notice(`Statistics restarted at t = ${fmtShort(+sim.t.toFixed(2))} ${cfg.unit}: averages, histogram and machine shares now describe only what happens from here on.`);
+            refreshUi(true);
+        });
     }
 
     function advance(T) {
@@ -984,6 +1052,24 @@
             elements: { point: { radius: 0 }, line: { borderWidth: 2, tension: 0 } }
         };
     }
+    // vertical lines where the setup was changed while running
+    const markerPlugin = {
+        id: 'markers',
+        afterDatasetsDraw(chart) {
+            if (!markers.length || !chart.scales.x) return;
+            const x = chart.scales.x, a = chart.chartArea, ctx = chart.ctx;
+            ctx.save();
+            ctx.strokeStyle = colors.accent; ctx.fillStyle = colors.accent; ctx.setLineDash([4, 3]); ctx.lineWidth = 1;
+            ctx.font = `10px ${colors.mono}`; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+            markers.forEach((m, i) => {
+                if (m.t < x.min || m.t > x.max) return;
+                const p = x.getPixelForValue(m.t);
+                ctx.beginPath(); ctx.moveTo(p, a.top); ctx.lineTo(p, a.bottom); ctx.stroke();
+                ctx.fillText(m.short, p + 3, a.top + 2 + (i % 3) * 11);
+            });
+            ctx.restore();
+        }
+    };
     // datasets that do not apply to the current mode are hidden and left out of the legend
     const legendFilter = (item, data) => !data.datasets[item.datasetIndex].modeHidden && !String(item.text).startsWith('B&E');
     const dashed = (label, color) => ({ label, data: [], borderColor: color, borderDash: [6, 4], borderWidth: 1.5, pointRadius: 0, fill: false });
@@ -1003,11 +1089,12 @@
         charts = {};
         if (typeof Chart === 'undefined') return;
         const u = cfg ? cfg.unit : 'min';
+        chartsUnit = u;
         charts.tr = new Chart($('chTR'), { type: 'line', data: { datasets: [
             { label: 'TR, moving window', data: [], borderColor: colors.accent, pointRadius: 0 },
             { label: 'TR, cumulative', data: [], borderColor: colors.ink, borderWidth: 1.5, pointRadius: 0 },
             dashed('labor capacity', colors.walking), dashed('bottleneck TR_b', colors.waiting)
-        ] }, options: baseOptions('time [' + u + ']', 'pcs/' + u) });
+        ] }, options: baseOptions('time [' + u + ']', 'pcs/' + u), plugins: [markerPlugin] });
         const ltOpts = baseOptions('time [' + u + ']', 'LT [' + u + ']');
         ltOpts.scales.y2 = { position: 'right', title: { display: true, text: 'WIP [pcs]', color: colors.muted }, ticks: { color: colors.muted }, grid: { drawOnChartArea: false }, beginAtZero: true };
         charts.lt = new Chart($('chLT'), { type: 'line', data: { datasets: [
@@ -1015,7 +1102,7 @@
             { label: 'LT, cumulative', data: [], borderColor: colors.ink, borderWidth: 1.5, pointRadius: 0 },
             dashed('LT reference', colors.working),
             { label: 'WIP in the system', data: [], borderColor: colors.waiting, borderWidth: 1.2, pointRadius: 0, yAxisID: 'y2', stepped: true }
-        ] }, options: ltOpts });
+        ] }, options: ltOpts, plugins: [markerPlugin] });
         const hOpts = { responsive: true, maintainAspectRatio: false, animation: false,
             plugins: { legend: { display: false } },
             scales: { x: { ticks: { color: colors.muted, maxRotation: 0, autoSkip: true }, grid: { display: false }, title: { display: true, text: 'lead time [' + u + ']', color: colors.muted } },
@@ -1029,7 +1116,7 @@
         charts.cum = new Chart($('chCum'), { type: 'line', data: { datasets: [
             { label: 'entered S1', data: [], borderColor: colors.walking, pointRadius: 0, stepped: true },
             { label: 'left the line', data: [], borderColor: colors.working, pointRadius: 0, stepped: true }
-        ] }, options: baseOptions('time [' + u + ']', 'parts') });
+        ] }, options: baseOptions('time [' + u + ']', 'parts'), plugins: [markerPlugin] });
         charts.stations = new Chart($('chStations'), { type: 'bar', data: { labels: [], datasets: [
             { label: 'processing', data: [], backgroundColor: colors.working },
             { label: 'blocked', data: [], backgroundColor: colors.blocked },
@@ -1044,7 +1131,7 @@
         ] }, options: barOptions(true) });
         const spOpts = baseOptions('time [' + u + ']', '');
         spOpts.scales.y = { min: -0.5, max: 4.5, ticks: { color: colors.muted, stepSize: 1, callback: v => Number.isInteger(v) ? 'S' + (v + 1) : '' }, grid: { color: colors.line } };
-        charts.space = new Chart($('chSpace'), { type: 'line', data: { datasets: [] }, options: spOpts });
+        charts.space = new Chart($('chSpace'), { type: 'line', data: { datasets: [] }, options: spOpts, plugins: [markerPlugin] });
         charts.handoff = new Chart($('chHandoff'), { type: 'scatter', data: { datasets: [] }, options: baseOptions('time [' + u + ']', 'manual work done [' + u + ']') });
         const sw = y => { const o = baseOptions('', y); o.elements.point.radius = 3; return o; };
         charts.sweepTR = new Chart($('chSweepTR'), { type: 'line', data: { datasets: [] }, options: sw('TR [pcs/' + u + ']') });
@@ -1081,7 +1168,7 @@
         lt.options.scales.x.min = from; lt.options.scales.x.max = t1;
         lt.update('none');
         // histogram of lead times
-        const lts = exits.filter(e => e.t >= from).map(e => e.lt);
+        const lts = exits.filter(e => e.t >= from && e.t > sim.statsFrom).map(e => e.lt);
         const hc = charts.hist;
         if (lts.length) {
             let lo = Math.min(...lts), hi = Math.max(...lts);
@@ -1211,7 +1298,7 @@
             const multi = sim.machines[s.k].length > 1;
             ctx.fillStyle = colors.muted;
             ctx.fillText('S' + (s.k + 1) + (multi ? '·' + (s.i + 1) : ''), 4, y + rowH / 2);
-            const log = sim.stateLog[i];
+            const log = s.log;
             for (let e = 0; e < log.length; e++) {
                 const a = log[e].t, b = e + 1 < log.length ? log[e + 1].t : sim.t;
                 if (b < t0 || a > sim.t) continue;
@@ -1221,6 +1308,10 @@
                 ctx.fillRect(xa, y + 2, xb - xa, rowH - 4);
             }
         });
+        // changes made while running
+        ctx.save(); ctx.strokeStyle = colors.accent; ctx.setLineDash([4, 3]);
+        markers.forEach(mk => { if (mk.t >= t0 && mk.t <= sim.t) { ctx.beginPath(); ctx.moveTo(X(mk.t), padT); ctx.lineTo(X(mk.t), padT + rows * rowH); ctx.stroke(); } });
+        ctx.restore();
         // time axis
         ctx.strokeStyle = colors.line; ctx.fillStyle = colors.muted; ctx.textAlign = 'center';
         const yA = padT + rows * rowH + 4;

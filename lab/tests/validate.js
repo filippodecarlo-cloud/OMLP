@@ -413,6 +413,107 @@ function mline(st, opts = {}) {
     assert(G, `Little's law on ${littleRuns} stable runs: worst |WIP - TR·LT|/WIP = ${(littleWorst * 100).toFixed(2)}%`, littleWorst < 0.04);
 }
 
+// ===========================================================================
+// LIVE CHANGES - update() while the line runs, then resetStats()
+// ===========================================================================
+function live(cfg, steps, T) {
+    // steps: [{t, change(cfg) -> cfg}] ; statistics restart a little after each change
+    const sim = new FlowLine(cfg);
+    let cur = JSON.parse(JSON.stringify(cfg, (k, v) => v === Infinity ? 'INF' : v), (k, v) => v === 'INF' ? Infinity : v);
+    const errs = [];
+    for (const st of steps) {
+        sim.advanceTo(st.t);
+        cur = st.change(cur);
+        sim.update(cur);
+        errs.push(...sim.checkInvariants());
+        sim.advanceTo(st.t + (st.settle || 500));
+        sim.resetStats();
+    }
+    const step = (T - sim.t) / 100;
+    for (let i = 0; i < 100; i++) { sim.advanceTo(sim.t + step); errs.push(...sim.checkInvariants()); if (errs.length) break; }
+    return { sim, m: sim.metrics(), errs };
+}
+{
+    const G = 'P. Live changes (no restart) + restart of the statistics';
+    const pf = (w, o) => Object.assign({ mode: 'machines', stations: mline([2, 2, 2, 2]), wip: w, warmup: 100 }, o || {});
+    let r = live(pf(2), [{ t: 1000, change: c => Object.assign(c, { wip: 6 }) }], 8000);
+    check(G, 'Penny Fab, w 2 → 6 while running: TR = 0.5', r.m.TR, 0.5, 0.003);
+    check(G, 'Penny Fab, w 2 → 6 while running: LT = w/r_b = 12', r.m.LT, 12, 0.003);
+    r = live(pf(6), [{ t: 1000, change: c => Object.assign(c, { wip: 2 }) }], 8000);
+    check(G, 'Penny Fab, w 6 → 2: the extra jobs drain, TR = 2/8', r.m.TR, 0.25, 0.003);
+    assert(G, `...and the WIP settles at 2 (${r.sim.jobs.size}), invariants ok (${r.errs.length})`, r.sim.jobs.size === 2 && r.errs.length === 0);
+    const pizza = n => ({ stations: mline([3, 3, 4, 4, 3, 3], { m: 4 }), workers: workers(n), policy: 'tied', wip: 8, warmup: 40 });
+    r = live(pizza(2), [{ t: 400, change: c => Object.assign(c, { workers: workers(4) }) }], 6000);
+    check(G, 'pizza shop, 2 → 4 workers while running: LT = 40', r.m.LT, 40, 0.003);
+    check(G, '...TR = 0.20', r.m.TR, 0.2, 0.003);
+    r = live(pizza(4), [{ t: 400, change: c => Object.assign(c, { workers: workers(2) }) }], 6000);
+    check(G, 'pizza shop, 4 → 2 workers: they leave after their job, LT = 80', r.m.LT, 80, 0.003);
+    assert(G, `...2 workers left (${r.sim.workers.length}), invariants ok (${r.errs.length})`, r.sim.workers.length === 2 && r.errs.length === 0);
+    const bb = { stations: mline(new Array(20).fill(1)), workers: workers(3, [0.6, 1.0, 1.4]), policy: 'bucket', wip: Infinity, warmup: 200 };
+    r = live(bb, [{ t: 2000, change: c => Object.assign(c, { workers: workers(2, [0.6, 1.0]) }) }], 20000);
+    check(G, 'bucket brigade 3 → 2 workers (0.6, 1.0): TR = 1.6/20', r.m.TR, 0.08, 0.01);
+    assert(G, `...order kept, invariants ok (${r.errs.length})`, r.errs.length === 0 && r.sim.workers.length === 2);
+    r = live(bb, [{ t: 2000, change: c => Object.assign(c, { workers: workers(2, [0.6, 1.0]) }) }, { t: 6000, change: c => Object.assign(c, { workers: workers(3, [0.6, 1.0, 1.4]) }) }], 30000);
+    check(G, '...and back to 3 workers: TR = 3/20 again', r.m.TR, 0.15, 0.01);
+    const sp = { stations: mline([10, 20, 30, 10, 20], { m: 2 }), workers: workers(2), policy: 'tied', wip: 4, warmup: 200 };
+    r = live(sp, [{ t: 1000, change: c => Object.assign(c, { workers: workers(2, [2, 2]) }) }], 20000);
+    check(G, 'slide 90 example, speeds 1 → 2 while running: TR = 4/90', r.m.TR, 4 / 90, 0.005);
+    const mm = m => ({ mode: 'machines', stations: mline([2, 6, 2], k => ({ m: k === 1 ? m : 1 })), wip: 10, warmup: 100 });
+    r = live(mm(1), [{ t: 1000, change: c => { c.stations[1].m = 3; return c; } }], 8000);
+    check(G, 'S2 from 1 to 3 machines while running: TR = 0.5', r.m.TR, 0.5, 0.003);
+    r = live(mm(3), [{ t: 1000, change: c => { c.stations[1].m = 1; return c; } }], 8000);
+    check(G, 'S2 from 3 to 1 machine: the extra machines leave when free, TR = 1/6', r.m.TR, 1 / 6, 0.003);
+    assert(G, `...S2 has 1 machine left (${r.sim.machines[1].length})`, r.sim.machines[1].length === 1);
+    const two = B => ({ mode: 'machines', stations: mline([1, 1], { dist: 'exp' }), buffers: [B], wip: Infinity, warmup: 1000, seed: 9 });
+    r = live(two(3), [{ t: 5000, change: c => Object.assign(c, { buffers: [0] }), settle: 1000 }], 300000);
+    check(G, 'two exp. machines, buffer 3 → 0 while running: TH = 2/3', r.m.TR, 2 / 3, 0.015);
+    r = live({ mode: 'machines', stations: mline([2, 2, 4]), buffers: [2, 2], wip: 6, warmup: 100 }, [{ t: 1000, change: c => Object.assign(c, { wip: Infinity }) }], 6000);
+    check(G, 'CONWIP → push with buffers 2: TR = bottleneck 1/4', r.m.TR, 0.25, 0.003);
+    assert(G, `...the buffers cap the WIP (${r.sim.jobs.size} ≤ 7)`, r.sim.jobs.size <= 7 && r.errs.length === 0);
+    r = live({ mode: 'machines', stations: mline([2, 2, 4]), wip: Infinity, warmup: 100 }, [{ t: 300, change: c => Object.assign(c, { wip: 3 }), settle: 3000 }], 9000);
+    assert(G, `push (flooding) → CONWIP 3: the WIP drains down to 3 (${r.sim.jobs.size})`, r.sim.jobs.size === 3);
+    check(G, '...then best case with w = 3: LT = max(T0, w/r_b) = 12', r.m.LT, 12, 0.003);
+    // fuzz: random sequences of live changes
+    const rng = require('../engine.js').mulberry32(777);
+    const pols = ['tied', 'bucket', 'dropping', 'zones'];
+    let fails = 0, runs = 0, unfinished = 0;
+    for (let i = 0; i < 120; i++) {
+        const N = 2 + Math.floor(rng() * 5);
+        const machines = rng() < 0.35;
+        const mk = () => Array.from({ length: N }, () => ({
+            st: 1 + Math.round(rng() * 8), auto: rng() < 0.2 ? Math.round(rng() * 6) : 0, m: 1 + Math.floor(rng() * 3),
+            batch: rng() < 0.15 ? 2 : 1, move: 1, oee: rng() < 0.3 ? 0.7 : 1, dist: ['det', 'exp', 'uniform'][Math.floor(rng() * 3)], cv: 0.4
+        }));
+        const cfg = { mode: machines ? 'machines' : 'labor', stations: mk(), buffers: Array.from({ length: N - 1 }, () => rng() < 0.5 ? Math.floor(rng() * 4) : null),
+            workers: workers(1 + Math.floor(rng() * 4)), policy: pols[i % 4], wip: 4 + Math.floor(rng() * 8), walk: rng() < 0.3 ? 0.5 : 0, warmup: 0, seed: i + 1 };
+        const steps = [];
+        let t = 0, target = cfg.workers.length;
+        for (let c = 0; c < 4; c++) {
+            t += 200 + rng() * 800;
+            const kind = Math.floor(rng() * 7);
+            const nn = 1 + Math.floor(rng() * 5);
+            if (kind === 1) target = nn;
+            steps.push({ t, settle: 10, change: cur => {
+                if (kind === 0) cur.wip = rng() < 0.2 ? Infinity : 2 + Math.floor(rng() * 10);
+                if (kind === 1) { cur.workers = workers(nn, Array.from({ length: nn }, () => 0.5 + rng())); cur.skills = null; }
+                if (kind === 2) cur.stations.forEach(s => { s.m = 1 + Math.floor(rng() * 3); });
+                if (kind === 3) cur.buffers = cur.buffers.map(() => rng() < 0.5 ? Math.floor(rng() * 3) : null);
+                if (kind === 4) cur.stations.forEach(s => { s.st = 1 + Math.round(rng() * 8); s.dist = ['det', 'exp', 'normal'][Math.floor(rng() * 3)]; });
+                if (kind === 5) cur.walk = rng() < 0.5 ? 0 : 0.3;
+                if (kind === 6 && cur.policy === 'zones') cur.skills = cur.workers.map(() => cur.stations.map(() => rng() < 0.6));
+                return cur;
+            } });
+        }
+        let r2;
+        try { r2 = live(cfg, steps, t + 5000); } catch (e) { fails++; results.push({ group: G, name: 'exception ' + e.message + ' ' + JSON.stringify(cfg), ok: false, bool: true }); continue; }
+        runs++;
+        if (r2.errs.length) { fails++; results.push({ group: G, name: 'invariant after live changes: ' + r2.errs[0] + ' ' + JSON.stringify(cfg), ok: false, bool: true }); continue; }
+        if (!machines && !r2.sim.stalled && r2.sim.workers.length !== target) unfinished++;
+    }
+    assert(G, `${runs} random runs with 4 live changes each: ${fails} failures`, fails === 0);
+    assert(G, `removed workers always leave once free (${unfinished} runs still waiting)`, unfinished === 0);
+}
+
 // ---------------------------------------------------------------------------
 const pad = (s, n) => (s + ' '.repeat(n)).slice(0, n);
 let lastG = '', nOk = 0;
