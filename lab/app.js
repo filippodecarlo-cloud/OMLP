@@ -915,6 +915,70 @@
         return { x: px(w.x), y: geo.laneY, lane: true };
     }
 
+    // where each worker figure is on screen: it walks to its new place, never jumps
+    let inTransit = new Set();          // parts carried by a worker right now (drawn in the hands, not on the machine)
+    function updateWorkers(dtReal) {
+        inTransit = new Set();
+        animPhase += dtReal;
+        const targets = sim.workers.map(workerTarget);
+        // lane: moving right on the upper one, moving left on the lower one; standing still keeps the last lane
+        targets.forEach((t, j) => {
+            const d = disp[j];
+            t.rawX = t.x;
+            if (!t.lane) return;
+            const ref = d ? (d.rawX != null ? d.rawX : d.x) : t.x;
+            const wk = sim.workers[j];
+            let dir = null;
+            if (wk.state === 'walking' && wk.walk) dir = wk.walk.purpose === 'return' || (wk.walk.to != null && wk.walk.to < wk.x) ? 1 : 0;
+            else if (d && Math.abs(t.x - ref) > geo.colW * 0.3) dir = t.x > ref ? 0 : 1;
+            t.dir = dir != null ? dir : (d && d.lane != null ? d.lane : 0);
+            t.y = t.dir ? geo.laneY2 : geo.laneY;
+        });
+        const groups = {};
+        targets.forEach((t, j) => { if (t.lane) { const key = t.dir + ':' + Math.round(t.x / 6); (groups[key] = groups[key] || []).push(j); } });
+        Object.values(groups).forEach(g => g.forEach((j, i) => { targets[j].x += (i - (g.length - 1) / 2) * 32; }));
+        // the figure walks to its new place along the walkway: a move is never instantaneous on screen
+        // (at most about half a second of real time, so the picture never lags far behind the simulation)
+        sim.workers.forEach((w, j) => {
+            const t = targets[j], key = Math.round(t.x) + ',' + Math.round(t.y);
+            let d = disp[j];
+            if (!d || dtReal === 0) { disp[j] = { x: t.x, y: t.y, key, path: [], v: 0, moving: false, rawX: t.rawX, lane: t.lane ? t.dir : 0, jobId: w.job ? w.job.id : null, onSlot: !t.lane, carryJob: null }; return; }
+            if (t.lane) d.lane = t.dir;
+            const jid = w.job ? w.job.id : null;
+            if (d.key !== key) {
+                d.key = key;
+                const path = [];
+                const far = Math.abs(t.x - d.x) > geo.colW * 0.6;
+                // same part as before, from one machine to the next: walk beside the machines carrying it
+                const carry = !t.lane && d.onSlot && jid != null && d.jobId === jid && t.x > d.x;
+                d.carryJob = carry ? w.job : null;
+                if (carry) { /* straight to the next machine */ }
+                else if (far && !t.lane) {
+                    const dir = t.x > d.x ? 0 : 1, ly = dir ? geo.laneY2 : geo.laneY;
+                    d.lane = dir;
+                    if (Math.abs(d.y - ly) > 1) path.push({ x: d.x, y: ly });
+                    path.push({ x: t.x, y: ly });
+                } else if (far && Math.abs(d.y - t.y) > 1) path.push({ x: d.x, y: t.y });
+                path.push({ x: t.x, y: t.y });
+                let len = 0, px0 = d.x, py0 = d.y;
+                path.forEach(p => { len += Math.hypot(p.x - px0, p.y - py0); px0 = p.x; py0 = p.y; });
+                d.path = path;
+                d.v = Math.max(len / 0.45, 160);
+            }
+            d.rawX = t.rawX;
+            d.jobId = jid; d.onSlot = !t.lane;
+            let step = d.v * dtReal;
+            while (step > 0 && d.path.length) {
+                const p = d.path[0], dist = Math.hypot(p.x - d.x, p.y - d.y);
+                if (dist <= step) { d.x = p.x; d.y = p.y; step -= dist; d.path.shift(); }
+                else { d.x += (p.x - d.x) * step / dist; d.y += (p.y - d.y) * step / dist; step = 0; }
+            }
+            d.moving = d.path.length > 0;
+            if (!d.moving) d.carryJob = null;
+            if (d.carryJob) inTransit.add(d.carryJob.id);
+        });
+    }
+
     function draw(dtReal) {
         if (!geo || !sim) return;
         const ctx = $('lineCanvas').getContext('2d');
@@ -922,6 +986,7 @@
         const S = sim.cfg.stations;
         ctx.clearRect(0, 0, W, H);
         ctx.textBaseline = 'middle';
+        if (geo.labor) updateWorkers(dtReal);
 
         if (geo.labor) {
             const x0 = px(0) - 10, x1 = px(N - 1) + 10;
@@ -1027,7 +1092,7 @@
                 if (sl.jobs.length) {
                     const n = sl.jobs.length;
                     const js = Math.max(5, Math.min(14, r.h - 8, (r.w - 30) / n - 2));
-                    sl.jobs.forEach((jb, i) => drawJob(ctx, jb, r.x + 4 + js / 2 + i * (js + 2), r.y + r.h / 2 - 2, js, sl.phase === 'reserved'));
+                    sl.jobs.forEach((jb, i) => { if (!inTransit.has(jb.id)) drawJob(ctx, jb, r.x + 4 + js / 2 + i * (js + 2), r.y + r.h / 2 - 2, js, sl.phase === 'reserved'); });
                     let prog = 1, col = colors.working;
                     if (sl.phase === 'manual' && sl.dur > 0) prog = Math.max(0, Math.min(1, 1 - sl.rem / sl.dur));
                     if (sl.phase === 'auto' && sl.autoDur > 0) { prog = Math.max(0, Math.min(1, 1 - sl.autoRem / sl.autoDur)); col = colors.auto; }
@@ -1060,60 +1125,11 @@
 
         // workers
         if (geo.labor) {
-            animPhase += dtReal;
-            const targets = sim.workers.map(workerTarget);
-            // lane: moving right on the upper one, moving left on the lower one; standing still keeps the last lane
-            targets.forEach((t, j) => {
-                const d = disp[j];
-                t.rawX = t.x;
-                if (!t.lane) return;
-                const ref = d ? (d.rawX != null ? d.rawX : d.x) : t.x;
-                const wk = sim.workers[j];
-                let dir = null;
-                if (wk.state === 'walking' && wk.walk) dir = wk.walk.purpose === 'return' || (wk.walk.to != null && wk.walk.to < wk.x) ? 1 : 0;
-                else if (d && Math.abs(t.x - ref) > geo.colW * 0.3) dir = t.x > ref ? 0 : 1;
-                t.dir = dir != null ? dir : (d && d.lane != null ? d.lane : 0);
-                t.y = t.dir ? geo.laneY2 : geo.laneY;
-            });
-            const groups = {};
-            targets.forEach((t, j) => { if (t.lane) { const key = t.dir + ':' + Math.round(t.x / 6); (groups[key] = groups[key] || []).push(j); } });
-            Object.values(groups).forEach(g => g.forEach((j, i) => { targets[j].x += (i - (g.length - 1) / 2) * 32; }));
-            // the figure walks to its new place along the walkway: a move is never instantaneous on screen
-            // (at most about half a second of real time, so the picture never lags far behind the simulation)
-            sim.workers.forEach((w, j) => {
-                const t = targets[j], key = Math.round(t.x) + ',' + Math.round(t.y);
-                let d = disp[j];
-                if (!d || dtReal === 0) { disp[j] = { x: t.x, y: t.y, key, path: [], v: 0, moving: false, rawX: t.rawX, lane: t.lane ? t.dir : 0 }; return; }
-                if (t.lane) d.lane = t.dir;
-                if (d.key !== key) {
-                    d.key = key;
-                    const path = [];
-                    const far = Math.abs(t.x - d.x) > geo.colW * 0.6;
-                    if (far && !t.lane) {
-                        const dir = t.x > d.x ? 0 : 1, ly = dir ? geo.laneY2 : geo.laneY;
-                        d.lane = dir;
-                        if (Math.abs(d.y - ly) > 1) path.push({ x: d.x, y: ly });
-                        path.push({ x: t.x, y: ly });
-                    } else if (far && Math.abs(d.y - t.y) > 1) path.push({ x: d.x, y: t.y });
-                    path.push({ x: t.x, y: t.y });
-                    let len = 0, px0 = d.x, py0 = d.y;
-                    path.forEach(p => { len += Math.hypot(p.x - px0, p.y - py0); px0 = p.x; py0 = p.y; });
-                    d.path = path;
-                    d.v = Math.max(len / 0.45, 160);
-                }
-                d.rawX = t.rawX;
-                let step = d.v * dtReal;
-                d.moving = d.path.length > 0;
-                while (step > 0 && d.path.length) {
-                    const p = d.path[0], dist = Math.hypot(p.x - d.x, p.y - d.y);
-                    if (dist <= step) { d.x = p.x; d.y = p.y; step -= dist; d.path.shift(); }
-                    else { d.x += (p.x - d.x) * step / dist; d.y += (p.y - d.y) * step / dist; step = 0; }
-                }
-            });
             sim.workers.forEach((w, j) => {
                 const d = disp[j];
                 if (w.job && w.state === 'walking' && w.walk && w.walk.purpose === 'carry') drawJob(ctx, w.job, d.x + 16, d.y - 13, 11);
                 drawWorker(ctx, d.x, d.y, WORKER_COLORS[j % 10], w.state, w.name ? w.name[0] : String(j + 1), d.moving || w.state === 'walking', j);
+                if (d.carryJob) drawJob(ctx, d.carryJob, d.x + 18, d.y - 2, 12);
                 if (w.state === 'blocked') { ctx.fillStyle = colors.blocked; ctx.font = `700 13px ${colors.body}`; ctx.textAlign = 'center'; ctx.fillText('!', d.x + 17, d.y - 14); }
             });
         }
