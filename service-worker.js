@@ -1,4 +1,4 @@
-const CACHE_NAME = 'factory-flow-v1';
+const CACHE_NAME = 'factory-flow-v2';
 const urlsToCache = [
   './',
   './index.html',
