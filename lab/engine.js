@@ -242,7 +242,7 @@
             this.newStats();
             this.completed = 0;
             this.started = 0;
-            this.exitLog = [];        // {t, lt, ltLine}   drained by the UI
+            this.exitLog = [];        // {t, lt, ltLine, id, tEnter, tStart, counted}   drained by the UI
             this.entryLog = [];       // {t}               first operation started (drained by the UI)
             this.handoffs = [];       // {t, j, wp}        bucket brigade take-overs
             this.trace = this.workers.map(() => []);
@@ -442,13 +442,15 @@
             this.inLine--;
             this.completed++;
             job.state = 'done';
-            if (this.t > this.cfg.warmup + EPS || (this.cfg.warmup === 0 && this.t > 0)) {
-                const lt = this.t - job.tEnter, ltLine = this.t - job.tStart;
+            const lt = this.t - job.tEnter, ltLine = this.t - job.tStart;
+            const counted = this.t > this.cfg.warmup + EPS || (this.cfg.warmup === 0 && this.t > 0);
+            if (counted) {
                 this.stats.exits++;
                 this.stats.sumLT += lt;
                 this.stats.sumLTline += ltLine;
-                this.exitLog.push({ t: this.t, lt, ltLine });
             }
+            // every exit is logged; counted = inside the statistics window (after the warm-up)
+            this.exitLog.push({ t: this.t, lt, ltLine, id: job.id, tEnter: job.tEnter, tStart: job.tStart, counted });
         }
 
         // manual part of the operation finished on slot s

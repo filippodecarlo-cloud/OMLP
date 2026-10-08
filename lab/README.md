@@ -12,8 +12,19 @@ Hopp & Spearman, *Factory Physics*, ch. 7. It merges the original *Factory Flow 
 
 Charts: throughput, lead time and WIP over time, lead-time histogram, Little's law, cumulative entries and exits,
 machine states, Gantt of every machine, worker time split, space–time diagram, bucket-brigade take-over points,
-TR/LT experiment over w or n. Saved setups (browser), JSON download/upload (also the original simulator's
-`line_config.json`), CSV log, installable app that works offline.
+TR/LT experiment over w or n. The time charts zoom like the original simulator (mouse wheel or pinch, drag to pan,
+"Recent zoom" / "Full zoom"). Scenarios are chosen from a menu grouped by topic. Saved setups (browser), JSON
+download/upload (also the original simulator's `line_config.json`), installable app that works offline.
+
+## Exported data
+
+- **Time series (CSV)**: one row exactly every *log step* (run settings, in the time unit of the line: with times in
+  seconds, 1 = one second and 60 = one minute). Each row has the state at that instant (WIP, queue before S1,
+  machines processing / blocked / starved, buffer levels, state and position of each worker) and what happened since
+  the previous row (exits, TR and mean LT of the step), plus running averages and the changes made while running.
+  Up to 100,000 rows; the step can be changed during the run.
+- **Jobs (CSV)**: one row per finished job with the exact entry, start and exit times, LT, time in the line and wait
+  before S1 (independent of the log step).
 
 ## Changes while the line runs
 

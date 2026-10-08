@@ -13,7 +13,7 @@
     const STORE_KEY = 'flowLab.saved';
 
     // ------------------------------------------------------------------
-    // Scenarios (each one is tied to the slides of Factory Dynamics)
+    // Scenarios, grouped by topic (the ids are also used by the links in the slides)
     // ------------------------------------------------------------------
     const ST = (st, o = {}) => Object.assign({ st, auto: 0, m: 1, batch: 1, move: 1, oee: 1, dist: 'det', cv: 0.3 }, o);
     const L = (arr, o = {}) => arr.map((x, k) => ST(x, typeof o === 'function' ? o(k) : o));
@@ -27,44 +27,44 @@
         { id: 'volatility', mode: 'machines', ref: 'Original simulator', name: 'High volatility: exponential, batches, small buffers',
           cfg: { stations: [ST(6, { dist: 'exp', oee: 0.85 }), ST(4.7, { dist: 'tri', cv: 0.4, oee: 0.9 }), ST(7, { dist: 'exp', oee: 0.75, batch: 2 }), ST(4, { dist: 'normal', cv: 0.3, oee: 0.88 }), ST(5, { dist: 'tri', cv: 0.25, oee: 0.92 })],
                  buffers: [1, 2, 1, 1], wip: 8, unit: 's', warmup: 300 } },
-        { id: 'best', mode: 'machines', ref: 'Slides 13–18', name: 'Best case: Penny Fab, 4 × 2 h, w = 4',
+        { id: 'best', mode: 'machines', ref: 'Best, worst and practical worst case', name: 'Best case: Penny Fab, 4 × 2 h, w = 4',
           cfg: { stations: L([2, 2, 2, 2]), wip: 4, unit: 'h' } },
-        { id: 'worst', mode: 'machines', ref: 'Slides 22–27', name: 'Worst case: parts moved all together',
+        { id: 'worst', mode: 'machines', ref: 'Best, worst and practical worst case', name: 'Worst case: parts moved all together',
           cfg: { stations: L([2, 2, 2, 2], { move: 4 }), wip: 4, unit: 'h' } },
-        { id: 'pwc', mode: 'machines', ref: 'Slides 33–42', name: 'Practical worst case: exponential times',
+        { id: 'pwc', mode: 'machines', ref: 'Best, worst and practical worst case', name: 'Practical worst case: exponential times',
           cfg: { stations: L([2, 2, 2, 2], { dist: 'exp' }), wip: 4, unit: 'h', warmup: 50 } },
-        { id: 'unbal', mode: 'machines', ref: 'Slides 57–65', name: 'Unbalanced line, multimachine stations A–D',
+        { id: 'unbal', mode: 'machines', ref: 'Unbalanced lines', name: 'Unbalanced line, multimachine stations A–D',
           cfg: { stations: [ST(2, { m: 1 }), ST(5, { m: 2 }), ST(10, { m: 6 }), ST(3, { m: 2 })], wip: 8, unit: 'h' } },
-        { id: 'unbalExp', mode: 'machines', ref: 'Slides 66–71', name: 'Same unbalanced line, exponential times',
+        { id: 'unbalExp', mode: 'machines', ref: 'Unbalanced lines', name: 'Same unbalanced line, exponential times',
           cfg: { stations: [ST(2, { m: 1, dist: 'exp' }), ST(5, { m: 2, dist: 'exp' }), ST(10, { m: 6, dist: 'exp' }), ST(3, { m: 2, dist: 'exp' })], wip: 8, unit: 'h', warmup: 200 } },
-        { id: 'push', mode: 'machines', ref: 'Buffers', name: 'Push line with 1-place buffers',
+        { id: 'push', mode: 'machines', ref: 'Buffers and batches', name: 'Push line with 1-place buffers',
           cfg: { stations: L([5, 5, 5, 5], { dist: 'exp' }), buffers: [1, 1, 1], wipMode: 'free', unit: 's', warmup: 200 } },
-        { id: 'oven', mode: 'machines', ref: 'Batches', name: 'Oven: 2 parts together every 4 h',
+        { id: 'oven', mode: 'machines', ref: 'Buffers and batches', name: 'Oven: 2 parts together every 4 h',
           cfg: { stations: L([2, 4, 2, 2], k => ({ batch: k === 1 ? 2 : 1 })), wip: 6, unit: 'h' } },
         // ---- part 2: manpower ----
-        { id: 'slide90', mode: 'labor', ref: 'Slides 90–96', name: '5 stations, n = 2, w = 4, ample machines',
+        { id: 'slide90', mode: 'labor', ref: 'Labor as the constraint', name: '5 stations 10–20–30–10–20, n = 2, w = 4, ample machines',
           cfg: { stations: L([10, 20, 30, 10, 20], { m: 2 }), speeds: [1, 1], policy: 'tied', wip: 4, warmup: 180 } },
-        { id: 'slide99', mode: 'labor', ref: 'Slide 99', name: 'Same line, 1 machine per station, random times',
+        { id: 'slide99', mode: 'labor', ref: 'Labor as the constraint', name: 'Same 5 stations, 1 machine each, random times',
           cfg: { stations: L([10, 20, 30, 10, 20], { dist: 'exp' }), speeds: [1, 1], policy: 'tied', wip: 4, warmup: 500 } },
-        { id: 'pizza2', mode: 'labor', ref: 'Slides 97–98', name: 'Pizza shop: 8 customers, n = 2',
+        { id: 'pizza2', mode: 'labor', ref: 'Labor as the constraint', name: 'Pizza shop: 8 customers, n = 2',
           cfg: { stations: L([3, 3, 4, 4, 3, 3], { m: 2 }), speeds: [1, 1], policy: 'tied', wip: 8, warmup: 40 } },
-        { id: 'pizza4', mode: 'labor', ref: 'Slide 98', name: 'Pizza shop: n = 4 workers',
+        { id: 'pizza4', mode: 'labor', ref: 'Labor as the constraint', name: 'Pizza shop: n = 4 workers',
           cfg: { stations: L([3, 3, 4, 4, 3, 3], { m: 4 }), speeds: [1, 1, 1, 1], policy: 'tied', wip: 8, warmup: 40 } },
-        { id: 'tend', mode: 'labor', ref: 'Slide 89', name: 'One operator, three machines (automatic cycle)',
+        { id: 'tend', mode: 'labor', ref: 'Labor as the constraint', name: 'One operator, three machines (automatic cycle)',
           cfg: { stations: [ST(1, { auto: 4, m: 3 }), ST(0.5)], speeds: [1], policy: 'dropping', wip: 6, warmup: 50 } },
-        { id: 'bbSF', mode: 'labor', ref: 'Slides 101, 107', name: 'Bucket brigade, slowest → fastest',
+        { id: 'bbSF', mode: 'labor', ref: 'Bucket brigade', name: 'Bucket brigade, slowest → fastest',
           cfg: { stations: L(new Array(10).fill(2)), speeds: [0.6, 1.0, 1.4], policy: 'bucket', wipMode: 'free', warmup: 40 } },
-        { id: 'bbFS', mode: 'labor', ref: 'Slides 103–104', name: 'Bucket brigade, fastest → slowest',
+        { id: 'bbFS', mode: 'labor', ref: 'Bucket brigade', name: 'Bucket brigade, fastest → slowest',
           cfg: { stations: L(new Array(10).fill(2)), speeds: [1.4, 1.0, 0.6], policy: 'bucket', wipMode: 'free', warmup: 40 } },
-        { id: 'bnEnd', mode: 'labor', ref: 'Slide 104', name: 'Bottleneck at the end, tied workers',
+        { id: 'bnEnd', mode: 'labor', ref: 'Blocking and job dropping', name: 'Bottleneck at the end, tied workers',
           cfg: { stations: L([4, 4, 4, 4, 12]), speeds: [1, 1, 1], policy: 'tied', wipMode: 'free', warmup: 60 } },
-        { id: 'dropFlood', mode: 'labor', ref: 'Slide 105', name: 'Job dropping without a WIP cap',
+        { id: 'dropFlood', mode: 'labor', ref: 'Blocking and job dropping', name: 'Job dropping without a WIP cap',
           cfg: { stations: L([4, 4, 4, 4, 12]), speeds: [1, 1, 1], policy: 'dropping', wipMode: 'free' } },
-        { id: 'dropCap', mode: 'labor', ref: 'Slide 106', name: 'Job dropping with a CONWIP cap',
+        { id: 'dropCap', mode: 'labor', ref: 'Blocking and job dropping', name: 'Job dropping with a CONWIP cap',
           cfg: { stations: L([4, 4, 4, 4, 12]), speeds: [1, 1, 1], policy: 'dropping', wip: 5, warmup: 60 } },
-        { id: 'skills', mode: 'labor', ref: 'Slide 100', name: 'Cross-training: two workers share S2',
+        { id: 'skills', mode: 'labor', ref: 'Dedicated workers and skills', name: 'Cross-training: two workers share S2',
           cfg: { stations: L([5, 5, 5], { dist: 'exp' }), speeds: [1, 1], policy: 'zones', skills: [[true, true, false], [false, true, true]], wip: 6, warmup: 200 } },
-        { id: 'penny', mode: 'labor', ref: 'Part 1 · Penny Fab', name: 'One worker per station: the classic line',
+        { id: 'penny', mode: 'labor', ref: 'Dedicated workers and skills', name: 'One worker per station: the classic line',
           cfg: { stations: L([2, 2, 2, 2], { dist: 'exp' }), speeds: [1, 1, 1, 1], policy: 'zones', wip: 4, unit: 'h', warmup: 50 } }
     ];
 
@@ -81,6 +81,10 @@
     let markers = [];               // live changes shown on the time charts {t, short, label}
     let noticeTimer = null;
     let chartsUnit = null;
+    let jobRows = [], stepExits = 0, stepLT = 0, pendingEvents = [], logBase = 0, logFullShown = false;
+    // view of each time chart: 'all' (whole run), 'recent' (follows the zoom window), 'user' (zoomed or panned by hand)
+    const DEFAULT_VIEWS = { tr: 'all', lt: 'all', cum: 'all', space: 'recent', handoff: 'recent' };
+    let views = Object.assign({}, DEFAULT_VIEWS);
 
     const deepCopy = o => JSON.parse(JSON.stringify(o));
     function presetToCfg(p) {
@@ -143,17 +147,40 @@
     // ------------------------------------------------------------------
     // Setup panels
     // ------------------------------------------------------------------
+    // scenario menu: both parts, grouped by topic
     function buildPresets() {
-        const box = $('presetList');
-        box.innerHTML = '';
-        PRESETS.filter(p => p.mode === cfg.mode).forEach(p => {
-            const b = document.createElement('button');
-            b.type = 'button'; b.className = 'preset'; b.dataset.id = p.id;
-            b.innerHTML = `<span class="p-ref">${p.ref}</span><span class="p-name">${p.name}</span>`;
-            b.title = 'Direct link: index.html#' + p.id;
-            b.classList.toggle('active', p.id === activePreset);
-            b.addEventListener('click', () => loadPreset(p.id));
-            box.appendChild(b);
+        const menu = $('scenarioMenu');
+        const part = mode => `<div class="menu-part"><p class="menu-part-title">${mode === 'machines' ? 'Part 1 · Machines' : 'Part 2 · Manpower'}</p>` +
+            [...new Set(PRESETS.filter(p => p.mode === mode).map(p => p.ref))].map(g => `<p class="menu-group">${g}</p>` +
+                PRESETS.filter(p => p.mode === mode && p.ref === g).map(p =>
+                    `<button type="button" role="menuitemradio" aria-checked="${p.id === activePreset}" class="menu-item" data-id="${p.id}" title="Direct link: index.html#${p.id}">${p.name}</button>`).join('')).join('') + '</div>';
+        menu.innerHTML = part('machines') + part('labor');
+        menu.querySelectorAll('.menu-item').forEach(b => b.addEventListener('click', () => { closeMenu(); loadPreset(b.dataset.id); }));
+        const cur = PRESETS.find(p => p.id === activePreset);
+        $('scenarioName').textContent = cur ? cur.name : 'Your setup (changed)';
+    }
+    function openMenu() {
+        $('scenarioMenu').hidden = false;
+        $('scenarioBtn').setAttribute('aria-expanded', 'true');
+        const cur = $('scenarioMenu').querySelector('[aria-checked="true"]') || $('scenarioMenu').querySelector('.menu-item');
+        if (cur) cur.focus();
+    }
+    function closeMenu() {
+        $('scenarioMenu').hidden = true;
+        $('scenarioBtn').setAttribute('aria-expanded', 'false');
+    }
+    function bindMenu() {
+        $('scenarioBtn').addEventListener('click', e => { e.stopPropagation(); if ($('scenarioMenu').hidden) openMenu(); else closeMenu(); });
+        document.addEventListener('click', e => { if (!$('scenarioMenu').hidden && !e.target.closest('.menu-wrap')) closeMenu(); });
+        document.addEventListener('keydown', e => {
+            if ($('scenarioMenu').hidden) return;
+            if (e.key === 'Escape') { closeMenu(); $('scenarioBtn').focus(); }
+            if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                const items = [...$('scenarioMenu').querySelectorAll('.menu-item')];
+                const i = items.indexOf(document.activeElement);
+                const n = items[(i + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length];
+                if (n) { n.focus(); e.preventDefault(); }
+            }
         });
     }
     function loadPreset(id) {
@@ -327,6 +354,7 @@
         const d = describeDiff(prev, cfg);
         if (d.length) {
             markers.push({ t: sim.t, short: d.length === 1 ? d[0] : d[0] + ' …', label: d.join(', ') });
+            pendingEvents.push(`t=${+sim.t.toFixed(4)}: ${d.join(', ')}`);
             notice(`Changed at t = ${fmtShort(+sim.t.toFixed(2))} ${cfg.unit} while running: ${d.join(', ')}. The averages still include the time before; press “Restart statistics” to measure the new situation.`);
         }
         layout();
@@ -401,7 +429,12 @@
         $('warmup').addEventListener('change', e => { cfg.warmup = clampNum(e.target.value, 0, 1e8, 0); changed(); });
         $('seed').addEventListener('change', e => { cfg.seed = Math.round(clampNum(e.target.value, 1, 1e9, 1)); changed(); });
         $('unitSel').addEventListener('change', e => { cfg.unit = e.target.value; renderAll(); makeCharts(); refreshUi(true); setSpeed($('speedRange').value); });
-        $('logStep').addEventListener('change', e => { cfg.logStep = clampNum(e.target.value, 0.001, 1e7, cfg.logStep); });
+        $('logStep').addEventListener('change', e => {
+            cfg.logStep = clampNum(e.target.value, 0.0001, 1e7, cfg.logStep);
+            // keep the rows taken so far; the next ones follow the new step
+            logBase = nextLog - logRows.length * cfg.logStep;
+            logStatus();
+        });
         $('chartWindow').addEventListener('change', e => { cfg.chartWindow = clampNum(e.target.value, 0, 1e8, 0); refreshUi(true); });
         $('showMore').addEventListener('change', e => { cfg.showMore = e.target.checked; renderConfigTable(); refreshUi(true); });
         $('speedsEqual').addEventListener('click', () => { cfg.workers.forEach(w => w.speed = 1); changed(); });
@@ -430,6 +463,7 @@
             e.target.value = '';
         });
         $('exportCsv').addEventListener('click', exportCsv);
+        $('exportJobs').addEventListener('click', exportJobs);
         $('saveLocal').addEventListener('click', saveLocal);
         $('cfgName').addEventListener('keydown', e => { if (e.key === 'Enter') saveLocal(); });
     }
@@ -508,7 +542,10 @@
         if (chartsUnit !== cfg.unit) makeCharts();          // axis titles carry the time unit
         appliedCfg = deepCopy(cfg);
         markers = [];
+        views = Object.assign({}, DEFAULT_VIEWS);
+        markViews();
         series = []; exits = []; entries = []; exitAnims = []; logRows = []; nextLog = 0;
+        jobRows = []; stepExits = 0; stepLT = 0; pendingEvents = []; logBase = 0; logFullShown = false;
         disp = sim.workers.map(() => null);
         lastAlert = null;
         layout();
@@ -541,37 +578,86 @@
             if (!sim || sim.t === 0) return;
             sim.resetStats();
             markers.push({ t: sim.t, short: 'statistics', label: 'statistics restarted' });
+            pendingEvents.push(`t=${+sim.t.toFixed(4)}: statistics restarted`);
             notice(`Statistics restarted at t = ${fmtShort(+sim.t.toFixed(2))} ${cfg.unit}: averages, histogram and machine shares now describe only what happens from here on.`);
             refreshUi(true);
         });
     }
 
+    // The time series is sampled exactly on the grid 0, Δ, 2Δ, ...: the engine stops at each
+    // grid time, so every row is the state at that instant plus what happened since the row before.
+    const LOG_MAX = 100000, JOB_MAX = 200000;
     function advance(T) {
-        try { sim.advanceTo(T); }
-        catch (err) { setRunning(false); showAlert(['Simulation stopped: ' + err.message], true); console.error(err); }
+        try {
+            while (cfg.logStep > 0 && nextLog <= T + 1e-9 && logRows.length < LOG_MAX) {
+                if (nextLog > sim.t) sim.advanceTo(nextLog);
+                collect();
+                logRows.push(logRow(nextLog));
+                nextLog = (logRows.length) * cfg.logStep + logBase;
+            }
+            if (logRows.length >= LOG_MAX && !logFullShown) { logFullShown = true; notice(`The time series is full (${LOG_MAX} rows): export it, or use a longer log step.`); }
+            sim.advanceTo(T);
+        } catch (err) { setRunning(false); showAlert(['Simulation stopped: ' + err.message], true); console.error(err); }
+        collect();
+    }
+    // move what the engine logged into the app (charts, job log, counters of the current log step)
+    function collect() {
         const ex = sim.exitLog.splice(0);
-        for (const e of ex) exits.push(e);
+        for (const e of ex) {
+            exits.push(e);
+            stepExits++; stepLT += e.lt;
+            if (jobRows.length < JOB_MAX) jobRows.push([e.id, e.tEnter, e.tStart, e.t, e.lt, e.ltLine, e.tStart - e.tEnter, e.counted ? 1 : 0]);
+        }
         if (exits.length > 6000) exits.splice(0, exits.length - 6000);
         const en = sim.entryLog.splice(0);
         for (const e of en) entries.push(e.t);
         if (entries.length > 6000) entries.splice(0, entries.length - 6000);
         if (ex.length && ex.length < 6) { const now = performance.now(); ex.forEach(() => exitAnims.push({ t0: now })); }
-        // log rows on a fixed time grid
-        while (nextLog <= sim.t && logRows.length < 20000) { logRows.push(logRow(nextLog)); nextLog += cfg.logStep; }
     }
     function logRow(t) {
         const m = sim.metrics();
-        const r = { t, completed: m.completed, TR: m.TR, LT: m.LT, WIP_now: m.wipNow, WIP_avg: m.WIP };
-        m.stations.forEach((s, k) => { r[`S${k + 1}_processing`] = s.working; r[`S${k + 1}_blocked`] = s.blocked; r[`S${k + 1}_starved`] = s.idle; });
+        const step = logRows.length ? cfg.logStep : 0;
+        const r = {
+            t, event: pendingEvents.splice(0).join('; '),
+            WIP_now: sim.jobs.size, queue_before_S1_now: sim.queues[0].length, in_line_now: sim.inLine,
+            exits_in_step: stepExits, TR_step: step > 0 ? stepExits / step : '', LT_avg_step: stepExits ? stepLT / stepExits : '',
+            completed_total: sim.completed, TR_avg: m.TR, LT_avg: m.LT, WIP_avg: m.WIP
+        };
+        stepExits = 0; stepLT = 0;
+        sim.machines.forEach((slots, k) => {
+            r[`S${k + 1}_processing_now`] = slots.filter(x => x.state === 'working').length;
+            r[`S${k + 1}_blocked_now`] = slots.filter(x => x.state === 'blocked').length;
+            if (sim.labor) r[`S${k + 1}_waiting_worker_now`] = slots.filter(x => x.state === 'waitWorker').length;
+            r[`S${k + 1}_starved_now`] = slots.filter(x => x.state === 'idle').length;
+        });
         sim.queues.forEach((q, k) => { if (k > 0) r[`B${k}_now`] = q.length; });
-        if (sim.labor) m.workers.forEach((w, j) => { r[`W${j + 1}_working`] = w.working; });
+        sim.workers.forEach((w, j) => { r[`W${j + 1}_state_now`] = w.state; r[`W${j + 1}_position_now`] = +(w.x + 1).toFixed(3); });
         return r;
+    }
+    function csvCell(v) {
+        if (v == null || v === '') return '';
+        if (typeof v === 'number') return String(+v.toFixed(6));
+        const t = String(v);
+        return /[",\n;]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t;
     }
     function exportCsv() {
         if (!logRows.length) { showAlert(['Run the simulation first: the log is empty.'], false); return; }
-        const keys = Object.keys(logRows[logRows.length - 1]);
-        const lines = [keys.join(',')].concat(logRows.map(r => keys.map(k => r[k] == null ? '' : +(+r[k]).toFixed(6)).join(',')));
-        download('flow-lab-log.csv', lines.join('\n'), 'text/csv');
+        const keys = [];
+        logRows.forEach(r => Object.keys(r).forEach(k => { if (!keys.includes(k)) keys.push(k); }));   // workers may change during the run
+        const head = keys.map(k => k === 't' ? `t [${cfg.unit}]` : k);
+        const lines = [head.join(',')].concat(logRows.map(r => keys.map(k => csvCell(r[k])).join(',')));
+        download('flow-lab-time-series.csv', lines.join('\n'), 'text/csv');
+    }
+    function exportJobs() {
+        if (!jobRows.length) { showAlert(['No job has left the line yet.'], false); return; }
+        const u = cfg.unit;
+        const head = ['job', `t_enter [${u}]`, `t_start_S1 [${u}]`, `t_exit [${u}]`, `LT [${u}]`, `LT_in_line [${u}]`, `wait_before_S1 [${u}]`, 'after_warmup'];
+        download('flow-lab-jobs.csv', [head.join(',')].concat(jobRows.map(r => r.map(csvCell).join(','))).join('\n'), 'text/csv');
+    }
+    function logStatus() {
+        const el = $('logStatus');
+        if (!el) return;
+        el.textContent = `Time series: ${logRows.length} rows, one every ${fmtShort(cfg.logStep)} ${cfg.unit}. Jobs: ${jobRows.length}.`;
     }
 
     function frame(ts) {
@@ -910,7 +996,7 @@
         if (m.WIP > 0 && m.exits) {
             const pwcAt = m.WIP / (th.WIPc + m.WIP - 1) * th.TRb;
             const good = m.TR >= pwcAt;
-            r.push(`<tr><td>Where is the line? (slides 43–46)</td><td>PWC at the measured WIP</td><td class="num">${rate(pwcAt)}</td><td class="num">${rate(m.TR)}</td><td class="num ${good ? 'delta-ok' : 'delta-bad'}">${good ? 'good area' : 'bad area'}</td></tr>`);
+            r.push(`<tr><td>Where is the line?</td><td>PWC at the measured WIP</td><td class="num">${rate(pwcAt)}</td><td class="num">${rate(m.TR)}</td><td class="num ${good ? 'delta-ok' : 'delta-bad'}">${good ? 'good area' : 'bad area'}</td></tr>`);
         }
         return r.join('');
     }
@@ -934,7 +1020,7 @@
         if (cfg.mode === 'machines') {
             const ref = refCase();
             if (ref === 'best') parts.push('Deterministic times, one-piece flow, unlimited buffers: this is the best case, the simulation must match it exactly (after the warm-up).');
-            else if (ref === 'worst') parts.push('Parts moved all together (move lot = w): this is the worst case of slide 26, TR = 1/T₀ and LT = w·T₀.');
+            else if (ref === 'worst') parts.push('Parts moved all together (move lot = w): this is the worst case, TR = 1/T₀ and LT = w·T₀.');
             else if (ref === 'pwc') parts.push('Balanced line with exponential times and single machines: the practical worst case is exact here (it converges as the run gets longer).');
             else if (th.capped) parts.push('Best case, practical worst case and worst case are references: the real line sits between the best and the worst case.');
             if (!th.onePiece) parts.push('Batches or move lots: parts wait for their lot, so the lead time grows even when the capacity is the same.');
@@ -942,11 +1028,11 @@
             return parts.join(' ');
         }
         if (th.ample && th.carry && th.equalSpeeds) {
-            parts.push('Full capacity and flexibility (slides 91–94): the formulas are exact.');
-            if (p === 'bucket') parts.push('With equal speeds a bucket brigade gives the same numbers as workers tied to jobs (slide 102).');
-        } else if (!th.ample && th.carry) parts.push('Limited capacity (slide 99): n/VAT is only an upper bound; a worker who finds the next machine busy is blocked.');
-        if (p === 'bucket' && !th.equalSpeeds) parts.push('Unequal speeds: ordering the workers from the slowest to the fastest makes the line balance itself (Bartholdi & Eisenstein, slide 107).');
-        if (p === 'dropping') parts.push(th.capped ? 'Job dropping with a CONWIP cap (slide 106): workers never stay blocked; a larger cap gives more TR but a longer LT.' : 'Job dropping without a WIP cap (slide 105): free workers keep starting new jobs and the WIP can grow without limit.');
+            parts.push('Full capacity and flexibility: the formulas are exact.');
+            if (p === 'bucket') parts.push('With equal speeds a bucket brigade gives the same numbers as workers tied to jobs: only the identity of the worker on each job changes.');
+        } else if (!th.ample && th.carry) parts.push('Limited capacity: n/VAT is only an upper bound; a worker who finds the next machine busy is blocked.');
+        if (p === 'bucket' && !th.equalSpeeds) parts.push('Unequal speeds: ordering the workers from the slowest to the fastest makes the line balance itself (Bartholdi & Eisenstein).');
+        if (p === 'dropping') parts.push(th.capped ? 'Job dropping with a CONWIP cap: workers never stay blocked; a larger cap gives more TR but a longer LT.' : 'Job dropping without a WIP cap: free workers keep starting new jobs and the WIP can grow without limit.');
         if (p === 'zones') parts.push(th.n === th.N && sim.workers.every((w, j) => w.skills.filter(Boolean).length === 1 && w.skills[j])
             ? 'One dedicated worker per station: this is the line of part 1.' : 'Dedicated workers: TR is limited by the most loaded worker; cross-training (shared stations) helps when times vary.');
         if (sim.cfg.stations.some(s => s.auto > 0)) parts.push(th.carry ? 'Automatic cycles: tied workers wait at the machine during the cycle.' : 'Automatic cycles: the worker is free during the cycle and can tend another machine; when two machines need him at the same time one waits (machine interference).');
@@ -958,6 +1044,7 @@
         if (!sim) return;
         const m = sim.metrics(), u = cfg.unit;
         $('clock').textContent = sim.t < 1000 ? sim.t.toFixed(1) : sim.t.toFixed(0);
+        logStatus();
         $('kTR').textContent = m.TR > 0 ? fmt(m.TR) : '–';
         $('kTRsub').textContent = `pcs/${u}` + (m.TR > 0 && perHour(m.TR) ? ' = ' + perHour(m.TR) : '') + ` · bound ${fmt(cfg.mode === 'labor' ? th.TRmax : (th.best ? th.best.TR : th.TRb))}`;
         $('kLT').textContent = m.exits ? fmt(m.LT) : '–';
@@ -1070,6 +1157,48 @@
             ctx.restore();
         }
     };
+    // wheel / pinch zoom and drag pan on the time axis (chartjs-plugin-zoom, as in the original simulator)
+    function zoomOptions(key) {
+        const toUser = () => { views[key] = 'user'; markViews(); return true; };
+        return {
+            pan: { enabled: true, mode: 'x', onPanStart: toUser },
+            zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: 'x', onZoomStart: toUser },
+            limits: { x: { min: 0 } }
+        };
+    }
+    function withZoom(opts, key) { opts.plugins.zoom = zoomOptions(key); return opts; }
+    function markViews() {
+        document.querySelectorAll('[data-zoom]').forEach(b => b.setAttribute('aria-pressed', views[b.dataset.zoom] === b.dataset.view ? 'true' : 'false'));
+    }
+    function recentWindow(key) {
+        if (cfg.chartWindow > 0) return cfg.chartWindow;
+        if (key === 'space') return Math.max(2.5 * th.T0 / (th.vSum / Math.max(1, th.n) || 1), 10);
+        if (key === 'handoff') return Math.max(30 * th.bbWork / Math.max(1e-9, th.vSum), 4 * th.T0);
+        const r = cfg.mode === 'labor' ? th.TRmax : th.TRb;
+        return Math.max(5 * th.T0, 25 / Math.max(1e-9, r));
+    }
+    // x range of a time chart, or null when the user zoomed by hand
+    function xRange(key) {
+        const t1 = Math.max(sim.t, 1e-6);
+        if (views[key] === 'user') return null;
+        if (views[key] === 'recent') { const w = recentWindow(key); return { min: Math.max(0, t1 - w), max: Math.max(t1, w) }; }
+        return { min: 0, max: t1 };
+    }
+    function applyX(chart, key) {
+        const r = xRange(key);
+        if (r) { chart.options.scales.x.min = r.min; chart.options.scales.x.max = r.max; }
+    }
+    function bindZoomButtons() {
+        document.querySelectorAll('[data-zoom]').forEach(b => b.addEventListener('click', () => {
+            views[b.dataset.zoom] = b.dataset.view;
+            const ch = charts[b.dataset.zoom];
+            if (ch && ch.resetZoom) { try { ch.resetZoom('none'); } catch (e) { /* plugin missing */ } }
+            markViews();
+            refreshUi(true);
+        }));
+        markViews();
+    }
+
     // datasets that do not apply to the current mode are hidden and left out of the legend
     const legendFilter = (item, data) => !data.datasets[item.datasetIndex].modeHidden && !String(item.text).startsWith('B&E');
     const dashed = (label, color) => ({ label, data: [], borderColor: color, borderDash: [6, 4], borderWidth: 1.5, pointRadius: 0, fill: false });
@@ -1088,13 +1217,14 @@
         Object.values(charts).forEach(c => c && c.destroy());
         charts = {};
         if (typeof Chart === 'undefined') return;
+        if (window.ChartZoom && !Chart.registry.plugins.get('zoom')) Chart.register(window.ChartZoom);
         const u = cfg ? cfg.unit : 'min';
         chartsUnit = u;
         charts.tr = new Chart($('chTR'), { type: 'line', data: { datasets: [
             { label: 'TR, moving window', data: [], borderColor: colors.accent, pointRadius: 0 },
             { label: 'TR, cumulative', data: [], borderColor: colors.ink, borderWidth: 1.5, pointRadius: 0 },
             dashed('labor capacity', colors.walking), dashed('bottleneck TR_b', colors.waiting)
-        ] }, options: baseOptions('time [' + u + ']', 'pcs/' + u), plugins: [markerPlugin] });
+        ] }, options: withZoom(baseOptions('time [' + u + ']', 'pcs/' + u), 'tr'), plugins: [markerPlugin] });
         const ltOpts = baseOptions('time [' + u + ']', 'LT [' + u + ']');
         ltOpts.scales.y2 = { position: 'right', title: { display: true, text: 'WIP [pcs]', color: colors.muted }, ticks: { color: colors.muted }, grid: { drawOnChartArea: false }, beginAtZero: true };
         charts.lt = new Chart($('chLT'), { type: 'line', data: { datasets: [
@@ -1102,7 +1232,7 @@
             { label: 'LT, cumulative', data: [], borderColor: colors.ink, borderWidth: 1.5, pointRadius: 0 },
             dashed('LT reference', colors.working),
             { label: 'WIP in the system', data: [], borderColor: colors.waiting, borderWidth: 1.2, pointRadius: 0, yAxisID: 'y2', stepped: true }
-        ] }, options: ltOpts, plugins: [markerPlugin] });
+        ] }, options: withZoom(ltOpts, 'lt'), plugins: [markerPlugin] });
         const hOpts = { responsive: true, maintainAspectRatio: false, animation: false,
             plugins: { legend: { display: false } },
             scales: { x: { ticks: { color: colors.muted, maxRotation: 0, autoSkip: true }, grid: { display: false }, title: { display: true, text: 'lead time [' + u + ']', color: colors.muted } },
@@ -1116,7 +1246,7 @@
         charts.cum = new Chart($('chCum'), { type: 'line', data: { datasets: [
             { label: 'entered S1', data: [], borderColor: colors.walking, pointRadius: 0, stepped: true },
             { label: 'left the line', data: [], borderColor: colors.working, pointRadius: 0, stepped: true }
-        ] }, options: baseOptions('time [' + u + ']', 'parts'), plugins: [markerPlugin] });
+        ] }, options: withZoom(baseOptions('time [' + u + ']', 'parts'), 'cum'), plugins: [markerPlugin] });
         charts.stations = new Chart($('chStations'), { type: 'bar', data: { labels: [], datasets: [
             { label: 'processing', data: [], backgroundColor: colors.working },
             { label: 'blocked', data: [], backgroundColor: colors.blocked },
@@ -1131,8 +1261,8 @@
         ] }, options: barOptions(true) });
         const spOpts = baseOptions('time [' + u + ']', '');
         spOpts.scales.y = { min: -0.5, max: 4.5, ticks: { color: colors.muted, stepSize: 1, callback: v => Number.isInteger(v) ? 'S' + (v + 1) : '' }, grid: { color: colors.line } };
-        charts.space = new Chart($('chSpace'), { type: 'line', data: { datasets: [] }, options: spOpts, plugins: [markerPlugin] });
-        charts.handoff = new Chart($('chHandoff'), { type: 'scatter', data: { datasets: [] }, options: baseOptions('time [' + u + ']', 'manual work done [' + u + ']') });
+        charts.space = new Chart($('chSpace'), { type: 'line', data: { datasets: [] }, options: withZoom(spOpts, 'space'), plugins: [markerPlugin] });
+        charts.handoff = new Chart($('chHandoff'), { type: 'scatter', data: { datasets: [] }, options: withZoom(baseOptions('time [' + u + ']', 'manual work done [' + u + ']'), 'handoff') });
         const sw = y => { const o = baseOptions('', y); o.elements.point.radius = 3; return o; };
         charts.sweepTR = new Chart($('chSweepTR'), { type: 'line', data: { datasets: [] }, options: sw('TR [pcs/' + u + ']') });
         charts.sweepLT = new Chart($('chSweepLT'), { type: 'line', data: { datasets: [] }, options: sw('LT [' + u + ']') });
@@ -1142,9 +1272,9 @@
 
     function updateCharts(m) {
         if (!charts.tr) return;
-        const from = windowFrom(), t1 = Math.max(sim.t, 1e-6);
+        const from = 0, t1 = Math.max(sim.t, 1e-6);
         const line = y => [{ x: from, y }, { x: t1, y }];
-        const inWin = s => s.t >= from;
+        const inWin = () => true;
         const labor = cfg.mode === 'labor';
         // throughput
         const tr = charts.tr;
@@ -1153,7 +1283,7 @@
         tr.data.datasets[2].data = labor ? line(th.TRlabor) : [];
         tr.data.datasets[2].hidden = tr.data.datasets[2].modeHidden = !labor;
         tr.data.datasets[3].data = line(labor ? th.TRbEff : th.TRb);
-        tr.options.scales.x.min = from; tr.options.scales.x.max = t1;
+        applyX(tr, 'tr');
         tr.options.scales.y.suggestedMax = Math.max(labor ? th.TRlabor : 0, th.TRbEff, th.TRb) * 1.15;
         tr.update('none');
         // lead time
@@ -1165,10 +1295,10 @@
         const ltRef = exactTied ? th.tied.LTwip : ref ? th[ref].LT : null;
         lt.data.datasets[2].data = ltRef ? line(ltRef) : [];
         lt.data.datasets[3].data = series.filter(inWin).map(s => ({ x: s.t, y: s.wipNow }));
-        lt.options.scales.x.min = from; lt.options.scales.x.max = t1;
+        applyX(lt, 'lt');
         lt.update('none');
         // histogram of lead times
-        const lts = exits.filter(e => e.t >= from && e.t > sim.statsFrom).map(e => e.lt);
+        const lts = exits.filter(e => e.t > sim.statsFrom).map(e => e.lt);
         const hc = charts.hist;
         if (lts.length) {
             let lo = Math.min(...lts), hi = Math.max(...lts);
@@ -1199,8 +1329,8 @@
         const entOffset = Math.max(0, sim.started - entries.length), exOffset = Math.max(0, sim.completed - exits.length);
         cc.data.datasets[0].data = cumPts(entries, entOffset);
         cc.data.datasets[1].data = cumPts(exits.map(e => e.t), exOffset);
-        cc.options.scales.x.min = from; cc.options.scales.x.max = t1;
-        cc.options.scales.y.beginAtZero = from === 0;
+        applyX(cc, 'cum');
+        cc.options.scales.y.beginAtZero = views.cum === 'all';
         cc.update('none');
         // stations
         const sc = charts.stations;
@@ -1220,8 +1350,9 @@
         // space-time
         const sp = charts.space;
         const vMean = th.vSum / Math.max(1, th.n);
-        const win = cfg.chartWindow > 0 ? cfg.chartWindow : Math.max(2.5 * th.T0 / vMean, 10);
-        const sFrom = Math.max(0, sim.t - win);
+        const win = recentWindow('space');
+        const sFrom = views.space === 'recent' ? Math.max(0, sim.t - win) : 0;
+        void vMean;
         const off = j => (j - (th.n - 1) / 2) * Math.min(0.08, 0.5 / th.n);
         sp.data.datasets = sim.trace.map((trc, j) => {
             const p2 = [];
@@ -1241,13 +1372,13 @@
             push(sim.t, sim.workers[j].x);
             return { label: 'W' + (j + 1), data: p2, borderColor: WORKER_COLORS[j % 10], pointRadius: 0, borderWidth: 2 };
         });
-        sp.options.scales.x.min = sFrom; sp.options.scales.x.max = Math.max(sFrom + win, sim.t);
+        applyX(sp, 'space');
         sp.options.scales.y.max = th.N - 0.5;
         sp.update('none');
         // bucket brigade take-overs
         const ho = charts.handoff;
-        const hwin = cfg.chartWindow > 0 ? cfg.chartWindow : Math.max(30 * th.bbWork / Math.max(1e-9, th.vSum), 4 * th.T0);
-        const hFrom = Math.max(0, sim.t - hwin);
+        const hwin = recentWindow('handoff');
+        const hFrom = views.handoff === 'recent' ? Math.max(0, sim.t - hwin) : 0;
         const recentH = sim.handoffs.filter(h => h.t >= hFrom);
         const ds = [];
         if (cfg.policy === 'bucket') {
@@ -1257,7 +1388,7 @@
             }
         }
         ho.data.datasets = ds;
-        ho.options.scales.x.min = hFrom; ho.options.scales.x.max = Math.max(hFrom + hwin, sim.t);
+        applyX(ho, 'handoff');
         ho.options.scales.y.max = th.bbWork;
         ho.update('none');
         const sorted = cfg.workers.every((w, j) => j === 0 || w.speed >= cfg.workers[j - 1].speed);
@@ -1460,10 +1591,12 @@
         initTheme();
         readColors();
         buildPolicies();
+        bindMenu();
         bindSetup();
         bindRun();
         initInstall();
         $('sweepBtn').addEventListener('click', runSweep);
+        bindZoomButtons();
         // deep link: index.html#pizza2 loads a scenario, #pizza2.run also starts it
         const hash = (location.hash || '').slice(1).split('.');
         const first = PRESETS.find(p => p.id === hash[0]) || PRESETS[0];
@@ -1479,7 +1612,7 @@
         window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => { layout(); draw(0); drawGantt(); }, 120); });
         if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { readColors(); draw(0); });
         requestAnimationFrame(frame);
-        window.flowLab = { get sim() { return sim; }, get cfg() { return cfg; }, get theory() { return th; } };
+        window.flowLab = { get sim() { return sim; }, get cfg() { return cfg; }, get theory() { return th; }, get logRows() { return logRows; }, get jobRows() { return jobRows; } };
     }
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
     else boot();

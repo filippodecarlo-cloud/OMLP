@@ -16,6 +16,8 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
     <link rel="stylesheet" href="styles.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.0.1/chartjs-plugin-zoom.min.js"></script>
 </head>
 <body>
 <div class="page">
@@ -47,9 +49,14 @@
         </button>
     </section>
 
-    <section class="scenarios" aria-labelledby="scenariosTitle">
-        <h2 id="scenariosTitle" class="section-label">Scenarios from the slides</h2>
-        <div id="presetList" class="preset-list"></div>
+    <section class="scenario-bar" aria-label="Scenario">
+        <span class="section-label">Scenario</span>
+        <div class="menu-wrap">
+            <button id="scenarioBtn" class="btn scenario-btn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="scenarioMenu">
+                <span id="scenarioName" class="scenario-name">–</span><span class="chev" aria-hidden="true">▾</span>
+            </button>
+            <div id="scenarioMenu" class="scenario-menu" role="menu" hidden></div>
+        </div>
     </section>
 
     <!-- Run bar -->
@@ -108,7 +115,7 @@
                     <button id="speedsFastSlow" class="btn btn-small" type="button">Order fast → slow</button>
                 </div>
                 <div class="field-row">
-                    <label for="walkTime">Walking time per station <span class="tip" tabindex="0" data-tip="Time to walk from one station to the next. 0 = instant moves, as in the formulas of the slides.">?</span></label>
+                    <label for="walkTime">Walking time per station <span class="tip" tabindex="0" data-tip="Time to walk from one station to the next. 0 = instant moves, as in the formulas.">?</span></label>
                     <div class="with-unit"><input id="walkTime" type="number" min="0" max="20" step="0.1" value="0"><span class="unit-label">min</span></div>
                 </div>
                 <div id="skillsBox" class="skills" hidden>
@@ -153,17 +160,17 @@
                     <select id="unitSel"><option value="s">s</option><option value="min">min</option><option value="h">h</option></select>
                 </div>
                 <div class="field-row">
-                    <label for="logStep">Log step (CSV) <span class="tip" tabindex="0" data-tip="Interval between the rows of the exported time series.">?</span></label>
-                    <div class="with-unit"><input id="logStep" type="number" min="0.01" step="1" value="5"><span class="unit-label">min</span></div>
+                    <label for="logStep">Log step (CSV) <span class="tip" tabindex="0" data-tip="Rows of the time series are taken exactly every log step, in the time unit of the line (with times in s: 1 = one second, 60 = one minute). Each row holds the state at that instant and what happened since the previous row. The job export is exact and does not depend on the step.">?</span></label>
+                    <div class="with-unit"><input id="logStep" type="number" min="0.0001" step="any" value="5"><span class="unit-label">min</span></div>
                 </div>
                 <div class="field-row">
-                    <label for="chartWindow">Chart window <span class="tip" tabindex="0" data-tip="0 = the whole run. Otherwise the time charts show only the last part of the run (recent zoom).">?</span></label>
+                    <label for="chartWindow">Zoom window <span class="tip" tabindex="0" data-tip="Length of the recent part of the run shown by “Recent zoom” and by the Gantt. 0 = chosen automatically from the line.">?</span></label>
                     <div class="with-unit"><input id="chartWindow" type="number" min="0" step="10" value="0"><span class="unit-label">min</span></div>
                 </div>
             </section>
 
             <section class="panel">
-                <h2 class="panel-title">Saved setups</h2>
+                <h2 class="panel-title">Saved setups and data</h2>
                 <div class="save-row">
                     <input id="cfgName" type="text" placeholder="Name of this setup" aria-label="Name of this setup">
                     <button id="saveLocal" class="btn btn-small" type="button">Save</button>
@@ -173,8 +180,12 @@
                     <button id="saveCfg" class="btn btn-small" type="button">Download (JSON)</button>
                     <button id="loadCfg" class="btn btn-small" type="button">Open file</button>
                     <input id="cfgFile" type="file" accept=".json,application/json" hidden>
-                    <button id="exportCsv" class="btn btn-small" type="button">Export log (CSV)</button>
                 </div>
+                <div class="chip-row">
+                    <button id="exportCsv" class="btn btn-small" type="button" title="One row every log step: state at that instant and what happened since the previous row">Export time series (CSV)</button>
+                    <button id="exportJobs" class="btn btn-small" type="button" title="One row per finished job: exact entry, start and exit times">Export jobs (CSV)</button>
+                </div>
+                <p id="logStatus" class="caption"></p>
             </section>
         </aside>
 
@@ -226,7 +237,7 @@
                     <table class="config-table" id="configTable"></table>
                 </div>
                 <div class="chip-row">
-                    <button id="ampleBtn" class="btn btn-small labor-only" type="button" title="Enough machines so that no worker ever waits for one (slide 91)">Ample machines (m = n)</button>
+                    <button id="ampleBtn" class="btn btn-small labor-only" type="button" title="Enough machines so that no worker ever waits for one">Ample machines (m = n)</button>
                     <button id="oneMachineBtn" class="btn btn-small" type="button">One machine per station</button>
                     <button id="buffersInf" class="btn btn-small" type="button">All buffers unlimited</button>
                     <button id="buffersZero" class="btn btn-small" type="button">No buffers (0)</button>
@@ -252,11 +263,11 @@
 
             <div class="chart-grid">
                 <section class="panel chart-card">
-                    <h3 class="chart-title">Throughput over time</h3>
+                    <div class="chart-head"><h3 class="chart-title">Throughput over time</h3><div class="zoom-btns" role="group" aria-label="Zoom"><button type="button" class="btn btn-small" data-zoom="tr" data-view="recent" title="Follow the most recent part of the run">Recent zoom</button><button type="button" class="btn btn-small" data-zoom="tr" data-view="all" title="Show the whole run">Full zoom</button></div></div>
                     <div class="chart-box"><canvas id="chTR"></canvas></div>
                 </section>
                 <section class="panel chart-card">
-                    <h3 class="chart-title">Lead time and WIP over time</h3>
+                    <div class="chart-head"><h3 class="chart-title">Lead time and WIP over time</h3><div class="zoom-btns" role="group" aria-label="Zoom"><button type="button" class="btn btn-small" data-zoom="lt" data-view="recent" title="Follow the most recent part of the run">Recent zoom</button><button type="button" class="btn btn-small" data-zoom="lt" data-view="all" title="Show the whole run">Full zoom</button></div></div>
                     <div class="chart-box"><canvas id="chLT"></canvas></div>
                 </section>
                 <section class="panel chart-card">
@@ -268,7 +279,7 @@
                     <div class="chart-box"><canvas id="chLittle"></canvas></div>
                 </section>
                 <section class="panel chart-card">
-                    <h3 class="chart-title">Cumulative entries and exits</h3>
+                    <div class="chart-head"><h3 class="chart-title">Cumulative entries and exits</h3><div class="zoom-btns" role="group" aria-label="Zoom"><button type="button" class="btn btn-small" data-zoom="cum" data-view="recent" title="Follow the most recent part of the run">Recent zoom</button><button type="button" class="btn btn-small" data-zoom="cum" data-view="all" title="Show the whole run">Full zoom</button></div></div>
                     <div class="chart-box"><canvas id="chCum"></canvas></div>
                 </section>
                 <section class="panel chart-card">
@@ -280,12 +291,12 @@
                     <div class="chart-box"><canvas id="chWorkers"></canvas></div>
                 </section>
                 <section class="panel chart-card labor-only">
-                    <h3 class="chart-title">Bucket brigade: where each worker takes over a job</h3>
+                    <div class="chart-head"><h3 class="chart-title">Bucket brigade: where each worker takes over a job</h3><div class="zoom-btns" role="group" aria-label="Zoom"><button type="button" class="btn btn-small" data-zoom="handoff" data-view="recent" title="Follow the most recent part of the run">Recent zoom</button><button type="button" class="btn btn-small" data-zoom="handoff" data-view="all" title="Show the whole run">Full zoom</button></div></div>
                     <div class="chart-box"><canvas id="chHandoff"></canvas></div>
                     <p id="handoffNote" class="caption"></p>
                 </section>
                 <section class="panel chart-card chart-wide labor-only">
-                    <h3 class="chart-title">Worker positions over time (space–time diagram)</h3>
+                    <div class="chart-head"><h3 class="chart-title">Worker positions over time (space–time diagram)</h3><div class="zoom-btns" role="group" aria-label="Zoom"><button type="button" class="btn btn-small" data-zoom="space" data-view="recent" title="Follow the most recent part of the run">Recent zoom</button><button type="button" class="btn btn-small" data-zoom="space" data-view="all" title="Show the whole run">Full zoom</button></div></div>
                     <div class="chart-box tall"><canvas id="chSpace"></canvas></div>
                     <p class="caption">Each line is a worker. Flat segments: working or waiting at a station; slopes: walking. In a bucket brigade ordered slow → fast the pattern becomes periodic and every worker settles in a fixed zone.</p>
                 </section>
@@ -302,6 +313,8 @@
                     <div class="gantt-box"><canvas id="gantt"></canvas></div>
                 </section>
             </div>
+
+            <p class="caption zoom-hint">Charts with the zoom buttons: mouse wheel or pinch to zoom on the time axis, drag to move along it. After a manual zoom the chart stops following the run; “Recent zoom” follows the last part of the run again (its length is the zoom window in the run settings), “Full zoom” shows everything.</p>
 
             <section class="panel" aria-labelledby="sweepTitle">
                 <div class="panel-head">

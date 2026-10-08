@@ -1,8 +1,10 @@
 // Factory Flow Lab service worker: network first (always the latest version),
 // cache as a fallback so the app also works offline in the classroom.
-const CACHE = 'flow-lab-v2';
+const CACHE = 'flow-lab-v3';
 const SHELL = ['./', './index.html', './styles.css', './engine.js', './app.js', './manifest.json', './icon-192.png', './icon-512.png',
-    'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js'];
+    'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.0.1/chartjs-plugin-zoom.min.js'];
 
 self.addEventListener('install', event => {
     event.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).catch(() => null).then(() => self.skipWaiting()));
