@@ -1,0 +1,188 @@
+
+A. Slide 90-96 example (tied, ample machines)
+  PASS  TR = n/VAT = 2/90 [pcs/min]                          sim 0.0222  theory 0.0222  (err 0.00%, tol 0.2%)
+  PASS  LT_wip = (w/n)·VAT = 180 min                         sim 180.0000  theory 180.0000  (err 0.00%, tol 0.2%)
+  PASS  LT_worker = VAT = 90 min                             sim 90.0000  theory 90.0000  (err 0.00%, tol 0.2%)
+  PASS  LT_queue = (w-n)/n·VAT = 90 min                      sim 90.0000  theory 90.0000  (err 0.00%, tol 0.2%)
+  PASS  Little: WIP = TR·LT                                  sim 4.0000  theory 4.0000  (err 0.00%, tol 0.5%)
+  PASS  theory(): TR_b = 2/30 (2 machines)                   sim 0.0667  theory 0.0667  (err 0.00%, tol 0.0%)
+  PASS  binding constraint = labor (n/VAT < TR_b)
+  PASS  slide 91, no queue: LT = VAT = 90                    sim 90.0000  theory 90.0000  (err 0.00%, tol 0.2%)
+  PASS  slide 91, no queue: WIP = n = 2                      sim 2.0000  theory 2.0000  (err 0.00%, tol 0.5%)
+  PASS  slide 94, w=2 < n=3: TR = w/VAT                      sim 0.0222  theory 0.0222  (err 0.00%, tol 0.2%)
+  PASS  slide 94, w=2 < n=3: LT = VAT                        sim 90.0000  theory 90.0000  (err 0.00%, tol 0.2%)
+  PASS  slide 92, w=7, n=3: LT_wip = 2.33·VAT                sim 210.0000  theory 210.0000  (err 0.00%, tol 0.2%)
+  PASS  slide 92, w=7, n=3: LT_queue = 1.33·VAT              sim 120.0000  theory 120.0000  (err 0.00%, tol 0.3%)
+
+B. Slide 97-98 pizza shop
+  PASS  n=2: TR = 2/20 = 0.10 pcs/min                        sim 0.1000  theory 0.1000  (err 0.00%, tol 0.3%)
+  PASS  n=2: LT_wip = 8/2·20 = 80 min                        sim 80.0000  theory 80.0000  (err 0.00%, tol 0.3%)
+  PASS  n=2: LT_queue = 60 min                               sim 60.0000  theory 60.0000  (err 0.00%, tol 0.3%)
+  PASS  n=4: TR = 0.20 pcs/min                               sim 0.2000  theory 0.2000  (err 0.00%, tol 0.3%)
+  PASS  n=4: LT_wip = 40 min (-50%)                          sim 40.0000  theory 40.0000  (err 0.00%, tol 0.3%)
+  PASS  PWC(w=8) with TR_b=0.25: TR = 0.17                   sim 0.1667  theory 0.1667  (err 0.00%, tol 0.0%)
+  PASS  PWC(w=8): LT = 48 min                                sim 48.0000  theory 48.0000  (err 0.00%, tol 0.0%)
+
+C. Random times, ample machines (FP §7.4.1)
+  PASS  exp: TR = n/VAT                                      sim 0.0334  theory 0.0333  (err 0.20%, tol 2.0%)
+  PASS  exp: LT_wip = w/n·VAT                                sim 209.6013  theory 210.0000  (err 0.19%, tol 2.0%)
+  PASS  exp: Little WIP = TR·LT                              sim 7.0006  theory 7.0000  (err 0.01%, tol 1.0%)
+  PASS  normal: TR = n/VAT                                   sim 0.0332  theory 0.0333  (err 0.34%, tol 2.0%)
+  PASS  normal: LT_wip = w/n·VAT                             sim 210.7254  theory 210.0000  (err 0.35%, tol 2.0%)
+  PASS  normal: Little WIP = TR·LT                           sim 7.0005  theory 7.0000  (err 0.01%, tol 1.0%)
+  PASS  uniform: TR = n/VAT                                  sim 0.0334  theory 0.0333  (err 0.13%, tol 2.0%)
+  PASS  uniform: LT_wip = w/n·VAT                            sim 209.7298  theory 210.0000  (err 0.13%, tol 2.0%)
+  PASS  uniform: Little WIP = TR·LT                          sim 7.0001  theory 7.0000  (err 0.00%, tol 1.0%)
+
+D. Limited capacity, TR <= min(n/VAT, TR_b)
+  PASS  tied n=1: TR=0.0111 <= 0.0111
+  PASS  tied n=2: TR=0.0222 <= 0.0222
+  PASS  tied n=3: TR=0.0333 <= 0.0333
+  PASS  tied n=5: TR=0.0333 <= 0.0333
+  PASS  tied n=8: TR=0.0333 <= 0.0333
+  PASS  bucket n=1: TR=0.0111 <= 0.0111
+  PASS  bucket n=2: TR=0.0222 <= 0.0222
+  PASS  bucket n=3: TR=0.0333 <= 0.0333
+  PASS  bucket n=5: TR=0.0333 <= 0.0333
+  PASS  bucket n=8: TR=0.0333 <= 0.0333
+  PASS  dropping n=1: TR=0.0111 <= 0.0111
+  PASS  dropping n=2: TR=0.0222 <= 0.0222
+  PASS  dropping n=3: TR=0.0333 <= 0.0333
+  PASS  dropping n=5: TR=0.0333 <= 0.0333
+  PASS  dropping n=8: TR=0.0333 <= 0.0333
+  PASS  zones n=1: TR=0.0111 <= 0.0111
+  PASS  zones n=2: TR=0.0167 <= 0.0222
+  PASS  zones n=3: TR=0.0333 <= 0.0333
+  PASS  zones n=5: TR=0.0333 <= 0.0333
+  PASS  zones n=8: TR=0.0333 <= 0.0333
+  PASS  dropping n=6, w=10: TR -> TR_b = 1/30                sim 0.0333  theory 0.0333  (err 0.03%, tol 1.0%)
+  PASS  tied n=1: TR = 1/VAT                                 sim 0.0111  theory 0.0111  (err 0.00%, tol 0.3%)
+  PASS  bucket n=1: TR = 1/VAT                               sim 0.0111  theory 0.0111  (err 0.00%, tol 0.3%)
+  PASS  dropping n=1: TR = 1/VAT                             sim 0.0111  theory 0.0111  (err 0.00%, tol 0.3%)
+  PASS  zones n=1: TR = 1/VAT                                sim 0.0111  theory 0.0111  (err 0.00%, tol 0.3%)
+
+E. Dedicated workers, Penny Fab (FP §7.2)
+  PASS  best case w=1: TR = min(w/T0, r_b)                   sim 0.1250  theory 0.1250  (err 0.02%, tol 0.3%)
+  PASS  best case w=1: LT = max(T0, w/r_b)                   sim 8.0000  theory 8.0000  (err 0.00%, tol 0.3%)
+  PASS  best case w=2: TR = min(w/T0, r_b)                   sim 0.2500  theory 0.2500  (err 0.00%, tol 0.3%)
+  PASS  best case w=2: LT = max(T0, w/r_b)                   sim 8.0000  theory 8.0000  (err 0.00%, tol 0.3%)
+  PASS  best case w=3: TR = min(w/T0, r_b)                   sim 0.3750  theory 0.3750  (err 0.01%, tol 0.3%)
+  PASS  best case w=3: LT = max(T0, w/r_b)                   sim 8.0000  theory 8.0000  (err 0.00%, tol 0.3%)
+  PASS  best case w=4: TR = min(w/T0, r_b)                   sim 0.5000  theory 0.5000  (err 0.00%, tol 0.3%)
+  PASS  best case w=4: LT = max(T0, w/r_b)                   sim 8.0000  theory 8.0000  (err 0.00%, tol 0.3%)
+  PASS  best case w=6: TR = min(w/T0, r_b)                   sim 0.5000  theory 0.5000  (err 0.00%, tol 0.3%)
+  PASS  best case w=6: LT = max(T0, w/r_b)                   sim 12.0000  theory 12.0000  (err 0.00%, tol 0.3%)
+  PASS  best case w=8: TR = min(w/T0, r_b)                   sim 0.5000  theory 0.5000  (err 0.00%, tol 0.3%)
+  PASS  best case w=8: LT = max(T0, w/r_b)                   sim 16.0000  theory 16.0000  (err 0.00%, tol 0.3%)
+  PASS  PWC (exponential) w=2: TR = w/(W0+w-1)·r_b           sim 0.1998  theory 0.2000  (err 0.08%, tol 2.0%)
+  PASS  PWC (exponential) w=2: LT = T0+(w-1)/r_b             sim 10.0080  theory 10.0000  (err 0.08%, tol 2.0%)
+  PASS  PWC (exponential) w=4: TR = w/(W0+w-1)·r_b           sim 0.2854  theory 0.2857  (err 0.10%, tol 2.0%)
+  PASS  PWC (exponential) w=4: LT = T0+(w-1)/r_b             sim 14.0139  theory 14.0000  (err 0.10%, tol 2.0%)
+  PASS  PWC (exponential) w=8: TR = w/(W0+w-1)·r_b           sim 0.3634  theory 0.3636  (err 0.08%, tol 2.0%)
+  PASS  PWC (exponential) w=8: LT = T0+(w-1)/r_b             sim 22.0170  theory 22.0000  (err 0.08%, tol 2.0%)
+  PASS  zones for n=2 on 10,20,30,10,20 = [[0,1],[2,4]] (max load 60)
+
+F. Bucket brigade (Bartholdi & Eisenstein)
+  PASS  slow->fast: TR -> sum(v)/VAT = 3/20                  sim 0.1500  theory 0.1500  (err 0.00%, tol 1.0%)
+  PASS  slow->fast: no blocking (blocked share 0.00%)
+  PASS  fast->slow is worse: TR 0.1000 < 0.1500
+  PASS  slow->fast: W2 takes over at work content 4.00       sim 4.0000  theory 4.0000  (err 0.00%, tol 3.0%)
+  PASS  slow->fast: W2 handoff point is stable (spread 0.000)
+  PASS  slow->fast: W3 takes over at work content 10.67      sim 10.6667  theory 10.6667  (err 0.00%, tol 3.0%)
+  PASS  slow->fast: W3 handoff point is stable (spread 0.000)
+  PASS  equal speeds, ample machines: TR = n/VAT             sim 0.0333  theory 0.0333  (err 0.00%, tol 0.3%)
+  PASS  equal speeds (det): bucket TR == tied TR (only worke sim 0.0333  theory 0.0333  (err 0.00%, tol 0.0%)
+  PASS  equal speeds (det): bucket LT == tied LT             sim 150.0000  theory 150.0000  (err 0.00%, tol 0.0%)
+  PASS  equal speeds (exp): bucket TR == tied TR (only worke sim 0.0220  theory 0.0220  (err 0.00%, tol 0.0%)
+  PASS  equal speeds (exp): bucket LT == tied LT             sim 227.4091  theory 227.4091  (err 0.00%, tol 0.0%)
+  PASS  walk time 0.1/station lowers TR (0.1243 < 0.1500)
+  PASS  handoff only between operations: TR 0.1384 <= with preemption
+
+G. Bottleneck at the end, job dropping (slides 104-106)
+  PASS  tied, bottleneck at end: workers wait a lot (blocked 22.2%)
+  PASS  dropping without cap floods: WIP 86 at t=2000 -> 336 at t=8000
+  PASS  dropping with cap w=5: TR = TR_b = 1/12              sim 0.0833  theory 0.0833  (err 0.01%, tol 1.0%)
+  PASS  tied, bottleneck at end: TR = TR_b anyway (machine-b sim 0.0833  theory 0.0833  (err 0.01%, tol 1.0%)
+  PASS  exp times, n=2: dropping (w=8) TR 0.0707 > tied 0.0566 by >10%
+  PASS  exp times: labor utilization dropping 99% > tied 79%
+  PASS  exp times: TR -> n/VAT = 0.0714 as the cap grows (w=3: 0.0645, w=8: 0.0707)
+  PASS  exp times: ...paid with lead time, LT(w=8) 113.2 > LT(w=3) 46.5 (Little)
+
+H. Little + invariants (random fuzz)
+  PASS  160 random runs: invariants hold, no deadlock, TR <= min(Σv/VAT, TR_b·v) (0 failures, 0 stuck)
+  PASS  Little's law |WIP - TR·LT|/WIP worst = 0.46% (< 3%, finite horizon)
+
+I. Part 1: machines, best / worst / practical worst case
+  PASS  best case w=1: TR = min(w/T0, r_b)                   sim 0.1250  theory 0.1250  (err 0.02%, tol 0.3%)
+  PASS  best case w=1: LT = max(T0, w/r_b)                   sim 8.0000  theory 8.0000  (err 0.00%, tol 0.3%)
+  PASS  best case w=2: TR = min(w/T0, r_b)                   sim 0.2500  theory 0.2500  (err 0.00%, tol 0.3%)
+  PASS  best case w=2: LT = max(T0, w/r_b)                   sim 8.0000  theory 8.0000  (err 0.00%, tol 0.3%)
+  PASS  best case w=4: TR = min(w/T0, r_b)                   sim 0.5000  theory 0.5000  (err 0.00%, tol 0.3%)
+  PASS  best case w=4: LT = max(T0, w/r_b)                   sim 8.0000  theory 8.0000  (err 0.00%, tol 0.3%)
+  PASS  best case w=6: TR = min(w/T0, r_b)                   sim 0.5000  theory 0.5000  (err 0.00%, tol 0.3%)
+  PASS  best case w=6: LT = max(T0, w/r_b)                   sim 12.0000  theory 12.0000  (err 0.00%, tol 0.3%)
+  PASS  best case w=8: TR = min(w/T0, r_b)                   sim 0.5000  theory 0.5000  (err 0.00%, tol 0.3%)
+  PASS  best case w=8: LT = max(T0, w/r_b)                   sim 16.0000  theory 16.0000  (err 0.00%, tol 0.3%)
+  PASS  worst case w=2 (move lot = w): TR = 1/T0             sim 0.1250  theory 0.1250  (err 0.02%, tol 0.3%)
+  PASS  worst case w=2 (move lot = w): LT = w·T0             sim 16.0000  theory 16.0000  (err 0.00%, tol 0.3%)
+  PASS  worst case w=4 (move lot = w): TR = 1/T0             sim 0.1250  theory 0.1250  (err 0.02%, tol 0.3%)
+  PASS  worst case w=4 (move lot = w): LT = w·T0             sim 32.0000  theory 32.0000  (err 0.00%, tol 0.3%)
+  PASS  PWC (exponential) w=2: TR                            sim 0.2000  theory 0.2000  (err 0.01%, tol 2.0%)
+  PASS  PWC (exponential) w=2: LT                            sim 10.0007  theory 10.0000  (err 0.01%, tol 2.0%)
+  PASS  PWC (exponential) w=4: TR                            sim 0.2849  theory 0.2857  (err 0.27%, tol 2.0%)
+  PASS  PWC (exponential) w=4: LT                            sim 14.0377  theory 14.0000  (err 0.27%, tol 2.0%)
+  PASS  PWC (exponential) w=8: TR                            sim 0.3635  theory 0.3636  (err 0.04%, tol 2.0%)
+  PASS  PWC (exponential) w=8: LT                            sim 22.0096  theory 22.0000  (err 0.04%, tol 2.0%)
+
+J. Part 1: capacity (parallel machines, OEE, batches)
+  PASS  3 parallel machines of 6: TR_b = 3/6 = 0.5           sim 0.5000  theory 0.5000  (err 0.00%, tol 0.3%)
+  PASS  OEE 0.8 on 2 min: TR_b = 0.8/2 = 0.4                 sim 0.4000  theory 0.4000  (err 0.00%, tol 0.3%)
+  PASS  theory(): T0 = 2 + 2.5 + 2 = 6.5                     sim 6.5000  theory 6.5000  (err 0.00%, tol 0.0%)
+  PASS  batch of 2 in 4 h: TR_b = 2/4 = 0.5                  sim 0.5000  theory 0.5000  (err 0.00%, tol 0.3%)
+  PASS  theory(): batch station capacity = b·m/t = 0.5       sim 0.5000  theory 0.5000  (err 0.00%, tol 0.0%)
+  PASS  batch of 3 in 4 h: bottleneck moves to the 2 h stati sim 0.5000  theory 0.5000  (err 0.00%, tol 0.3%)
+  PASS  original "Balanced line" preset: 720 parts/h         sim 720.0000  theory 720.0000  (err 0.00%, tol 0.3%)
+
+K. Part 1: finite buffers and blocking
+  PASS  2 exp. machines, buffer 0: TH = 2/3                  sim 0.6671  theory 0.6667  (err 0.07%, tol 1.5%)
+  PASS  2 exp. machines, buffer 1: TH = 3/4                  sim 0.7488  theory 0.7500  (err 0.16%, tol 1.5%)
+  PASS  2 exp. machines, buffer 3: TH = 5/6                  sim 0.8324  theory 0.8333  (err 0.12%, tol 1.5%)
+  PASS  deterministic balanced line, buffers 0, push: TR = 1 sim 0.3334  theory 0.3333  (err 0.01%, tol 0.3%)
+  PASS  push with buffers 2: WIP stays bounded (7 jobs at the end)
+  PASS  push with buffers 2: TR = bottleneck 1/4             sim 0.2500  theory 0.2500  (err 0.00%, tol 0.3%)
+  PASS  push with unlimited buffers floods: WIP 502 -> 2002
+  PASS  original "Bottleneck (S3)": TR = 0.8/8 s = 360 parts sim 360.0000  theory 360.0000  (err 0.00%, tol 0.5%)
+  PASS  ...and S2 is blocked behind the 1-place buffer (55.5% of time)
+  PASS  Little in the bottleneck preset                      sim 10.0000  theory 10.0000  (err 0.00%, tol 1.0%)
+
+L. Extensions: one worker tends several machines
+  PASS  1 worker, 3 machines (1 + 4 min): TR = min(1/1, 3/5) sim 0.6000  theory 0.6000  (err 0.00%, tol 0.3%)
+  PASS  ...the worker is busy 60% of the time                sim 0.6000  theory 0.6000  (err 0.00%, tol 0.5%)
+  PASS  1 worker, 6 machines: labor becomes the constraint,  sim 1.0000  theory 1.0000  (err 0.00%, tol 0.3%)
+  PASS  theory(): binding constraint = labor with 6 machines
+  PASS  theory(): labor content per part = 3 min             sim 3.0000  theory 3.0000  (err 0.00%, tol 0.0%)
+  PASS  serial 3 x (1 + 4 min), 1 worker: interference gives sim 0.1667  theory 0.1667  (err 0.00%, tol 0.5%)
+  PASS  ...below the bound min(1/3, 1/5) = 0.2
+  PASS  serial, three workers: no interference, TR = 1/5     sim 0.2000  theory 0.2000  (err 0.00%, tol 0.5%)
+  PASS  tied workers wait for the machine: TR = 2/15         sim 0.1333  theory 0.1333  (err 0.00%, tol 0.3%)
+  PASS  theory(): tied formula with automatic cycle          sim 0.1333  theory 0.1333  (err 0.00%, tol 0.0%)
+
+M. Extensions: skill matrix (cross-training)
+  PASS  workers never work outside their skills (invariants)
+  PASS  no cross-training (zones 10 + 5 min): TR = 1/10      sim 0.1000  theory 0.1000  (err 0.00%, tol 1.0%)
+  PASS  shared middle station: TR 0.1000 between 1/10 and the labor bound 2/15
+  PASS  random times: cross-training raises TR (0.0998 -> 0.1146)
+  PASS  theory() warns when no worker can operate a station
+  PASS  the engine reports the stop (stalled = true)
+
+N. Stops and warnings
+  PASS  w smaller than a batch: warning
+  PASS  w smaller than a batch: the engine reports the stop
+  PASS  a buffer holds at least a whole batch / move lot (capacity 3)
+  PASS  batches ignored with tied workers: warning
+
+O. Fuzz on every feature (invariants, no unexplained stop, Little)
+  PASS  240 random runs with batches, move lots, buffers, automatic cycles, OEE, skills: 0 failures (8 stops caused by incomplete move lots)
+  PASS  Little's law on 225 stable runs: worst |WIP - TR·LT|/WIP = 0.35%
+
+156/156 checks passed

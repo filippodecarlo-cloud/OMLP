@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Factory Flow Lab</title>
+    <meta name="description" content="Factory Flow Lab - production line simulator for Factory Dynamics: lead time, WIP and throughput with buffers, batches and OEE (part 1), and manpower-constrained lines with workers, bucket brigades and job dropping (part 2). Operations Management and Lean Production.">
+    <meta name="theme-color" content="#1f7f8c">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" href="icon-192.png">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Flow Lab">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+</head>
+<body>
+<div class="page">
+
+    <header class="masthead">
+        <div class="masthead-text">
+            <p class="eyebrow">Factory Dynamics · parts 1 and 2</p>
+            <h1>Factory Flow Lab</h1>
+            <p class="lede">Build a production line, run it and compare lead time, WIP and throughput with the laws of Factory Physics. Part 1: machines, buffers, batches and variability. Part 2: the workers who run the line.</p>
+            <p class="author">Operations Management and Lean Production · Filippo De Carlo</p>
+        </div>
+        <div class="masthead-actions">
+            <button id="installBtn" class="btn" type="button" hidden>⤓ Install app</button>
+            <button id="themeToggle" class="btn btn-ghost" type="button" aria-label="Toggle dark or light theme">◐ Theme</button>
+        </div>
+    </header>
+
+    <!-- Mode -->
+    <section class="modes" role="radiogroup" aria-label="Part of the chapter">
+        <button type="button" class="mode-opt" data-mode="machines" role="radio">
+            <span class="mode-ref">Part 1</span>
+            <span class="mode-name">Machines</span>
+            <span class="mode-desc">Stations run on their own: WIP, lead time, throughput, buffers, batches, OEE, variability.</span>
+        </button>
+        <button type="button" class="mode-opt" data-mode="labor" role="radio">
+            <span class="mode-ref">Part 2</span>
+            <span class="mode-name">Manpower</span>
+            <span class="mode-desc">Workers run the machines: number of workers, speeds, tied workers, bucket brigades, job dropping, skills.</span>
+        </button>
+    </section>
+
+    <section class="scenarios" aria-labelledby="scenariosTitle">
+        <h2 id="scenariosTitle" class="section-label">Scenarios from the slides</h2>
+        <div id="presetList" class="preset-list"></div>
+    </section>
+
+    <!-- Run bar -->
+    <div class="runbar" role="toolbar" aria-label="Simulation controls">
+        <div class="run-buttons">
+            <button id="startBtn" class="btn btn-primary" type="button">▶ Start</button>
+            <button id="pauseBtn" class="btn" type="button" disabled>❚❚ Pause</button>
+            <button id="stepBtn" class="btn" type="button" title="Advance to the next event">⏭ Next event</button>
+            <button id="resetBtn" class="btn" type="button">↺ Reset</button>
+        </div>
+        <div class="run-speed">
+            <label for="speedRange">Speed</label>
+            <input id="speedRange" type="range" min="-1" max="4" step="0.01" value="1">
+            <output id="speedOut" class="mono">10 min/s</output>
+        </div>
+        <a class="link-btn only-narrow" href="#setup">Setup ↓</a>
+        <div class="run-clock mono"><span class="clock-label">t =</span> <span id="clock">0.0</span> <span class="unit-label">min</span></div>
+    </div>
+
+    <div id="alertBox" class="alert" role="status" hidden></div>
+
+    <div class="workspace">
+
+        <!-- ================= SETUP ================= -->
+        <aside class="setup" id="setup" aria-label="Line setup">
+
+            <section class="panel labor-only">
+                <h2 class="panel-title">Worker movement policy</h2>
+                <div id="policyList" class="policy-list" role="radiogroup" aria-label="Policy"></div>
+                <p id="policyRule" class="policy-rule"></p>
+                <div id="bucketOpts" class="field-row" hidden>
+                    <label for="preemptSel">Take-over</label>
+                    <select id="preemptSel">
+                        <option value="1">anywhere, also during an operation</option>
+                        <option value="0">only between operations</option>
+                    </select>
+                </div>
+            </section>
+
+            <section class="panel labor-only">
+                <h2 class="panel-title">Workers</h2>
+                <div class="field-row">
+                    <label for="nWorkers">Number of workers <span class="sym">n</span></label>
+                    <div class="stepper">
+                        <button type="button" class="btn btn-sq" data-step="nWorkers" data-d="-1" aria-label="One worker less">−</button>
+                        <input id="nWorkers" type="number" min="1" max="10" value="2">
+                        <button type="button" class="btn btn-sq" data-step="nWorkers" data-d="1" aria-label="One worker more">+</button>
+                    </div>
+                </div>
+                <div id="workerTable" class="worker-table"></div>
+                <div class="chip-row">
+                    <button id="speedsEqual" class="btn btn-small" type="button">All speeds 1.0</button>
+                    <button id="speedsSlowFast" class="btn btn-small" type="button">Order slow → fast</button>
+                    <button id="speedsFastSlow" class="btn btn-small" type="button">Order fast → slow</button>
+                </div>
+                <div class="field-row">
+                    <label for="walkTime">Walking time per station <span class="tip" tabindex="0" data-tip="Time to walk from one station to the next. 0 = instant moves, as in the formulas of the slides.">?</span></label>
+                    <div class="with-unit"><input id="walkTime" type="number" min="0" max="20" step="0.1" value="0"><span class="unit-label">min</span></div>
+                </div>
+                <div id="skillsBox" class="skills" hidden>
+                    <h3 class="sub-title">Skill matrix <span class="tip" tabindex="0" data-tip="Tick the stations each worker is trained for. A station with no ticks stops the line. Cross-training (two workers on the same station) lets the line rebalance itself when times vary.">?</span></h3>
+                    <div class="table-scroll"><table id="skillsTable" class="skills-table"></table></div>
+                    <div class="chip-row">
+                        <button id="skillsZones" class="btn btn-small" type="button">Balanced zones</button>
+                        <button id="skillsAll" class="btn btn-small" type="button">Everyone everywhere</button>
+                    </div>
+                </div>
+            </section>
+
+            <section class="panel">
+                <h2 class="panel-title">Release of jobs (WIP)</h2>
+                <div class="radio-stack">
+                    <label class="radio"><input type="radio" name="wipMode" id="wipModeCap" value="cap"> <span>CONWIP: <span class="sym">w</span> jobs always in the system, queue before S1 included (a new job enters when one leaves)</span></label>
+                    <label class="radio"><input type="radio" name="wipMode" id="wipModeFree" value="free"> <span id="freeLabel">No WIP cap (push): S1 starts a new job whenever it can</span></label>
+                </div>
+                <div class="field-row">
+                    <label for="wipCap">WIP <span class="sym">w</span></label>
+                    <div class="stepper">
+                        <button type="button" class="btn btn-sq" data-step="wipCap" data-d="-1" aria-label="Decrease WIP">−</button>
+                        <input id="wipCap" type="number" min="1" max="500" value="4">
+                        <button type="button" class="btn btn-sq" data-step="wipCap" data-d="1" aria-label="Increase WIP">+</button>
+                    </div>
+                </div>
+            </section>
+
+            <section class="panel">
+                <h2 class="panel-title">Run settings</h2>
+                <div class="field-row">
+                    <label for="warmup">Warm-up <span class="tip" tabindex="0" data-tip="Statistics start after this time, so that the empty start-up of the line does not bias the averages.">?</span></label>
+                    <div class="with-unit"><input id="warmup" type="number" min="0" step="10" value="0"><span class="unit-label">min</span></div>
+                </div>
+                <div class="field-row">
+                    <label for="seed">Random seed <span class="tip" tabindex="0" data-tip="Same seed = same random times: two runs can be compared fairly.">?</span></label>
+                    <input id="seed" type="number" min="1" step="1" value="1">
+                </div>
+                <div class="field-row">
+                    <label for="unitSel">Time unit</label>
+                    <select id="unitSel"><option value="s">s</option><option value="min">min</option><option value="h">h</option></select>
+                </div>
+                <div class="field-row">
+                    <label for="logStep">Log step (CSV) <span class="tip" tabindex="0" data-tip="Interval between the rows of the exported time series.">?</span></label>
+                    <div class="with-unit"><input id="logStep" type="number" min="0.01" step="1" value="5"><span class="unit-label">min</span></div>
+                </div>
+                <div class="field-row">
+                    <label for="chartWindow">Chart window <span class="tip" tabindex="0" data-tip="0 = the whole run. Otherwise the time charts show only the last part of the run (recent zoom).">?</span></label>
+                    <div class="with-unit"><input id="chartWindow" type="number" min="0" step="10" value="0"><span class="unit-label">min</span></div>
+                </div>
+            </section>
+
+            <section class="panel">
+                <h2 class="panel-title">Saved setups</h2>
+                <div class="save-row">
+                    <input id="cfgName" type="text" placeholder="Name of this setup" aria-label="Name of this setup">
+                    <button id="saveLocal" class="btn btn-small" type="button">Save</button>
+                </div>
+                <ul id="savedList" class="saved-list"></ul>
+                <div class="chip-row">
+                    <button id="saveCfg" class="btn btn-small" type="button">Download (JSON)</button>
+                    <button id="loadCfg" class="btn btn-small" type="button">Open file</button>
+                    <input id="cfgFile" type="file" accept=".json,application/json" hidden>
+                    <button id="exportCsv" class="btn btn-small" type="button">Export log (CSV)</button>
+                </div>
+            </section>
+        </aside>
+
+        <!-- ================= LINE + RESULTS ================= -->
+        <main class="results">
+
+            <section class="panel line-panel" aria-labelledby="lineTitle">
+                <div class="panel-head">
+                    <h2 id="lineTitle" class="panel-title">The line</h2>
+                    <ul class="legend" aria-label="Legend">
+                        <li class="labor-only"><span class="dot st-working"></span>working</li>
+                        <li class="labor-only"><span class="dot st-blocked"></span>blocked</li>
+                        <li class="labor-only"><span class="dot st-walking"></span>walking</li>
+                        <li class="labor-only"><span class="dot st-idle"></span>idle / waiting</li>
+                        <li><span class="bar st-working"></span>processing</li>
+                        <li><span class="bar st-auto"></span>automatic cycle</li>
+                        <li><span class="bar st-blocked"></span>blocked</li>
+                    </ul>
+                </div>
+                <div class="canvas-scroll">
+                    <canvas id="lineCanvas" aria-label="Animated production line"></canvas>
+                </div>
+                <p id="lineCaption" class="caption"></p>
+            </section>
+
+            <section class="kpis" aria-label="Key results">
+                <div class="kpi"><span class="kpi-label">Throughput TR</span><span id="kTR" class="kpi-value">–</span><span id="kTRsub" class="kpi-sub">–</span></div>
+                <div class="kpi"><span class="kpi-label">Lead time LT</span><span id="kLT" class="kpi-value">–</span><span id="kLTsub" class="kpi-sub">–</span></div>
+                <div class="kpi"><span class="kpi-label">Average WIP</span><span id="kWIP" class="kpi-value">–</span><span id="kWIPsub" class="kpi-sub">–</span></div>
+                <div class="kpi"><span id="kUtilLabel" class="kpi-label">Labor utilization</span><span id="kUtil" class="kpi-value">–</span><span id="kUtilsub" class="kpi-sub">–</span></div>
+                <div class="kpi"><span class="kpi-label">Completed jobs</span><span id="kDone" class="kpi-value">0</span><span id="kDonesub" class="kpi-sub">–</span></div>
+            </section>
+            <p id="convergence" class="convergence"></p>
+
+            <section class="panel" aria-labelledby="configTitle">
+                <div class="panel-head">
+                    <h2 id="configTitle" class="panel-title">Stations and buffers</h2>
+                    <div class="head-controls">
+                        <div class="stepper">
+                            <label for="nStations" class="small-label">Stations <span class="sym">N</span></label>
+                            <button type="button" class="btn btn-sq" data-step="nStations" data-d="-1" aria-label="One station less">−</button>
+                            <input id="nStations" type="number" min="2" max="12" value="5">
+                            <button type="button" class="btn btn-sq" data-step="nStations" data-d="1" aria-label="One station more">+</button>
+                        </div>
+                        <label class="check"><input id="showMore" type="checkbox"> batches, move lots, OEE, automatic cycle</label>
+                    </div>
+                </div>
+                <div class="table-scroll">
+                    <table class="config-table" id="configTable"></table>
+                </div>
+                <div class="chip-row">
+                    <button id="ampleBtn" class="btn btn-small labor-only" type="button" title="Enough machines so that no worker ever waits for one (slide 91)">Ample machines (m = n)</button>
+                    <button id="oneMachineBtn" class="btn btn-small" type="button">One machine per station</button>
+                    <button id="buffersInf" class="btn btn-small" type="button">All buffers unlimited</button>
+                    <button id="buffersZero" class="btn btn-small" type="button">No buffers (0)</button>
+                    <button id="allDet" class="btn btn-small" type="button">All deterministic</button>
+                    <button id="allExp" class="btn btn-small" type="button">All exponential</button>
+                </div>
+                <p class="caption">Empty buffer field = unlimited. A buffer always has room for a whole batch of the next station and a whole move lot of the previous one. Statistics in the last rows refer to the time after the warm-up.</p>
+            </section>
+
+            <section class="panel" aria-labelledby="theoryTitle">
+                <div class="panel-head">
+                    <h2 id="theoryTitle" class="panel-title">Simulation vs theory</h2>
+                    <span id="bindingPill" class="pill"></span>
+                </div>
+                <div class="table-scroll">
+                    <table class="theory-table">
+                        <thead><tr><th>Quantity</th><th>Formula</th><th class="num">Theory</th><th class="num">Simulated</th><th class="num">Δ</th></tr></thead>
+                        <tbody id="theoryRows"></tbody>
+                    </table>
+                </div>
+                <p id="theoryNote" class="caption"></p>
+            </section>
+
+            <div class="chart-grid">
+                <section class="panel chart-card">
+                    <h3 class="chart-title">Throughput over time</h3>
+                    <div class="chart-box"><canvas id="chTR"></canvas></div>
+                </section>
+                <section class="panel chart-card">
+                    <h3 class="chart-title">Lead time and WIP over time</h3>
+                    <div class="chart-box"><canvas id="chLT"></canvas></div>
+                </section>
+                <section class="panel chart-card">
+                    <h3 class="chart-title">Lead time distribution</h3>
+                    <div class="chart-box"><canvas id="chHist"></canvas></div>
+                </section>
+                <section class="panel chart-card">
+                    <h3 class="chart-title">Little's law: WIP vs TR · LT</h3>
+                    <div class="chart-box"><canvas id="chLittle"></canvas></div>
+                </section>
+                <section class="panel chart-card">
+                    <h3 class="chart-title">Cumulative entries and exits</h3>
+                    <div class="chart-box"><canvas id="chCum"></canvas></div>
+                </section>
+                <section class="panel chart-card">
+                    <h3 class="chart-title">Machines: where the time goes</h3>
+                    <div class="chart-box"><canvas id="chStations"></canvas></div>
+                </section>
+                <section class="panel chart-card labor-only">
+                    <h3 class="chart-title">Where each worker's time goes</h3>
+                    <div class="chart-box"><canvas id="chWorkers"></canvas></div>
+                </section>
+                <section class="panel chart-card labor-only">
+                    <h3 class="chart-title">Bucket brigade: where each worker takes over a job</h3>
+                    <div class="chart-box"><canvas id="chHandoff"></canvas></div>
+                    <p id="handoffNote" class="caption"></p>
+                </section>
+                <section class="panel chart-card chart-wide labor-only">
+                    <h3 class="chart-title">Worker positions over time (space–time diagram)</h3>
+                    <div class="chart-box tall"><canvas id="chSpace"></canvas></div>
+                    <p class="caption">Each line is a worker. Flat segments: working or waiting at a station; slopes: walking. In a bucket brigade ordered slow → fast the pattern becomes periodic and every worker settles in a fixed zone.</p>
+                </section>
+                <section class="panel chart-card chart-wide">
+                    <div class="panel-head">
+                        <h3 class="chart-title">Machine activity (Gantt)</h3>
+                        <ul class="legend">
+                            <li><span class="bar st-working"></span>processing</li>
+                            <li><span class="bar st-blocked"></span>blocked</li>
+                            <li class="labor-only"><span class="bar st-waiting"></span>waiting for a worker</li>
+                            <li><span class="bar st-idle"></span>starved (no part)</li>
+                        </ul>
+                    </div>
+                    <div class="gantt-box"><canvas id="gantt"></canvas></div>
+                </section>
+            </div>
+
+            <section class="panel" aria-labelledby="sweepTitle">
+                <div class="panel-head">
+                    <h2 id="sweepTitle" class="panel-title">Experiment: TR and LT as the WIP or the workers change</h2>
+                </div>
+                <div class="sweep-controls">
+                    <div class="field-row">
+                        <label for="sweepVar">Vary</label>
+                        <select id="sweepVar">
+                            <option value="w">WIP w = 1 … 20 (CONWIP)</option>
+                            <option value="n" class="labor-only">number of workers n = 1 … 10</option>
+                        </select>
+                    </div>
+                    <fieldset class="sweep-policies labor-only">
+                        <legend>Policies</legend>
+                        <label><input type="checkbox" value="zones" checked> Zones</label>
+                        <label><input type="checkbox" value="tied" checked> Tied</label>
+                        <label><input type="checkbox" value="bucket" checked> Bucket</label>
+                        <label><input type="checkbox" value="dropping" checked> Dropping</label>
+                    </fieldset>
+                    <button id="sweepBtn" class="btn btn-primary" type="button">Run experiment</button>
+                    <span id="sweepStatus" class="caption"></span>
+                </div>
+                <div class="sweep-charts">
+                    <div class="chart-box"><canvas id="chSweepTR"></canvas></div>
+                    <div class="chart-box"><canvas id="chSweepLT"></canvas></div>
+                </div>
+                <p id="sweepNote" class="caption"></p>
+            </section>
+
+            <section class="panel notes" aria-labelledby="notesTitle">
+                <h2 id="notesTitle" class="panel-title">Model, formulas and things to try</h2>
+                <div class="notes-grid">
+                    <div>
+                        <h3>What is simulated</h3>
+                        <ul>
+                            <li>A serial line of N stations. Station k has m<sub>k</sub> machines, a process time ST<sub>k</sub>, a process batch b<sub>k</sub> (parts processed together), a move lot (parts moved together), an OEE (times are divided by it) and, in part 2, an automatic cycle that the machine runs without the worker.</li>
+                            <li>Buffers have a capacity: a finished part that finds the next buffer full stays on its machine, which is blocked.</li>
+                            <li>WIP w counts every job in the system, including the queue before S1; LT goes from entry to exit, so WIP = TR · LT (Little).</li>
+                            <li>In part 2 every manual operation needs a worker; a worker with speed v does ST in ST/v.</li>
+                            <li>Exact event-driven simulation: with deterministic times the results match the formulas to the last digit.</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h3>Formulas</h3>
+                        <ul class="formulas">
+                            <li><span class="f">WIP = TR · LT</span> Little's law</li>
+                            <li><span class="f">TR<sub>b</sub> = min m·b/t</span> bottleneck rate</li>
+                            <li><span class="f">W<sub>0</sub> = TR<sub>b</sub> · T<sub>0</sub></span> critical WIP</li>
+                            <li><span class="f">best: TR = min(w/T<sub>0</sub>, TR<sub>b</sub>)</span></li>
+                            <li><span class="f">worst: TR = 1/T<sub>0</sub>, LT = w·T<sub>0</sub></span></li>
+                            <li><span class="f">PWC: TR = w/(W<sub>0</sub>+w−1)·TR<sub>b</sub></span></li>
+                            <li><span class="f">TR ≤ min(n/VAT, TR<sub>b</sub>)</span> labor or machines</li>
+                            <li><span class="f">LT<sub>wip</sub> = (w/n)·VAT</span> tied workers, w ≥ n</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h3>Things to try in class</h3>
+                        <ul>
+                            <li>Penny Fab: raise w from 1 to 8 and compare best case, worst case (move lot = w) and exponential times (PWC).</li>
+                            <li>Bottleneck preset: enlarge the 1-place buffer before S3 and see the blocking of S2 disappear.</li>
+                            <li>Pizza shop: from 2 to 4 workers, LT = 80 → 40 min (−50%).</li>
+                            <li>Bucket brigade: order slow → fast, then fast → slow, and watch the space–time diagram.</li>
+                            <li>One operator, three machines: add machines until the worker becomes the constraint.</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+</div>
+
+<script src="engine.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
