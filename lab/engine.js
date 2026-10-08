@@ -247,6 +247,7 @@
             this.handoffs = [];       // {t, j, wp}        bucket brigade take-overs
             this.trace = this.workers.map(() => []);
             this.stalled = false;
+            this.stopCompleted = 0;      // > 0: advanceTo() stops exactly when this many jobs are completed
             this.zeroSteps = 0;
             this.release();
             this.resolve();
@@ -790,6 +791,7 @@
                 this.t += dt;
                 this.recordTrace();
                 this.handleEvents();
+                if (this.stopCompleted && this.completed >= this.stopCompleted) { this.resolve(); this.recordTrace(); break; }
                 if (++iter > 5e6) throw new Error('advanceTo(): too many events');
             }
             if (this.t > T) this.t = T;

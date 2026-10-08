@@ -27,6 +27,9 @@
         { id: 'volatility', mode: 'machines', ref: 'Original simulator', name: 'High volatility: exponential, batches, small buffers',
           cfg: { stations: [ST(6, { dist: 'exp', oee: 0.85 }), ST(4.7, { dist: 'tri', cv: 0.4, oee: 0.9 }), ST(7, { dist: 'exp', oee: 0.75, batch: 2 }), ST(4, { dist: 'normal', cv: 0.3, oee: 0.88 }), ST(5, { dist: 'tri', cv: 0.25, oee: 0.92 })],
                  buffers: [1, 2, 1, 1], wip: 8, unit: 's', warmup: 300 } },
+        { id: 'assignment', mode: 'machines', ref: 'Assignment', name: 'Assignment template: line A–D, 10 000 units',
+          cfg: { stations: [ST(20, { m: 1, dist: 'normal', cv: 0.1 }), ST(50, { m: 2, dist: 'normal', cv: 0.1 }), ST(100, { m: 6, dist: 'normal', cv: 0.1 }), ST(30, { m: 2, dist: 'normal', cv: 0.1 })],
+                 buffers: [5, 5, 5], wip: 16, unit: 's', warmup: 600, stopAfter: 10000 } },
         { id: 'best', mode: 'machines', ref: 'Best, worst and practical worst case', name: 'Best case: Penny Fab, 4 × 2 h, w = 4',
           cfg: { stations: L([2, 2, 2, 2]), wip: 4, unit: 'h' } },
         { id: 'worst', mode: 'machines', ref: 'Best, worst and practical worst case', name: 'Worst case: parts moved all together',
@@ -81,6 +84,7 @@
     let markers = [];               // live changes shown on the time charts {t, short, label}
     let noticeTimer = null;
     let chartsUnit = null;
+    let lastSweep = null;
     let jobRows = [], stepExits = 0, stepLT = 0, pendingEvents = [], logBase = 0, logFullShown = false;
     // view of each time chart: 'all' (whole run), 'recent' (follows the zoom window), 'user' (zoomed or panned by hand)
     const DEFAULT_VIEWS = { tr: 'all', lt: 'all', cum: 'all', space: 'recent', handoff: 'recent' };
@@ -96,7 +100,8 @@
             mode: p.mode, stations, buffers: (c.buffers || new Array(N - 1).fill(null)).slice(0, N - 1),
             workers: speeds.map(s => ({ speed: s })), skills: c.skills ? deepCopy(c.skills) : null,
             policy: c.policy || 'tied', wipMode: c.wipMode || 'cap', wip: c.wip || 4,
-            walk: c.walk || 0, preempt: true, warmup: c.warmup || 0, seed: 1, unit: c.unit || 'min', chartWindow: 0
+            walk: c.walk || 0, preempt: true, warmup: c.warmup || 0, seed: 1, unit: c.unit || 'min', chartWindow: 0,
+            stopAfter: c.stopAfter || 0
         };
         while (out.buffers.length < N - 1) out.buffers.push(null);
         out.showMore = stations.some(s => s.batch > 1 || s.move > 1 || s.oee < 1 || s.auto > 0);
@@ -248,6 +253,7 @@
         $('unitSel').value = cfg.unit;
         $('logStep').value = cfg.logStep;
         $('chartWindow').value = cfg.chartWindow;
+        $('stopAfter').value = cfg.stopAfter || 0;
         $('showMore').checked = !!cfg.showMore;
         document.querySelectorAll('.unit-label').forEach(el => el.textContent = cfg.unit);
         $('sweepVar').value = cfg.mode === 'machines' ? 'w' : $('sweepVar').value;
@@ -435,6 +441,7 @@
             logBase = nextLog - logRows.length * cfg.logStep;
             logStatus();
         });
+        $('stopAfter').addEventListener('change', e => { cfg.stopAfter = Math.round(clampNum(e.target.value, 0, 1e7, 0)); });
         $('chartWindow').addEventListener('change', e => { cfg.chartWindow = clampNum(e.target.value, 0, 1e8, 0); refreshUi(true); });
         $('showMore').addEventListener('change', e => { cfg.showMore = e.target.checked; renderConfigTable(); refreshUi(true); });
         $('speedsEqual').addEventListener('click', () => { cfg.workers.forEach(w => w.speed = 1); changed(); });
@@ -563,7 +570,10 @@
         $('speedOut').textContent = (speed < 1 ? speed.toFixed(3) : speed < 10 ? speed.toFixed(2) : speed < 100 ? speed.toFixed(1) : speed.toFixed(0)) + ' ' + cfg.unit + '/s';
     }
     function bindRun() {
-        $('startBtn').addEventListener('click', () => setRunning(true));
+        $('startBtn').addEventListener('click', () => {
+            if (sim && stopReached()) { notice(`${cfg.stopAfter} jobs are already completed: raise “Stop after” (0 = no stop) or press Reset.`); return; }
+            setRunning(true);
+        });
         $('pauseBtn').addEventListener('click', () => setRunning(false));
         $('resetBtn').addEventListener('click', () => { setRunning(false); rebuild(); });
         $('stepBtn').addEventListener('click', () => {
@@ -587,16 +597,24 @@
     // The time series is sampled exactly on the grid 0, Δ, 2Δ, ...: the engine stops at each
     // grid time, so every row is the state at that instant plus what happened since the row before.
     const LOG_MAX = 100000, JOB_MAX = 200000;
+    function stopReached() { return cfg.stopAfter > 0 && sim.completed >= cfg.stopAfter; }
     function advance(T) {
+        sim.stopCompleted = cfg.stopAfter > 0 ? cfg.stopAfter : 0;
         try {
-            while (cfg.logStep > 0 && nextLog <= T + 1e-9 && logRows.length < LOG_MAX) {
+            while (cfg.logStep > 0 && nextLog <= T + 1e-9 && logRows.length < LOG_MAX && !stopReached()) {
                 if (nextLog > sim.t) sim.advanceTo(nextLog);
                 collect();
                 logRows.push(logRow(nextLog));
                 nextLog = (logRows.length) * cfg.logStep + logBase;
             }
             if (logRows.length >= LOG_MAX && !logFullShown) { logFullShown = true; notice(`The time series is full (${LOG_MAX} rows): export it, or use a longer log step.`); }
-            sim.advanceTo(T);
+            if (!stopReached()) sim.advanceTo(T);
+            if (stopReached() && running) {
+                setRunning(false);
+                collect();
+                logRows.push(logRow(sim.t));                          // last row at the stop
+                notice(`Stopped: ${cfg.stopAfter} jobs completed at t = ${fmtShort(+sim.t.toFixed(3))} ${cfg.unit}. Export the data, or raise the number (0 = no stop) to go on.`);
+            }
         } catch (err) { setRunning(false); showAlert(['Simulation stopped: ' + err.message], true); console.error(err); }
         collect();
     }
@@ -1463,7 +1481,9 @@
         const variable = labor ? $('sweepVar').value : 'w';
         const pols = labor ? [...document.querySelectorAll('.sweep-policies input:checked')].map(i => i.value) : ['machines'];
         if (!pols.length) { $('sweepStatus').textContent = 'Select at least one policy.'; return; }
-        const xs = variable === 'n' ? [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] : Array.from({ length: 20 }, (_, i) => i + 1);
+        const wMax = Math.round(clampNum($('sweepMax').value, 2, 200, 20));
+        const wStep = Math.max(1, Math.ceil(wMax / 30));
+        const xs = variable === 'n' ? [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] : Array.from({ length: Math.floor(wMax / wStep) }, (_, i) => (i + 1) * wStep);
         const jobs = [];
         pols.forEach(p => xs.forEach(x => jobs.push({ p, x })));
         const out = {};
@@ -1507,7 +1527,6 @@
     }
 
     function drawSweep(variable, xs, out) {
-        if (!charts.sweepTR) return;
         const u = cfg.unit, labor = cfg.mode === 'labor';
         const c0 = engineCfg(cfg);
         const ref = xs.map(x => {
@@ -1516,6 +1535,8 @@
             else c.wip = x;
             return { x, t: E.theory(c) };
         });
+        lastSweep = { variable, xs, out, ref, unit: u };
+        if (!charts.sweepTR) return;
         const capNote = p => (variable === 'n' && cfg.wipMode === 'free' && (p === 'zones' || p === 'dropping')) ? ' (w = 2n)' : '';
         const trDs = [], ltDs = [];
         Object.entries(out).forEach(([p, arr]) => {
@@ -1557,6 +1578,22 @@
               (cfg.wipMode === 'free' ? ' The experiment always uses a CONWIP cap.' : '');
     }
 
+    function exportSweep() {
+        if (!lastSweep) { notice('Run the experiment first.'); return; }
+        const { variable, xs, out, ref, unit } = lastSweep;
+        const names = Object.keys(out);
+        const head = [variable === 'n' ? 'n' : 'w'];
+        names.forEach(p => { const nm = p === 'machines' ? 'sim' : p; head.push(`TR_${nm} [pcs/${unit}]`, `LT_${nm} [${unit}]`); });
+        if (variable === 'w') head.push(`TR_best [pcs/${unit}]`, `TR_pwc [pcs/${unit}]`, `TR_worst [pcs/${unit}]`, `LT_best [${unit}]`, `LT_pwc [${unit}]`, `LT_worst [${unit}]`);
+        const rows = xs.map((x, i) => {
+            const r = [x];
+            names.forEach(p => { const a = out[p].find(o => o.x === x) || {}; r.push(a.TR, a.LT); });
+            if (variable === 'w') { const t = ref[i].t; r.push(t.best.TR, t.pwc.TR, t.worst.TR, t.best.LT, t.pwc.LT, t.worst.LT); }
+            return r.map(csvCell).join(',');
+        });
+        download('flow-lab-experiment.csv', [head.join(',')].concat(rows).join('\n'), 'text/csv');
+    }
+
     // ------------------------------------------------------------------
     // Theme, install, boot
     // ------------------------------------------------------------------
@@ -1596,6 +1633,7 @@
         bindRun();
         initInstall();
         $('sweepBtn').addEventListener('click', runSweep);
+        $('sweepCsv').addEventListener('click', exportSweep);
         bindZoomButtons();
         // deep link: index.html#pizza2 loads a scenario, #pizza2.run also starts it
         const hash = (location.hash || '').slice(1).split('.');

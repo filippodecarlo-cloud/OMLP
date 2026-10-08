@@ -164,6 +164,10 @@
                     <div class="with-unit"><input id="logStep" type="number" min="0.0001" step="any" value="5"><span class="unit-label">min</span></div>
                 </div>
                 <div class="field-row">
+                    <label for="stopAfter">Stop after <span class="tip" tabindex="0" data-tip="The run stops exactly when this many jobs have left the line (e.g. 10 000 units). 0 = no stop.">?</span></label>
+                    <div class="with-unit"><input id="stopAfter" type="number" min="0" step="1000" value="0"><span class="small-label">jobs</span></div>
+                </div>
+                <div class="field-row">
                     <label for="chartWindow">Zoom window <span class="tip" tabindex="0" data-tip="Length of the recent part of the run shown by “Recent zoom” and by the Gantt. 0 = chosen automatically from the line.">?</span></label>
                     <div class="with-unit"><input id="chartWindow" type="number" min="0" step="10" value="0"><span class="unit-label">min</span></div>
                 </div>
@@ -324,9 +328,13 @@
                     <div class="field-row">
                         <label for="sweepVar">Vary</label>
                         <select id="sweepVar">
-                            <option value="w">WIP w = 1 … 20 (CONWIP)</option>
+                            <option value="w">WIP w (CONWIP), from 1 to the max</option>
                             <option value="n" class="labor-only">number of workers n = 1 … 10</option>
                         </select>
+                    </div>
+                    <div class="field-row">
+                        <label for="sweepMax">max w</label>
+                        <input id="sweepMax" type="number" min="2" max="200" step="1" value="20">
                     </div>
                     <fieldset class="sweep-policies labor-only">
                         <legend>Policies</legend>
@@ -336,6 +344,7 @@
                         <label><input type="checkbox" value="dropping" checked> Dropping</label>
                     </fieldset>
                     <button id="sweepBtn" class="btn btn-primary" type="button">Run experiment</button>
+                    <button id="sweepCsv" class="btn" type="button" title="TR and LT for each w, with the best, practical worst and worst case">Export experiment (CSV)</button>
                     <span id="sweepStatus" class="caption"></span>
                 </div>
                 <div class="sweep-charts">

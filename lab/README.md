@@ -23,6 +23,9 @@ download/upload (also the original simulator's `line_config.json`), installable 
   machines processing / blocked / starved, buffer levels, state and position of each worker) and what happened since
   the previous row (exits, TR and mean LT of the step), plus running averages and the changes made while running.
   Up to 100,000 rows; the step can be changed during the run.
+- **Experiment (CSV)**: TR and LT for each w of the experiment, with the best, practical worst and worst case.
+- **Stop after N jobs** (run settings): the run stops exactly when N jobs have left the line (e.g. the 10 000 units
+  of the assignment).
 - **Jobs (CSV)**: one row per finished job with the exact entry, start and exit times, LT, time in the line and wait
   before S1 (independent of the log step).
 
@@ -38,7 +41,7 @@ Mode, policy, number of stations, seed and warm-up start a new run.
 ## Direct links to a scenario
 
 `index.html#<scenario>` loads a scenario, `index.html#<scenario>.run` also starts it.
-Part 1: `balanced`, `bottleneck`, `volatility`, `best`, `worst`, `pwc`, `unbal`, `unbalExp`, `push`, `oven`.
+Part 1: `assignment`, `balanced`, `bottleneck`, `volatility`, `best`, `worst`, `pwc`, `unbal`, `unbalExp`, `push`, `oven`.
 Part 2: `slide90`, `slide99`, `pizza2`, `pizza4`, `tend`, `bbSF`, `bbFS`, `bnEnd`, `dropFlood`, `dropCap`, `skills`, `penny`.
 
 ## Validation
