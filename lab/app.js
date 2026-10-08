@@ -812,9 +812,10 @@
         const stH = head + maxM * slotH + 8;
         const lotY = top + stH + 8;
         const laneY = lotY + (anyLot ? 26 : 0) + (labor ? 28 : 0);
-        const zoneY = laneY + 30;
+        const laneY2 = laneY + 30;              // two-way walkway: upper lane left → right, lower lane right → left
+        const zoneY = laneY2 + 30;
         const H = labor ? zoneY + (cfg.policy === 'zones' ? 34 : 14) : lotY + (anyLot ? 26 : 8);
-        geo = { W, H, N, left, right, colW, stW, slotH, top, head, stH, laneY, zoneY, lotY, maxM, anyLot, badges, labor, kanban };
+        geo = { W, H, N, left, right, colW, stW, slotH, top, head, stH, laneY, laneY2, zoneY, lotY, maxM, anyLot, badges, labor, kanban };
         document.body.classList.toggle('rel-kanban', kanban);
         const dpr = window.devicePixelRatio || 1;
         cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
@@ -923,11 +924,22 @@
         ctx.textBaseline = 'middle';
 
         if (geo.labor) {
-            ctx.strokeStyle = colors.line; ctx.lineWidth = 2; ctx.setLineDash([6, 6]);
-            ctx.beginPath(); ctx.moveTo(px(0) - 10, geo.laneY); ctx.lineTo(px(N - 1) + 10, geo.laneY); ctx.stroke();
-            ctx.setLineDash([]);
+            const x0 = px(0) - 10, x1 = px(N - 1) + 10;
+            [[geo.laneY, 1], [geo.laneY2, -1]].forEach(([ly, dir]) => {
+                ctx.strokeStyle = colors.line; ctx.lineWidth = 2; ctx.setLineDash([6, 6]);
+                ctx.beginPath(); ctx.moveTo(x0, ly); ctx.lineTo(x1, ly); ctx.stroke();
+                ctx.setLineDash([]);
+                // chevrons show the direction of each lane
+                ctx.strokeStyle = colors.muted; ctx.lineWidth = 1.5;
+                for (let k = 0; k < N - 1; k++) {
+                    const cx = (px(k) + px(k + 1)) / 2;
+                    ctx.beginPath(); ctx.moveTo(cx - 3 * dir, ly - 4); ctx.lineTo(cx + 3 * dir, ly); ctx.lineTo(cx - 3 * dir, ly + 4); ctx.stroke();
+                }
+            });
+            ctx.lineWidth = 1;
             ctx.fillStyle = colors.muted; ctx.textAlign = 'left'; ctx.font = `12px ${colors.body}`;
-            ctx.fillText('walkway', 6, geo.laneY);
+            ctx.fillText('walkway →', 6, geo.laneY);
+            ctx.fillText('← back', 6, geo.laneY2);
         }
 
         // IN
@@ -1050,28 +1062,46 @@
         if (geo.labor) {
             animPhase += dtReal;
             const targets = sim.workers.map(workerTarget);
+            // lane: moving right on the upper one, moving left on the lower one; standing still keeps the last lane
+            targets.forEach((t, j) => {
+                const d = disp[j];
+                t.rawX = t.x;
+                if (!t.lane) return;
+                const ref = d ? (d.rawX != null ? d.rawX : d.x) : t.x;
+                const wk = sim.workers[j];
+                let dir = null;
+                if (wk.state === 'walking' && wk.walk) dir = wk.walk.purpose === 'return' || (wk.walk.to != null && wk.walk.to < wk.x) ? 1 : 0;
+                else if (d && Math.abs(t.x - ref) > geo.colW * 0.3) dir = t.x > ref ? 0 : 1;
+                t.dir = dir != null ? dir : (d && d.lane != null ? d.lane : 0);
+                t.y = t.dir ? geo.laneY2 : geo.laneY;
+            });
             const groups = {};
-            targets.forEach((t, j) => { if (t.lane) { const key = Math.round(t.x / 6); (groups[key] = groups[key] || []).push(j); } });
+            targets.forEach((t, j) => { if (t.lane) { const key = t.dir + ':' + Math.round(t.x / 6); (groups[key] = groups[key] || []).push(j); } });
             Object.values(groups).forEach(g => g.forEach((j, i) => { targets[j].x += (i - (g.length - 1) / 2) * 32; }));
             // the figure walks to its new place along the walkway: a move is never instantaneous on screen
             // (at most about half a second of real time, so the picture never lags far behind the simulation)
             sim.workers.forEach((w, j) => {
                 const t = targets[j], key = Math.round(t.x) + ',' + Math.round(t.y);
                 let d = disp[j];
-                if (!d || dtReal === 0) { disp[j] = { x: t.x, y: t.y, key, path: [], v: 0, moving: false }; return; }
+                if (!d || dtReal === 0) { disp[j] = { x: t.x, y: t.y, key, path: [], v: 0, moving: false, rawX: t.rawX, lane: t.lane ? t.dir : 0 }; return; }
+                if (t.lane) d.lane = t.dir;
                 if (d.key !== key) {
                     d.key = key;
                     const path = [];
-                    if (Math.abs(t.x - d.x) > geo.colW * 0.6 && !t.lane) {
-                        if (Math.abs(d.y - geo.laneY) > 1) path.push({ x: d.x, y: geo.laneY });
-                        path.push({ x: t.x, y: geo.laneY });
-                    } else if (Math.abs(t.x - d.x) > geo.colW * 0.6 && Math.abs(d.y - geo.laneY) > 1) path.push({ x: d.x, y: geo.laneY });
+                    const far = Math.abs(t.x - d.x) > geo.colW * 0.6;
+                    if (far && !t.lane) {
+                        const dir = t.x > d.x ? 0 : 1, ly = dir ? geo.laneY2 : geo.laneY;
+                        d.lane = dir;
+                        if (Math.abs(d.y - ly) > 1) path.push({ x: d.x, y: ly });
+                        path.push({ x: t.x, y: ly });
+                    } else if (far && Math.abs(d.y - t.y) > 1) path.push({ x: d.x, y: t.y });
                     path.push({ x: t.x, y: t.y });
                     let len = 0, px0 = d.x, py0 = d.y;
                     path.forEach(p => { len += Math.hypot(p.x - px0, p.y - py0); px0 = p.x; py0 = p.y; });
                     d.path = path;
                     d.v = Math.max(len / 0.45, 160);
                 }
+                d.rawX = t.rawX;
                 let step = d.v * dtReal;
                 d.moving = d.path.length > 0;
                 while (step > 0 && d.path.length) {
