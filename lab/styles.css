@@ -96,7 +96,6 @@ sub { font-size: 0.72em; }
 .masthead-text { max-width: 760px; min-width: 0; }
 .eyebrow { margin: 0 0 4px; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
 h1 { font-size: clamp(26px, 3.4vw, 36px); font-weight: 700; letter-spacing: -0.01em; }
-.lede { margin: 6px 0 4px; color: var(--muted); max-width: 68ch; }
 .author { margin: 0; font-size: 13px; color: var(--muted); }
 .masthead-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; align-items: center; }
 
@@ -343,6 +342,7 @@ body.mode-labor .machines-only { display: none !important; }
     width: 16px; height: 16px; border-radius: 50%; font-size: 11px; font-weight: 700;
     border: 1px solid var(--line); color: var(--muted); cursor: help; vertical-align: 1px; margin-left: 2px;
 }
+.tip-title { width: 20px; height: 20px; font-size: 13px; font-family: var(--font-mono); vertical-align: 6px; margin-left: 6px; }
 .tip:hover, .tip:focus-visible { border-color: var(--accent); color: var(--accent); outline: none; }
 /* one tooltip for the whole page, placed by app.js so that it stays inside the window */
 .tip-box {

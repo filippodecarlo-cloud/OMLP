@@ -812,8 +812,8 @@
         const stH = head + maxM * slotH + 8;
         const lotY = top + stH + 8;
         const laneY = lotY + (anyLot ? 26 : 0) + (labor ? 28 : 0);
-        const laneY2 = laneY + 30;              // two-way walkway: upper lane left → right, lower lane right → left
-        const zoneY = laneY2 + 30;
+        const laneY2 = laneY;                   // one walkway: workers carrying a part stay beside the machines
+        const zoneY = laneY + 30;
         const H = labor ? zoneY + (cfg.policy === 'zones' ? 34 : 14) : lotY + (anyLot ? 26 : 8);
         geo = { W, H, N, left, right, colW, stW, slotH, top, head, stH, laneY, laneY2, zoneY, lotY, maxM, anyLot, badges, labor, kanban };
         document.body.classList.toggle('rel-kanban', kanban);
@@ -989,22 +989,11 @@
         if (geo.labor) updateWorkers(dtReal);
 
         if (geo.labor) {
-            const x0 = px(0) - 10, x1 = px(N - 1) + 10;
-            [[geo.laneY, 1], [geo.laneY2, -1]].forEach(([ly, dir]) => {
-                ctx.strokeStyle = colors.line; ctx.lineWidth = 2; ctx.setLineDash([6, 6]);
-                ctx.beginPath(); ctx.moveTo(x0, ly); ctx.lineTo(x1, ly); ctx.stroke();
-                ctx.setLineDash([]);
-                // chevrons show the direction of each lane
-                ctx.strokeStyle = colors.muted; ctx.lineWidth = 1.5;
-                for (let k = 0; k < N - 1; k++) {
-                    const cx = (px(k) + px(k + 1)) / 2;
-                    ctx.beginPath(); ctx.moveTo(cx - 3 * dir, ly - 4); ctx.lineTo(cx + 3 * dir, ly); ctx.lineTo(cx - 3 * dir, ly + 4); ctx.stroke();
-                }
-            });
-            ctx.lineWidth = 1;
+            ctx.strokeStyle = colors.line; ctx.lineWidth = 2; ctx.setLineDash([6, 6]);
+            ctx.beginPath(); ctx.moveTo(px(0) - 10, geo.laneY); ctx.lineTo(px(N - 1) + 10, geo.laneY); ctx.stroke();
+            ctx.setLineDash([]); ctx.lineWidth = 1;
             ctx.fillStyle = colors.muted; ctx.textAlign = 'left'; ctx.font = `12px ${colors.body}`;
-            ctx.fillText('walkway →', 6, geo.laneY);
-            ctx.fillText('← back', 6, geo.laneY2);
+            ctx.fillText('walkway', 6, geo.laneY);
         }
 
         // IN
@@ -1878,6 +1867,27 @@
         });
         window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
     }
+    // full screen on and off with the same button
+    function initFullscreen() {
+        const b = $('fullBtn'), root = document.documentElement;
+        const can = root.requestFullscreen || root.webkitRequestFullscreen;
+        if (!can) { b.hidden = true; return; }
+        const isFull = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
+        const label = () => {
+            const on = isFull();
+            b.textContent = on ? '⛶ Exit full screen' : '⛶ Full screen';
+            b.setAttribute('aria-pressed', String(on));
+        };
+        b.addEventListener('click', () => {
+            try {
+                if (isFull()) (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+                else { const r = can.call(root); if (r && r.catch) r.catch(() => notice('This browser did not allow full screen.')); }
+            } catch (e) { notice('This browser did not allow full screen.'); }
+        });
+        document.addEventListener('fullscreenchange', label);
+        document.addEventListener('webkitfullscreenchange', label);
+        label();
+    }
     function applyTheme() { readColors(); makeCharts(); refreshUi(true); draw(0); if (sweepDone) runSweep(); }
 
     function initInstall() {
@@ -1980,6 +1990,7 @@
 
     function boot() {
         initTheme();
+        initFullscreen();
         readColors();
         buildPolicies();
         bindMenu();
