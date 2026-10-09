@@ -942,16 +942,16 @@
         sim.workers.forEach((w, j) => {
             const t = targets[j], key = Math.round(t.x) + ',' + Math.round(t.y);
             let d = disp[j];
-            if (!d || dtReal === 0) { disp[j] = { x: t.x, y: t.y, key, path: [], v: 0, moving: false, rawX: t.rawX, lane: t.lane ? t.dir : 0, jobId: w.job ? w.job.id : null, onSlot: !t.lane, carryJob: null }; return; }
+            if (!d || dtReal === 0) { disp[j] = { x: t.x, y: t.y, key, path: [], v: 0, moving: false, rawX: t.rawX, lane: t.lane ? t.dir : 0, jobId: w.job ? w.job.id : (w.slot && w.slot.jobs.length ? w.slot.jobs[0].id : null), onSlot: !t.lane, carryJob: null }; return; }
             if (t.lane) d.lane = t.dir;
-            const jid = w.job ? w.job.id : null;
+            const held = w.job || (w.slot && w.slot.jobs.length ? w.slot.jobs[0] : null), jid = held ? held.id : null;   // tied workers hold w.job, job dropping works on the slot
             if (d.key !== key) {
                 d.key = key;
                 const path = [];
                 const far = Math.abs(t.x - d.x) > geo.colW * 0.6;
                 // same part as before, from one machine to the next: walk beside the machines carrying it
                 const carry = !t.lane && d.onSlot && jid != null && d.jobId === jid && t.x > d.x;
-                d.carryJob = carry ? w.job : null;
+                d.carryJob = carry ? held : null;
                 if (carry) { /* straight to the next machine */ }
                 else if (far && !t.lane) {
                     const dir = t.x > d.x ? 0 : 1, ly = dir ? geo.laneY2 : geo.laneY;
