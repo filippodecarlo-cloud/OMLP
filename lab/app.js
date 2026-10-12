@@ -550,6 +550,21 @@
         });
         $('stopAfter').addEventListener('change', e => { cfg.stopAfter = Math.round(clampNum(e.target.value, 0, 1e7, 0)); });
         $('chartWindow').addEventListener('change', e => { cfg.chartWindow = clampNum(e.target.value, 0, 1e8, 0); refreshUi(true); });
+        // Tab in the station table: the change redraws the table, so move the focus by hand
+        // (same quantity of the next station; Shift+Tab goes back)
+        $('configTable').addEventListener('keydown', e => {
+            if (e.key !== 'Tab' || e.altKey || e.ctrlKey || e.metaKey) return;
+            const t = e.target;
+            if (!t.dataset || !t.dataset.key) return;
+            const list = [...$('configTable').querySelectorAll('input, select')].filter(x => !x.disabled && x.offsetParent !== null);
+            const nx = list[list.indexOf(t) + (e.shiftKey ? -1 : 1)];
+            if (!nx) return;                       // first or last field: leave the table as usual
+            e.preventDefault();
+            const id = nx.id;
+            t.blur();                              // fires "change" (and the redraw) now
+            const el = $(id);
+            if (el) { el.focus(); if (el.select) el.select(); }
+        });
         $('showMore').addEventListener('change', e => { cfg.showMore = e.target.checked; $('tspeedCtl').hidden = !cfg.showMore; renderConfigTable(); refreshUi(true); });
         $('tspeed').addEventListener('change', e => { cfg.tspeed = clampNum(e.target.value, 0, 1e7, 0); changed(); });
         $('speedsEqual').addEventListener('click', () => { cfg.workers.forEach(w => w.speed = 1); changed(); });
