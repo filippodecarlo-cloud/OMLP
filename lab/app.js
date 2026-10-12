@@ -261,7 +261,6 @@
             d.querySelector('input').addEventListener('change', e => { cfg.workers[j].speed = clampNum(e.target.value, 0.2, 3, 1); changed(); });
             wt.appendChild(d);
         });
-        $('walkTime').value = cfg.walk;
         $('skillsBox').hidden = cfg.policy !== 'zones';
         if (cfg.policy === 'zones') renderSkills();
         $('staggerChk').checked = !!cfg.stagger;
@@ -285,6 +284,11 @@
         $('stopAfter').value = cfg.stopAfter || 0;
         $('showMore').checked = !!cfg.showMore;
         $('tspeedCtl').hidden = !cfg.showMore;
+        const lab = cfg.mode === 'labor';
+        $('tspeedLabel').textContent = lab ? 'Walking speed' : 'Transport speed';
+        $('tspeedTip').dataset.tip = lab
+            ? 'Walking speed of the workers. Walking time between two stations = distance / speed: the workers move the parts and walk back. 0 = instant moves, as in the formulas.'
+            : 'Speed of the transport of the parts between stations (conveyor, forklift…). Transport time = distance / speed. It adds to the raw process time T₀ but does not limit the capacity. 0 = instant transfer.';
         $('tspeed').value = cfg.tspeed || 0;
         $('tspeedUnit').value = cfg.tspeedUnit || cfg.unit;
         document.querySelectorAll('.unit-label').forEach(el => el.textContent = cfg.unit);
@@ -362,11 +366,12 @@
             'Parts moved together to the next station (forklift, pallet). Move lot = w at every station gives the worst case.');
         h += row('OEE', S.map((s, k) => `<td><input type="text" inputmode="decimal" class="oee-in" id="c_oee_${k}" data-k="${k}" data-key="oee" value="${s.oeeM && s.oeeM.length > 1 ? s.oeeM.join('; ') : s.oee}" title="One value for the station, or one per machine separated by ; (e.g. 0.95; 0.6)"></td>`).join(''), 'more',
             'Overall Equipment Effectiveness: process times are divided by the OEE. With parallel machines give one value per machine, separated by a semicolon: 0.95; 0.6.');
-        const vT = speedPerUnit(cfg), tsp = vT > 0 && !(labor && (cfg.policy === 'tied' || cfg.policy === 'bucket'));
+        const vT = speedPerUnit(cfg), tsp = vT > 0;
         h += row('Distance to next [m]', S.map((s, k) => k < N - 1 ? num(k, 'distance', 0, 1e6, 'any', s.distance || 0) : '<td class="mono">–</td>').join(''), 'more',
-            'Distance from this station to the next one. With a transport speed the parts take distance / speed to reach the next buffer.');
-        h += row(`Transport time [${u}]`, S.map((s, k) => `<td class="mono">${k < N - 1 && tsp && s.distance > 0 ? fmtShort(+(s.distance / vT).toPrecision(3)) : '–'}</td>`).join(''), 'more',
-            'Distance / transport speed. Set the speed next to the check box above; 0 = instant transfer.');
+            labor ? 'Distance from this station to the next one, walked by the workers at the walking speed.'
+                : 'Distance from this station to the next one. With a transport speed the parts take distance / speed to reach the next buffer.');
+        h += row(`${labor ? 'Walking' : 'Transport'} time [${u}]`, S.map((s, k) => `<td class="mono">${k < N - 1 && tsp && s.distance > 0 ? fmtShort(+(s.distance / vT).toPrecision(3)) : '–'}</td>`).join(''), 'more',
+            labor ? 'Distance / walking speed (set next to the check box above).' : 'Distance / transport speed (set next to the check box above); 0 = instant transfer.');
         h += row(`Buffer after the station`, S.map((s, k) => k < N - 1
             ? `<td class="buf"><input type="number" id="c_buf_${k}" data-k="${k}" data-key="buf" min="0" max="500" step="1" placeholder="∞" value="${cfg.buffers[k] == null ? '' : cfg.buffers[k]}"></td>`
             : '<td class="buf mono">OUT</td>').join(''), 'sep', 'Places in the buffer between this station and the next one. Empty = unlimited, 0 = direct transfer.');
@@ -536,7 +541,6 @@
         $('relDrum').addEventListener('change', e => { cfg.release.drum = e.target.value === '' ? null : +e.target.value; changed(); });
         $('relRope').addEventListener('change', e => { cfg.release.rope = Math.round(clampNum(e.target.value, 1, 500, 4)); changed(); });
         $('staggerChk').addEventListener('change', e => { cfg.stagger = e.target.checked; changed(); });
-        $('walkTime').addEventListener('change', e => { cfg.walk = clampNum(e.target.value, 0, 20, 0); changed(); });
         $('preemptSel').addEventListener('change', e => { cfg.preempt = e.target.value === '1'; changed(); });
         $('warmup').addEventListener('change', e => { cfg.warmup = clampNum(e.target.value, 0, 1e8, 0); changed(); });
         $('seed').addEventListener('change', e => { cfg.seed = Math.round(clampNum(e.target.value, 1, 1e9, 1)); changed(); });
@@ -623,6 +627,10 @@
             if (!Array.isArray(cfg.buffers)) cfg.buffers = [];
             while (cfg.buffers.length < cfg.stations.length - 1) cfg.buffers.push(null);
             cfg.buffers.length = cfg.stations.length - 1;
+            if (cfg.mode === 'labor' && cfg.walk > 0 && !(cfg.tspeed > 0)) {
+                cfg.stations.forEach(s => { s.distance = cfg.walk; });   // 1 m per time unit: distance = old walking time
+                cfg.tspeed = 1; cfg.tspeedUnit = cfg.unit; cfg.walk = 0; cfg.showMore = true;
+            }
         }
         activePreset = null;
         renderAll();
@@ -1282,7 +1290,7 @@
             rate(ub), rate(m.TR), { key: 'TR', theo: ub, kind: 'bound' });
         const exactTied = labor && th.tied && th.carry && th.ample;
         if (exactTied) {
-            const f = th.walk > 0 ? 'min(w,n) / (VAT + 2(N−1)·walk)' : (w < n ? 'w / VAT' : 'n / VAT');
+            const f = th.walk > 0 ? 'min(w,n) / (VAT + 2·walk<sub>S1→S' + th.N + '</sub>)' : (w < n ? 'w / VAT' : 'n / VAT');
             row(w < n ? 'Only w workers busy (w &lt; n)' : 'Workers tied to jobs, ample machines', f, rate(th.tied.TR), rate(m.TR), { key: 'TR', theo: th.tied.TR });
         }
         const ref = refCase();
@@ -1294,7 +1302,7 @@
 
         grp('Lead time');
         if (exactTied) {
-            row('LT<sub>worker</sub>', th.walk > 0 ? 'VAT + (N−1)·walk' : 'VAT', fmt(th.tied.LTworker) + ' ' + u, fmt(m.LTline) + ' ' + u, { key: 'LTline', theo: th.tied.LTworker });
+            row('LT<sub>worker</sub>', th.walk > 0 ? 'VAT + walk<sub>S1→S' + th.N + '</sub>' : 'VAT', fmt(th.tied.LTworker) + ' ' + u, fmt(m.LTline) + ' ' + u, { key: 'LTline', theo: th.tied.LTworker });
             row('LT<sub>wip</sub>', 'w / TR = (w/n)·VAT', fmt(th.tied.LTwip) + ' ' + u, fmt(m.LT) + ' ' + u, { key: 'LT', theo: th.tied.LTwip });
             row('LT<sub>queue</sub> (waiting for a free worker)', '(w−n)/n · VAT', fmt(Math.max(0, th.tied.LTqueue)) + ' ' + u, fmt(m.LTqueue) + ' ' + u, th.tied.LTqueue > 1e-9 ? { key: 'LTqueue', theo: th.tied.LTqueue } : null);
         } else {
@@ -1364,7 +1372,7 @@
         if (p === 'zones') parts.push(th.n === th.N && sim.workers.every((w, j) => w.skills.filter(Boolean).length === 1 && w.skills[j])
             ? 'One dedicated worker per station: this is the line of part 1.' : 'Dedicated workers: TR is limited by the most loaded worker; cross-training (shared stations) helps when times vary.');
         if (sim.cfg.stations.some(s => s.auto > 0)) parts.push(th.carry ? 'Automatic cycles: tied workers wait at the machine during the cycle.' : 'Automatic cycles: the worker is free during the cycle and can tend another machine; when two machines need him at the same time one waits (machine interference).');
-        if (th.walk > 0) parts.push('Walking time is on: moving costs time, so TR is below the ideal value.');
+        if (th.walk > 0) parts.push(`Walking: ${fmt(th.walk)} ${cfg.unit} from S1 to S${th.N} (distance / walking speed). Moving costs time, so TR is below the ideal value.`);
         return parts.join(' ');
     }
 

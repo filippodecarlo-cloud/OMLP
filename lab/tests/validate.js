@@ -681,6 +681,33 @@ function live(cfg, steps, T) {
     check(G, 'live change to 30 m/h: LT = 8 + 3·(1/3) = 9 h', lv.metrics().LT, 9, 0.003);
 }
 
+{
+    const G = 'V. Part 2: walking distances and walking speed';
+    // equal distances = the old walking time per station
+    const st = line([10, 20, 30, 10, 20], 2);
+    const a = run({ stations: st, workers: workers(2), policy: 'tied', wip: 4, walk: 2, warmup: 900 }, 90000).m;
+    const b = run({ stations: st.map(x => Object.assign({}, x, { distance: 20 })), tspeed: 10, workers: workers(2), policy: 'tied', wip: 4, warmup: 900 }, 90000).m;
+    check(G, '20 m at 10 m/min = 2 min per station: same TR as walk = 2', b.TR, a.TR, 1e-6);
+    check(G, '...and same LT', b.LT, a.LT, 1e-6);
+    // unequal distances: tied workers, ample machines -> TR = min(w,n) / (VAT + 2·Σ walk)
+    const d = [10, 50, 10, 30];             // 1 + 5 + 1 + 3 = 10 min of walking at 10 m/min
+    const cfg = { stations: st.map((x, k) => Object.assign({}, x, { distance: d[k] || 0 })), tspeed: 10, workers: workers(2), policy: 'tied', wip: 2, warmup: 900 };
+    const th = theory(cfg);
+    check(G, 'theory(): walking S1 -> S5 = 10 min', th.walk, 10, 1e-9);
+    const r = run(cfg, 90000, true);
+    check(G, 'tied, unequal distances: TR = 2/(90 + 2·10)', r.m.TR, 2 / 110, 0.003);
+    check(G, 'theory() tied TR = measured', th.tied.TR, r.m.TR, 0.003);
+    assert(G, 'invariants hold', r.errs.length === 0, r.errs.join('; '));
+    // bucket brigade and job dropping with unequal distances
+    const bb = run({ stations: line(new Array(6).fill(2), 1).map((x, k) => Object.assign(x, { distance: k === 2 ? 40 : 4 })), tspeed: 20, workers: workers(3, [0.7, 1, 1.3]), policy: 'bucket', wip: Infinity, warmup: 200 }, 20000, true);
+    assert(G, `bucket brigade, one long segment: invariants hold (TR ${bb.m.TR.toFixed(3)})`, bb.errs.length === 0 && bb.m.TR > 0, bb.errs.join('; '));
+    check(G, "...and Little's law holds", bb.m.littleTRxLT, bb.m.WIP, 0.01);
+    const dr = run({ stations: line([4, 4, 4, 4, 12], 1).map((x, k) => Object.assign(x, { distance: k === 1 ? 60 : 10 })), tspeed: 20, workers: workers(3), policy: 'dropping', wip: 5, warmup: 300 }, 30000, true);
+    assert(G, 'job dropping, one long segment: invariants hold', dr.errs.length === 0 && dr.m.TR > 0, dr.errs.join('; '));
+    // in part 2 the parts do not travel on a transport: the distances are walked
+    assert(G, 'part 2: no transport time for the parts', theory(cfg).travel === 0);
+}
+
 // ---------------------------------------------------------------------------
 const pad = (s, n) => (s + ' '.repeat(n)).slice(0, n);
 let lastG = '', nOk = 0;

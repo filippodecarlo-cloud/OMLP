@@ -282,4 +282,16 @@ U. Transport times between stations
   PASS  job dropping with transport: invariants hold
   PASS  live change to 30 m/h: LT = 8 + 3·(1/3) = 9 h        sim 9.0000  theory 9.0000  (err 0.00%, tol 0.3%)
 
-241/241 checks passed
+V. Part 2: walking distances and walking speed
+  PASS  20 m at 10 m/min = 2 min per station: same TR as wal sim 0.0189  theory 0.0189  (err 0.00%, tol 0.0%)
+  PASS  ...and same LT                                       sim 212.0000  theory 212.0000  (err 0.00%, tol 0.0%)
+  PASS  theory(): walking S1 -> S5 = 10 min                  sim 10.0000  theory 10.0000  (err 0.00%, tol 0.0%)
+  PASS  tied, unequal distances: TR = 2/(90 + 2·10)          sim 0.0182  theory 0.0182  (err 0.00%, tol 0.3%)
+  PASS  theory() tied TR = measured                          sim 0.0182  theory 0.0182  (err 0.00%, tol 0.3%)
+  PASS  invariants hold
+  PASS  bucket brigade, one long segment: invariants hold (TR 0.168)
+  PASS  ...and Little's law holds                            sim 2.5307  theory 2.5303  (err 0.02%, tol 1.0%)
+  PASS  job dropping, one long segment: invariants hold
+  PASS  part 2: no transport time for the parts
+
+251/251 checks passed

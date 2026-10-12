@@ -9,7 +9,7 @@ Hopp & Spearman, *Factory Physics*, ch. 7. It merges the original *Factory Flow 
   normal, exponential, uniform or triangular distributions (mean + CV), parallel machines with an OEE per machine,
   process batches, move lots, finite buffers with blocking, transport between stations (distance / speed: it adds to T0, not to the capacity). Best case, worst case (a pallet of w parts, or a move lot
   of w) and practical worst case as references.
-- **Part 2 · Manpower**: n workers with speeds and walking time; dedicated workers with a skill matrix, workers tied
+- **Part 2 · Manpower**: n workers with speeds; walking times from the distances between stations and the walking speed; dedicated workers with a skill matrix, workers tied
   to jobs, bucket brigade, job dropping; automatic machine cycles (one operator tending several machines); staggered
   start of the workers (tied workers and job dropping), so that they spread along the line from the start.
 
@@ -72,7 +72,7 @@ Part 2: `slide90`, `slide99`, `pizza2`, `pizza4`, `tend`, `bbSF`, `bbFS`, `bnEnd
 node tests/validate.js
 ```
 
-241 checks (see `tests/validation-report.txt`): the 97 checks of the Labor Flow Simulator, plus best / worst /
+251 checks (see `tests/validation-report.txt`): the 97 checks of the Labor Flow Simulator, plus best / worst /
 practical worst case, two exponential machines with a buffer of B places (TH = (B+2)/(B+3)), parallel machines,
 OEE, batches, the presets of the original simulator (720 and 360 parts/h), machine tending and interference,
 skill matrix, stops and warnings, 240 random configurations with every feature (invariants, Little's law), and

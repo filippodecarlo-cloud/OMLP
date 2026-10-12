@@ -138,9 +138,14 @@
             };
         });
         c.stations.forEach(s => { if (s.st + s.auto <= 0) s.st = 1e-3; });
-        // transport between stations: time = distance / speed (parts carried by workers use the walking time instead)
+        // distances between stations: time = distance / speed.
+        // Part 1 (machines): the parts travel on a transport. Part 2 (manpower): the speed is the walking speed of the
+        // workers, who move the parts; without a speed, cfg.walk is a walking time per station (older setups).
         c.tspeed = +cfg.tspeed > 0 ? +cfg.tspeed : 0;
-        c.travel = c.stations.map((x, k) => k < N - 1 && c.tspeed > 0 && !c.carry ? x.distance / c.tspeed : 0);
+        const labor = c.mode === 'labor';
+        c.travel = c.stations.map((x, k) => k < N - 1 && c.tspeed > 0 && !labor ? x.distance / c.tspeed : 0);
+        c.walk = Math.max(0, +c.walk || 0);
+        c.walkSeg = c.stations.slice(0, Math.max(0, N - 1)).map(x => labor ? (c.tspeed > 0 ? x.distance / c.tspeed : c.walk) : 0);
         // buffers[k] = capacity of the buffer before station k (k >= 1)
         const b = cfg.buffers || [];
         c.buffers = [Infinity];
@@ -212,7 +217,7 @@
         const deterministic = S.every(s => s.dist === 'det');
         const out = {
             mode: c.mode, policy: c.policy, carry: c.carry, N, n, VAT: T0, T0, te, rate, TRb, TRbEff, bottleneck, WIPc,
-            laborContent, TRlabor, TRmax, vSum, vMax, equalSpeeds, ample, deterministic, onePiece, walk: c.walk, capped, w,
+            laborContent, TRlabor, TRmax, vSum, vMax, equalSpeeds, ample, deterministic, onePiece, walk: c.walkSeg.reduce((a, b) => a + b, 0), walkSeg: c.walkSeg, capped, w,
             binding: TRlabor < TRbEff - 1e-12 ? 'labor' : 'machines', warnings: [], release: c.release, travel, travels: c.travel
         };
         if (w != null) {
@@ -222,7 +227,7 @@
         }
         if (labor && c.carry && equalSpeeds) {
             const v = speeds[0];
-            const walkFwd = c.walk > 0 ? (N - 1) * c.walk : 0;
+            const walkFwd = c.walkSeg.reduce((a, b) => a + b, 0);      // walking from S1 to the last station
             const LTworker = S.reduce((a, s) => a + (s.st / v + s.auto) / s.oee, 0) + walkFwd;
             const cycle = LTworker + walkFwd;
             out.tied = { TR: Math.min(w, n) / cycle, LTworker };
@@ -246,7 +251,6 @@
         if (capped && c.wip < maxT) W.push(`WIP w = ${c.wip} is smaller than the largest move lot (${maxT} parts): the lot is never complete and the line stops.`);
         if (cfgIn.stations.some(s => (s.batch | 0) > 1 || (s.move | 0) > 1) && c.carry) W.push('Batches and move lots are ignored when workers carry the jobs (tied workers, bucket brigade).');
         if (cfgIn.buffers && cfgIn.buffers.some(x => x != null && isFinite(x)) && c.carry) W.push('Buffer sizes are ignored when workers carry the jobs: the job stays with the worker.');
-        if (c.carry && c.tspeed > 0 && S.some(x => x.distance > 0)) W.push('Workers carry the parts: the transport times are not used; set the walking time instead.');
         if (c.release.mode === 'push') {
             out.rho = c.release.rate / TRmax;
             if (c.release.rate >= TRmax * 0.999) W.push(`Release rate ${+c.release.rate.toPrecision(3)} ≥ capacity ${+TRmax.toPrecision(3)}: the queue before S1 grows without limit.`);
@@ -361,7 +365,7 @@
             this.slots = [].concat(...this.machines);
             c.buffers = n2.buffers;
             c.tspeed = n2.tspeed; c.travel = n2.travel;          // parts already travelling keep their arrival time
-            c.wip = n2.wip; c.walk = n2.walk; c.preempt = n2.preempt;
+            c.wip = n2.wip; c.walk = n2.walk; c.walkSeg = n2.walkSeg; c.preempt = n2.preempt;
             const wasPush = c.release.mode === 'push';
             c.release = n2.release;
             if (c.release.mode === 'push' && !wasPush) this.nextArrival = this.t;
@@ -631,7 +635,7 @@
             if (w.slot) this.freeSlot(w.slot);
             w.slot = ns;
             ns.jobs = [w.job]; ns.dur = 0;
-            if (this.cfg.walk === 0 || Math.abs(w.x - k) <= EPS) { this.beginOp(ns, w); return; }
+            if (this.timeBetween(w.x, k) <= EPS) { this.beginOp(ns, w); return; }
             ns.phase = 'reserved'; ns.worker = w;
             w.state = 'walking'; w.walk = { purpose: 'carry', to: k };
             w.job.state = 'carried';
@@ -664,7 +668,6 @@
         }
 
         resolveTied() {
-            const walk = this.cfg.walk;
             const blocked = this.workers.filter(w => w.state === 'blocked').sort((a, b) => a.since - b.since || b.x - a.x);
             for (const w of blocked) {
                 const k = w.job.k, ns = this.canStart(k, 1) ? this.idleSlot(k) : null;
@@ -675,7 +678,7 @@
                 if (w.leaving) continue;
                 if (w.readyAt > this.t + EPS) { w.state = 'idle'; continue; }   // staggered start
                 if (w.x > EPS) {
-                    if (walk === 0) w.x = 0;
+                    if (this.timeBetween(w.x, 0) <= EPS) w.x = 0;
                     else { w.state = 'walking'; w.walk = { purpose: 'start', to: 0 }; return true; }
                 }
                 if (this.available(0) >= 1 && this.canStart(0, 1)) {
@@ -688,7 +691,7 @@
         }
 
         resolveBucket() {
-            const W = this.workers, walk = this.cfg.walk;
+            const W = this.workers;
             for (let j = this.n - 1; j >= 0; j--) {
                 const w = W[j];
                 if (w.state === 'blocked') {
@@ -703,7 +706,7 @@
                 if (w.job) continue;
                 if (j === 0) {
                     if (w.x > EPS) {
-                        if (walk === 0) { w.x = 0; return true; }
+                        if (this.timeBetween(w.x, 0) <= EPS) { w.x = 0; return true; }
                         if (w.state !== 'walking') { w.state = 'walking'; w.walk = { purpose: 'return' }; return true; }
                         continue;
                     }
@@ -724,13 +727,14 @@
                         else { this.handoff(p, w); return true; }
                     } else if (w.state !== 'idle') w.state = 'idle';
                 } else {
-                    if (walk === 0) { w.x = p.x; return true; }
+                    if (this.timeBetween(w.x, p.x) <= EPS) { w.x = p.x; return true; }
                     if (w.state !== 'walking') { w.state = 'walking'; w.walk = { purpose: 'return' }; return true; }
                 }
             }
             return false;
         }
 
+        get walkAny() { return this.cfg.walkSeg.some(x => x > 0); }
         resolveDropping() {
             const free = this.workers.filter(w => (w.state === 'free' || w.state === 'idle') && !w.leaving && !(w.readyAt > this.t + EPS));
             if (!free.length) return false;
@@ -743,12 +747,12 @@
                 let best = null, bd = Infinity, bi = Infinity;
                 for (const w of free) {
                     if (!w.skills[k]) continue;
-                    const d = Math.abs(w.x - k), since = w.state === 'idle' ? w.idleSince : this.t;
+                    const d = this.walkAny ? this.timeBetween(w.x, k) : Math.abs(w.x - k), since = w.state === 'idle' ? w.idleSince : this.t;
                     if (d < bd - EPS || (d <= bd + EPS && since < bi - EPS)) { best = w; bd = d; bi = since; }
                 }
                 if (!best) continue;
                 s.jobs = this.take(k, b); s.dur = 0;
-                if (this.cfg.walk === 0 || bd <= EPS) this.beginOp(s, best);
+                if (this.timeBetween(best.x, k) <= EPS) this.beginOp(s, best);
                 else {
                     s.phase = 'reserved'; s.worker = best; s.jobs.forEach(j => j.state = 'claimed');
                     best.slot = s; best.state = 'walking'; best.walk = { purpose: 'claim', to: k };
@@ -760,6 +764,22 @@
             return false;
         }
 
+        // ---------------- walking along the line (segment k = from station k to k+1) ----------------
+        segTime(i) { const a = this.cfg.walkSeg; return a[Math.max(0, Math.min(a.length - 1, i))] || 0; }
+        // walking time between two positions (in stations, also fractional)
+        timeBetween(a, b) {
+            let lo = Math.min(a, b), hi = Math.max(a, b), t = 0;
+            while (hi - lo > EPS) {
+                const i = Math.floor(lo + EPS), end = Math.min(hi, i + 1);
+                t += (end - lo) * this.segTime(i);
+                lo = end;
+            }
+            return t;
+        }
+        // segment the worker walks on, given the direction
+        segOf(x, dir) { return dir > 0 ? Math.floor(x + EPS) : Math.ceil(x - EPS) - 1; }
+        walkDir(w) { const tg = this.walkTarget(w); return Math.abs(tg - w.x) <= EPS ? 0 : (tg > w.x ? 1 : -1); }
+
         // ---------------- time advance ----------------
         walkTarget(w) {
             if (w.walk.purpose === 'return') return w.id === 0 ? 0 : this.workers[w.id - 1].x;
@@ -769,7 +789,8 @@
             if (w.state !== 'walking') return 0;
             const tg = this.walkTarget(w);
             if (Math.abs(tg - w.x) <= EPS) return 0;
-            return (tg > w.x ? 1 : -1) / this.cfg.walk;
+            const d = tg > w.x ? 1 : -1, T = this.segTime(this.segOf(w.x, d));
+            return T > EPS ? d / T : d * Infinity;
         }
         progressRate(s) {
             if (s.phase === 'auto') return 1;
@@ -790,11 +811,16 @@
             }
             for (const w of this.workers) {
                 if (w.state !== 'walking') continue;
+                const dir = this.walkDir(w);
+                if (dir !== 0) {                                    // next change of segment: the speed may change there
+                    const i = this.segOf(w.x, dir), bnd = dir > 0 ? i + 1 : i;
+                    dt = Math.min(dt, Math.abs(bnd - w.x) * this.segTime(i));
+                }
                 if (w.walk.purpose === 'return' && w.id > 0) {
                     const p = this.workers[w.id - 1];
-                    const rate = 1 / this.cfg.walk + this.velocity(p);
-                    if (rate > EPS) dt = Math.min(dt, Math.max(0, w.x - p.x) / rate);
-                } else dt = Math.min(dt, Math.abs(w.x - this.walkTarget(w)) * this.cfg.walk);
+                    const vw = Math.abs(this.velocity(w)), rate = vw + this.velocity(p);
+                    if (rate > EPS) dt = Math.min(dt, isFinite(rate) ? Math.max(0, w.x - p.x) / rate : 0);
+                } else dt = Math.min(dt, this.timeBetween(w.x, this.walkTarget(w)));
             }
             return dt;
         }
@@ -852,8 +878,16 @@
             }
             for (const w of this.workers) {
                 if (w.state !== 'walking') continue;
-                const tg = this.walkTarget(w), step = dt / this.cfg.walk;
-                w.x = w.x > tg ? Math.max(tg, w.x - step) : Math.min(tg, w.x + step);
+                const tg = this.walkTarget(w);
+                let rem = dt, guard = 0;
+                while (Math.abs(tg - w.x) > EPS && ++guard < 1000) {
+                    const dir = tg > w.x ? 1 : -1, i = this.segOf(w.x, dir), bnd = dir > 0 ? i + 1 : i;
+                    const stop = dir > 0 ? Math.min(bnd, tg) : Math.max(bnd, tg), T = this.segTime(i);
+                    if (T <= EPS) { w.x = stop; continue; }               // a segment of zero length: crossed at once
+                    const need = Math.abs(stop - w.x) * T;
+                    if (need <= rem + EPS) { w.x = stop; rem -= need; if (rem <= EPS) break; }
+                    else { w.x += dir * rem / T; break; }
+                }
             }
         }
 
