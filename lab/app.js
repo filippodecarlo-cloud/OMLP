@@ -2106,6 +2106,11 @@
         window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => { layout(); draw(0); drawGantt(); }, 120); });
         if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { readColors(); draw(0); });
         requestAnimationFrame(frame);
+        // language: the page is translated by i18n.js; charts and canvases are redrawn here
+        if (window.FlowI18n) window.FlowI18n.onChange(() => {
+            makeCharts(); refreshUi(true); draw(0); drawGantt();
+            if (lastSweep) drawSweep(lastSweep.variable, lastSweep.xs, lastSweep.out);
+        });
         window.flowLab = {
             // advance the line by dtSim and redraw as one animation frame of dtReal seconds (used to record GIFs)
             frame(dtSim, dtReal) { manualFrames = true; advance(sim.t + dtSim); draw(dtReal); refreshUi(true); },

@@ -1,7 +1,7 @@
 // Factory Flow Lab service worker: network first (always the latest version),
 // cache as a fallback so the app also works offline in the classroom.
-const CACHE = 'flow-lab-v19';
-const SHELL = ['./', './index.html', './styles.css', './engine.js', './challenge.js', './challenge-ui.js', './app.js', './leaderboard.html', './manifest.json', './icon-192.png', './icon-512.png',
+const CACHE = 'flow-lab-v20';
+const SHELL = ['./', './index.html', './styles.css', './engine.js', './challenge.js', './challenge-ui.js', './app.js', './i18n.js', './i18n-it.js', './leaderboard.html', './manifest.json', './icon-192.png', './icon-512.png', './icon.svg',
     'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js',
     'https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js',
     'https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.0.1/chartjs-plugin-zoom.min.js'];

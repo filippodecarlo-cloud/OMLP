@@ -20,6 +20,10 @@ TR/LT experiment over w or n. The time charts zoom like the original simulator (
 state is remembered in the browser); the "?" tips stay inside the window. Saved setups (browser), JSON
 download/upload (also the original simulator's `line_config.json`), installable app that works offline.
 
+## Languages
+
+English and Italian: the two flags at the top right switch the language (remembered in the browser; the first time it follows the browser language). The app is written in English; `i18n.js` translates every text on the page and on the canvases with the dictionary in `i18n-it.js` (numbers and time units are placeholders).
+
 ## Factory Challenge (team game)
 
 `index.html#ebike.challenge` opens the e-bike cell challenge: teams plan the shift (policy, order of the workers,
