@@ -109,6 +109,9 @@
     let views = Object.assign({}, DEFAULT_VIEWS);
 
     const deepCopy = o => JSON.parse(JSON.stringify(o));
+    const SEC = { s: 1, min: 60, h: 3600 };                 // seconds in one time unit
+    // transport speed in metres per time unit of the line
+    const speedPerUnit = c => (c.tspeed || 0) * SEC[c.unit] / SEC[c.tspeedUnit || c.unit];
     function presetToCfg(p) {
         const c = p.cfg;
         const stations = c.stations.map(s => Object.assign(ST(1), s));
@@ -120,7 +123,7 @@
             policy: c.policy || 'tied', wipMode: c.wipMode || 'cap', wip: c.wip || 4,
             walk: c.walk || 0, preempt: true, warmup: c.warmup || 0, seed: 1, unit: c.unit || 'min', chartWindow: 0,
             stopAfter: c.stopAfter || 0,
-            release: Object.assign(REL_DEFAULT(), c.release ? deepCopy(c.release) : {}), tspeed: c.tspeed || 0,
+            release: Object.assign(REL_DEFAULT(), c.release ? deepCopy(c.release) : {}), tspeed: c.tspeed || 0, tspeedUnit: c.tspeedUnit || c.unit || 'min',
             stagger: c.stagger != null ? c.stagger : p.mode === 'labor'
         };
         while (out.buffers.length < N - 1) out.buffers.push(null);
@@ -138,7 +141,7 @@
             stations: c.stations.map(s => s.oeeM && s.oeeM.length > 1 ? Object.assign({}, s, { oee: s.oeeM }) : s),
             workers: c.workers, skills: c.skills, policy: c.policy,
             wip: c.wipMode === 'cap' ? c.wip : Infinity, walk: c.walk, preempt: c.preempt,
-            release: Object.assign(REL_DEFAULT(), c.release || {}, { mode: RMODE[c.wipMode] || 'conwip' }), stagger: !!c.stagger, tspeed: c.tspeed || 0,
+            release: Object.assign(REL_DEFAULT(), c.release || {}, { mode: RMODE[c.wipMode] || 'conwip' }), stagger: !!c.stagger, tspeed: speedPerUnit(c),
             warmup: c.warmup, seed: c.seed, traceLimit: 3000, stateLimit: 3000
         };
     }
@@ -283,7 +286,7 @@
         $('showMore').checked = !!cfg.showMore;
         $('tspeedCtl').hidden = !cfg.showMore;
         $('tspeed').value = cfg.tspeed || 0;
-        $('tspeedUnit').textContent = 'm/' + cfg.unit;
+        $('tspeedUnit').value = cfg.tspeedUnit || cfg.unit;
         document.querySelectorAll('.unit-label').forEach(el => el.textContent = cfg.unit);
         $('sweepVar').value = cfg.mode === 'machines' ? 'w' : $('sweepVar').value;
         renderSaved();
@@ -359,10 +362,10 @@
             'Parts moved together to the next station (forklift, pallet). Move lot = w at every station gives the worst case.');
         h += row('OEE', S.map((s, k) => `<td><input type="text" inputmode="decimal" class="oee-in" id="c_oee_${k}" data-k="${k}" data-key="oee" value="${s.oeeM && s.oeeM.length > 1 ? s.oeeM.join('; ') : s.oee}" title="One value for the station, or one per machine separated by ; (e.g. 0.95; 0.6)"></td>`).join(''), 'more',
             'Overall Equipment Effectiveness: process times are divided by the OEE. With parallel machines give one value per machine, separated by a semicolon: 0.95; 0.6.');
-        const tsp = cfg.tspeed > 0 && !(labor && (cfg.policy === 'tied' || cfg.policy === 'bucket'));
+        const vT = speedPerUnit(cfg), tsp = vT > 0 && !(labor && (cfg.policy === 'tied' || cfg.policy === 'bucket'));
         h += row('Distance to next [m]', S.map((s, k) => k < N - 1 ? num(k, 'distance', 0, 1e6, 'any', s.distance || 0) : '<td class="mono">–</td>').join(''), 'more',
             'Distance from this station to the next one. With a transport speed the parts take distance / speed to reach the next buffer.');
-        h += row(`Transport time [${u}]`, S.map((s, k) => `<td class="mono">${k < N - 1 && tsp && s.distance > 0 ? fmtShort(+(s.distance / cfg.tspeed).toPrecision(3)) : '–'}</td>`).join(''), 'more',
+        h += row(`Transport time [${u}]`, S.map((s, k) => `<td class="mono">${k < N - 1 && tsp && s.distance > 0 ? fmtShort(+(s.distance / vT).toPrecision(3)) : '–'}</td>`).join(''), 'more',
             'Distance / transport speed. Set the speed next to the check box above; 0 = instant transfer.');
         h += row(`Buffer after the station`, S.map((s, k) => k < N - 1
             ? `<td class="buf"><input type="number" id="c_buf_${k}" data-k="${k}" data-key="buf" min="0" max="500" step="1" placeholder="∞" value="${cfg.buffers[k] == null ? '' : cfg.buffers[k]}"></td>`
@@ -453,7 +456,7 @@
             if (JSON.stringify(a.skills) !== JSON.stringify(b.skills)) out.push('skills');
         }
         const names = { st: 'ST', auto: 'auto', dist: '', cv: 'CV', m: 'm', batch: 'b', move: 'lot', oee: 'OEE', distance: 'd' };
-        if ((a.tspeed || 0) !== (b.tspeed || 0)) out.push(`transport ${a.tspeed || 0}→${b.tspeed || 0} m/${b.unit}`);
+        if (speedPerUnit(a) !== speedPerUnit(b)) out.push(`transport ${a.tspeed || 0} m/${a.tspeedUnit || a.unit}→${b.tspeed || 0} m/${b.tspeedUnit || b.unit}`);
         b.stations.forEach((s, k) => Object.keys(names).forEach(key => {
             if (a.stations[k][key] !== s[key]) out.push(`S${k + 1} ${names[key] ? names[key] + ' ' : ''}${key === 'dist' ? DIST_LABEL[a.stations[k][key]] : a.stations[k][key]}→${key === 'dist' ? DIST_LABEL[s[key]] : s[key]}`);
         }));
@@ -468,6 +471,24 @@
         el.hidden = false;
         clearTimeout(noticeTimer);
         noticeTimer = setTimeout(() => { el.hidden = true; }, 12000);
+    }
+
+    // new time unit: every time of the line is converted, so the line stays the same (2 h -> 120 min)
+    function convertUnit(nu) {
+        const old = cfg.unit;
+        if (!SEC[nu] || nu === old) return;
+        const f = SEC[old] / SEC[nu], r6 = x => +(+x).toPrecision(6);
+        cfg.stations.forEach(s => { s.st = r6(s.st * f); s.auto = r6(s.auto * f); });
+        cfg.walk = r6(cfg.walk * f); cfg.warmup = r6(cfg.warmup * f);
+        cfg.logStep = r6(cfg.logStep * f); cfg.chartWindow = r6(cfg.chartWindow * f);
+        if (cfg.release.rate > 0) cfg.release.rate = r6(cfg.release.rate / f);
+        if (!cfg.tspeedUnit) cfg.tspeedUnit = old;            // the transport speed keeps its own unit
+        cfg.unit = nu;
+        activePreset = null;
+        renderAll(); makeCharts(); rebuild();
+        setSpeed(Math.log10(Math.max(0.05, th.T0 / 8)));
+        notice(`Times converted from ${old} to ${nu}: the line is the same, the run starts again.`);
+        if (sweepDone) $('sweepStatus').textContent = 'The setup has changed: run the experiment again to update the curves.';
     }
 
     function setWorkers(n) {
@@ -519,7 +540,8 @@
         $('preemptSel').addEventListener('change', e => { cfg.preempt = e.target.value === '1'; changed(); });
         $('warmup').addEventListener('change', e => { cfg.warmup = clampNum(e.target.value, 0, 1e8, 0); changed(); });
         $('seed').addEventListener('change', e => { cfg.seed = Math.round(clampNum(e.target.value, 1, 1e9, 1)); changed(); });
-        $('unitSel').addEventListener('change', e => { cfg.unit = e.target.value; renderAll(); makeCharts(); refreshUi(true); setSpeed($('speedRange').value); });
+        $('unitSel').addEventListener('change', e => convertUnit(e.target.value));
+        $('tspeedUnit').addEventListener('change', e => { cfg.tspeedUnit = e.target.value; changed(); });
         $('logStep').addEventListener('change', e => {
             cfg.logStep = clampNum(e.target.value, 0.0001, 1e7, cfg.logStep);
             // keep the rows taken so far; the next ones follow the new step
@@ -580,6 +602,7 @@
             const base = presetToCfg(PRESETS[0]);
             cfg = Object.assign(base, c);
             cfg.release = Object.assign(REL_DEFAULT(), c.release || {});
+            if (!c.tspeedUnit) cfg.tspeedUnit = cfg.unit;
             if (!RMODE[cfg.wipMode]) cfg.wipMode = 'cap';
             cfg.stations = c.stations.map(s => Object.assign(ST(1), s));
             if (!Array.isArray(cfg.buffers)) cfg.buffers = [];
@@ -1943,7 +1966,7 @@
             workers: ec.workers.map(w => ({ speed: w.speed, name: w.name })), skills: ec.skills, policy: ec.policy,
             wipMode: isFinite(ec.wip) ? 'cap' : 'free', wip: isFinite(ec.wip) ? ec.wip : 4, walk: ec.walk, preempt: ec.preempt !== false,
             warmup: 0, seed: ec.seed, unit: unit || 'min', chartWindow: 0, stopAfter: 0, showMore: true, logStep: 5,
-            release: REL_DEFAULT(), stagger: false
+            release: REL_DEFAULT(), stagger: false, tspeedUnit: unit || 'min'
         };
     }
     const api = {

@@ -218,10 +218,6 @@
                     <input id="seed" type="number" min="1" step="1" value="1">
                 </div>
                 <div class="field-row">
-                    <label for="unitSel">Time unit</label>
-                    <select id="unitSel"><option value="s">s</option><option value="min">min</option><option value="h">h</option></select>
-                </div>
-                <div class="field-row">
                     <label for="logStep">Log step (CSV) <span class="tip" tabindex="0" data-tip="Rows of the time series are taken exactly every log step, in the time unit of the line (with times in s: 1 = one second, 60 = one minute). Each row holds the state at that instant and what happened since the previous row. The job export is exact and does not depend on the step.">?</span></label>
                     <div class="with-unit"><input id="logStep" type="number" min="0.0001" step="any" value="5"><span class="unit-label">min</span></div>
                 </div>
@@ -294,6 +290,8 @@
                 <div class="panel-head">
                     <h2 id="configTitle" class="panel-title">Stations and buffers</h2>
                     <div class="head-controls">
+                        <label class="small-label unit-ctl" for="unitSel">Times in <span class="tip" tabindex="0" data-tip="Unit of every time of the line: process times, automatic cycles, walking, transport, warm-up, log step. Changing it converts the values (2 h become 120 min): the line stays the same and the run starts again.">?</span>
+                            <select id="unitSel"><option value="s">s</option><option value="min">min</option><option value="h">h</option></select></label>
                         <div class="stepper">
                             <label for="nStations" class="small-label">Stations <span class="sym">N</span></label>
                             <button type="button" class="btn btn-sq" data-step="nStations" data-d="-1" aria-label="One station less">−</button>
@@ -302,7 +300,8 @@
                         </div>
                         <label class="check"><input id="showMore" type="checkbox"> batches, move lots, OEE, automatic cycle, transport</label>
                         <label id="tspeedCtl" class="small-label tspeed-ctl" hidden>Transport speed <span class="tip" tabindex="0" data-tip="Speed of the transport between stations (conveyor, forklift). Transport time = distance / speed. It adds to the raw process time T₀ but does not limit the capacity. 0 = instant transfer. Parts carried by workers use the walking time instead.">?</span>
-                            <input id="tspeed" type="number" min="0" step="any" value="0"> <span id="tspeedUnit">m/min</span></label>
+                            <input id="tspeed" type="number" min="0" step="any" value="0">
+                            <select id="tspeedUnit" aria-label="Unit of the transport speed"><option value="s">m/s</option><option value="min">m/min</option><option value="h">m/h</option></select></label>
                     </div>
                 </div>
                 <div class="table-scroll">
