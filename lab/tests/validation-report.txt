@@ -264,4 +264,22 @@ T. OEE per machine and staggered start
   PASS  staggered start: the 2nd worker waits half a cycle (working, idle at t = 30)
   PASS  staggered start: the workers are spread along the line (stations 3, 5)
 
-225/225 checks passed
+U. Transport times between stations
+  PASS  theory(): T0 = 8 h of work + 3 h of transport = 11 h sim 11.0000  theory 11.0000  (err 0.00%, tol 0.0%)
+  PASS  theory(): TR_b unchanged = 0.5 (transport has no cap sim 0.5000  theory 0.5000  (err 0.00%, tol 0.0%)
+  PASS  best case with transport, w = 2: TR = min(w/T0, TR_b sim 0.1818  theory 0.1818  (err 0.00%, tol 0.3%)
+  PASS  best case with transport, w = 2: LT = max(T0, w/TR_b sim 11.0000  theory 11.0000  (err 0.00%, tol 0.3%)
+  PASS  invariants hold (w = 2)
+  PASS  best case with transport, w = 4: TR = min(w/T0, TR_b sim 0.3636  theory 0.3636  (err 0.00%, tol 0.3%)
+  PASS  best case with transport, w = 4: LT = max(T0, w/TR_b sim 11.0000  theory 11.0000  (err 0.00%, tol 0.3%)
+  PASS  invariants hold (w = 4)
+  PASS  best case with transport, w = 8: TR = min(w/T0, TR_b sim 0.5000  theory 0.5000  (err 0.00%, tol 0.3%)
+  PASS  best case with transport, w = 8: LT = max(T0, w/TR_b sim 16.0000  theory 16.0000  (err 0.00%, tol 0.3%)
+  PASS  invariants hold (w = 8)
+  PASS  distances without a speed are ignored: LT = 8        sim 8.0000  theory 8.0000  (err 0.00%, tol 0.3%)
+  PASS  buffers 0 and 1, move lot 2, exponential times: invariants hold
+  PASS  ...and Little's law holds                            sim 12.0034  theory 12.0000  (err 0.03%, tol 2.0%)
+  PASS  job dropping with transport: invariants hold
+  PASS  live change to 30 m/h: LT = 8 + 3·(1/3) = 9 h        sim 9.0000  theory 9.0000  (err 0.00%, tol 0.3%)
+
+241/241 checks passed

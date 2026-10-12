@@ -15,7 +15,7 @@
     // ------------------------------------------------------------------
     // Scenarios, grouped by topic (the ids are also used by the links in the slides)
     // ------------------------------------------------------------------
-    const ST = (st, o = {}) => Object.assign({ st, auto: 0, m: 1, batch: 1, move: 1, oee: 1, dist: 'det', cv: 0.3 }, o);
+    const ST = (st, o = {}) => Object.assign({ st, auto: 0, m: 1, batch: 1, move: 1, oee: 1, dist: 'det', cv: 0.3, distance: 0 }, o);
     const L = (arr, o = {}) => arr.map((x, k) => ST(x, typeof o === 'function' ? o(k) : o));
     const PRESETS = [
         // ---- part 1: machines ----
@@ -120,11 +120,11 @@
             policy: c.policy || 'tied', wipMode: c.wipMode || 'cap', wip: c.wip || 4,
             walk: c.walk || 0, preempt: true, warmup: c.warmup || 0, seed: 1, unit: c.unit || 'min', chartWindow: 0,
             stopAfter: c.stopAfter || 0,
-            release: Object.assign(REL_DEFAULT(), c.release ? deepCopy(c.release) : {}),
+            release: Object.assign(REL_DEFAULT(), c.release ? deepCopy(c.release) : {}), tspeed: c.tspeed || 0,
             stagger: c.stagger != null ? c.stagger : p.mode === 'labor'
         };
         while (out.buffers.length < N - 1) out.buffers.push(null);
-        out.showMore = stations.some(s => s.batch > 1 || s.move > 1 || s.oee < 1 || s.auto > 0 || s.oeeM);
+        out.showMore = stations.some(s => s.batch > 1 || s.move > 1 || s.oee < 1 || s.auto > 0 || s.oeeM || (out.tspeed > 0 && s.distance > 0));
         out.logStep = defaultLogStep(out);
         return out;
     }
@@ -138,7 +138,7 @@
             stations: c.stations.map(s => s.oeeM && s.oeeM.length > 1 ? Object.assign({}, s, { oee: s.oeeM }) : s),
             workers: c.workers, skills: c.skills, policy: c.policy,
             wip: c.wipMode === 'cap' ? c.wip : Infinity, walk: c.walk, preempt: c.preempt,
-            release: Object.assign(REL_DEFAULT(), c.release || {}, { mode: RMODE[c.wipMode] || 'conwip' }), stagger: !!c.stagger,
+            release: Object.assign(REL_DEFAULT(), c.release || {}, { mode: RMODE[c.wipMode] || 'conwip' }), stagger: !!c.stagger, tspeed: c.tspeed || 0,
             warmup: c.warmup, seed: c.seed, traceLimit: 3000, stateLimit: 3000
         };
     }
@@ -281,6 +281,9 @@
         $('chartWindow').value = cfg.chartWindow;
         $('stopAfter').value = cfg.stopAfter || 0;
         $('showMore').checked = !!cfg.showMore;
+        $('tspeedCtl').hidden = !cfg.showMore;
+        $('tspeed').value = cfg.tspeed || 0;
+        $('tspeedUnit').textContent = 'm/' + cfg.unit;
         document.querySelectorAll('.unit-label').forEach(el => el.textContent = cfg.unit);
         $('sweepVar').value = cfg.mode === 'machines' ? 'w' : $('sweepVar').value;
         renderSaved();
@@ -356,6 +359,11 @@
             'Parts moved together to the next station (forklift, pallet). Move lot = w at every station gives the worst case.');
         h += row('OEE', S.map((s, k) => `<td><input type="text" inputmode="decimal" class="oee-in" id="c_oee_${k}" data-k="${k}" data-key="oee" value="${s.oeeM && s.oeeM.length > 1 ? s.oeeM.join('; ') : s.oee}" title="One value for the station, or one per machine separated by ; (e.g. 0.95; 0.6)"></td>`).join(''), 'more',
             'Overall Equipment Effectiveness: process times are divided by the OEE. With parallel machines give one value per machine, separated by a semicolon: 0.95; 0.6.');
+        const tsp = cfg.tspeed > 0 && !(labor && (cfg.policy === 'tied' || cfg.policy === 'bucket'));
+        h += row('Distance to next [m]', S.map((s, k) => k < N - 1 ? num(k, 'distance', 0, 1e6, 'any', s.distance || 0) : '<td class="mono">–</td>').join(''), 'more',
+            'Distance from this station to the next one. With a transport speed the parts take distance / speed to reach the next buffer.');
+        h += row(`Transport time [${u}]`, S.map((s, k) => `<td class="mono">${k < N - 1 && tsp && s.distance > 0 ? fmtShort(+(s.distance / cfg.tspeed).toPrecision(3)) : '–'}</td>`).join(''), 'more',
+            'Distance / transport speed. Set the speed next to the check box above; 0 = instant transfer.');
         h += row(`Buffer after the station`, S.map((s, k) => k < N - 1
             ? `<td class="buf"><input type="number" id="c_buf_${k}" data-k="${k}" data-key="buf" min="0" max="500" step="1" placeholder="∞" value="${cfg.buffers[k] == null ? '' : cfg.buffers[k]}"></td>`
             : '<td class="buf mono">OUT</td>').join(''), 'sep', 'Places in the buffer between this station and the next one. Empty = unlimited, 0 = direct transfer.');
@@ -393,6 +401,7 @@
                 break;
             }
             case 'buf': cfg.buffers[k] = v === '' ? null : Math.round(clampNum(v, 0, 500, 1)); break;
+            case 'distance': s.distance = clampNum(v, 0, 1e6, s.distance || 0); break;
         }
         changed();
     }
@@ -443,7 +452,8 @@
             if (a.preempt !== b.preempt) out.push('take-over rule');
             if (JSON.stringify(a.skills) !== JSON.stringify(b.skills)) out.push('skills');
         }
-        const names = { st: 'ST', auto: 'auto', dist: '', cv: 'CV', m: 'm', batch: 'b', move: 'lot', oee: 'OEE' };
+        const names = { st: 'ST', auto: 'auto', dist: '', cv: 'CV', m: 'm', batch: 'b', move: 'lot', oee: 'OEE', distance: 'd' };
+        if ((a.tspeed || 0) !== (b.tspeed || 0)) out.push(`transport ${a.tspeed || 0}→${b.tspeed || 0} m/${b.unit}`);
         b.stations.forEach((s, k) => Object.keys(names).forEach(key => {
             if (a.stations[k][key] !== s[key]) out.push(`S${k + 1} ${names[key] ? names[key] + ' ' : ''}${key === 'dist' ? DIST_LABEL[a.stations[k][key]] : a.stations[k][key]}→${key === 'dist' ? DIST_LABEL[s[key]] : s[key]}`);
         }));
@@ -518,7 +528,8 @@
         });
         $('stopAfter').addEventListener('change', e => { cfg.stopAfter = Math.round(clampNum(e.target.value, 0, 1e7, 0)); });
         $('chartWindow').addEventListener('change', e => { cfg.chartWindow = clampNum(e.target.value, 0, 1e8, 0); refreshUi(true); });
-        $('showMore').addEventListener('change', e => { cfg.showMore = e.target.checked; renderConfigTable(); refreshUi(true); });
+        $('showMore').addEventListener('change', e => { cfg.showMore = e.target.checked; $('tspeedCtl').hidden = !cfg.showMore; renderConfigTable(); refreshUi(true); });
+        $('tspeed').addEventListener('change', e => { cfg.tspeed = clampNum(e.target.value, 0, 1e7, 0); changed(); });
         $('speedsEqual').addEventListener('click', () => { cfg.workers.forEach(w => w.speed = 1); changed(); });
         $('speedsSlowFast').addEventListener('click', () => { const s = cfg.workers.map(w => w.speed).sort((a, b) => a - b); cfg.workers.forEach((w, j) => w.speed = s[j]); changed(); });
         $('speedsFastSlow').addEventListener('click', () => { const s = cfg.workers.map(w => w.speed).sort((a, b) => b - a); cfg.workers.forEach((w, j) => w.speed = s[j]); changed(); });
@@ -1107,6 +1118,18 @@
                 ctx.fillText(`lot ${ob.length}/${s.move}`, cx, geo.lotY + 4);
                 ob.slice(0, 12).forEach((jb, i) => drawJob(ctx, jb, cx - (Math.min(ob.length, 12) - 1) * 5.5 + i * 11, geo.lotY + 16, 9));
             }
+            // transport from station k-1 to the buffer before k: the parts travel along a conveyor line
+            if (k > 0 && sim.cfg.travel[k - 1] > 0) {
+                const x0 = px(k - 1) + geo.stW / 2 + 2, x1 = geo.left + k * geo.colW, yc = geo.top + geo.head - 24;
+                ctx.strokeStyle = colors.line; ctx.lineWidth = 2; ctx.setLineDash([2, 3]);
+                ctx.beginPath(); ctx.moveTo(x0, yc + 6); ctx.lineTo(x1 - 4, yc + 6); ctx.stroke(); ctx.setLineDash([]); ctx.lineWidth = 1;
+                ctx.fillStyle = colors.line; ctx.beginPath(); ctx.moveTo(x1, yc + 6); ctx.lineTo(x1 - 6, yc + 2); ctx.lineTo(x1 - 6, yc + 10); ctx.closePath(); ctx.fill();
+                const tt = sim.cfg.travel[k - 1];
+                sim.transit[k].forEach(it => {
+                    const f = Math.max(0, Math.min(1, 1 - (it.arrive - sim.t) / tt));
+                    it.jobs.forEach((jb, i) => drawJob(ctx, jb, x0 + (x1 - x0) * f, yc - i * 11, 9));
+                });
+            }
             // buffer before station k
             if (k > 0) {
                 const bx = geo.left + k * geo.colW;
@@ -1193,7 +1216,7 @@
         const grp = t => r.push(`<tr class="group"><td colspan="5">${t}</td></tr>`);
         const labor = cfg.mode === 'labor', n = th.n, w = th.w;
         grp('Line data');
-        row(labor ? 'Value-added time VAT (T<sub>0</sub>)' : 'Raw process time T<sub>0</sub>', 'Σ t<sub>k</sub> / (b<sub>k</sub>·OEE<sub>k</sub>)', fmt(th.T0) + ' ' + u, '');
+        row(labor ? 'Value-added time VAT (T<sub>0</sub>)' : 'Raw process time T<sub>0</sub>', 'Σ t<sub>k</sub> / (b<sub>k</sub>·OEE<sub>k</sub>)' + (th.travel > 0 ? ' + Σ transport' : ''), fmt(th.T0) + ' ' + u, '');
         row(`Bottleneck rate TR<sub>b</sub> (S${th.bottleneck + 1})`, 'min m<sub>k</sub>·b<sub>k</sub> / t<sub>k</sub>', rate(th.TRb) + (perHour(th.TRb) ? ' · ' + perHour(th.TRb) : ''), '');
         row('Critical WIP W<sub>0</sub>', 'TR<sub>b</sub> · T<sub>0</sub>', fmt(th.WIPc) + ' pcs', '');
         if (labor) row('Labor capacity (TH<sub>max</sub>)', th.carry ? 'Σv / VAT' : 'Σv / manual work per part', rate(th.TRlabor), '');
@@ -1281,6 +1304,7 @@
     }
     function theoryNote() {
         const p = cfg.policy, parts = [];
+        if (th.travel > 0) parts.push(`Transport: ${fmt(th.travel)} ${cfg.unit} per part on the way between stations. It adds to T₀ (and to the critical WIP W₀ = TR_b·T₀) but does not limit the capacity, like a station with unlimited machines.`);
         if (releaseNote()) parts.push(releaseNote());
         if (unstable()) parts.push(`The WIP keeps growing (now ${sim.jobs.size} jobs): the line is not stable, so Little's law cannot hold for the averages.`);
         if (cfg.mode === 'machines') {

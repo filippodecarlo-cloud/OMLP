@@ -652,6 +652,35 @@ function live(cfg, steps, T) {
     assert(G, `staggered start: the workers are spread along the line (stations ${ks.map(k => k + 1).join(', ')})`, ks[0] !== ks[1]);
 }
 
+{
+    const G = 'U. Transport times between stations';
+    // 4 stations of 2 h, 10 m between stations at 10 m/h: 1 h of transport each -> T0 = 8 + 3 = 11 h
+    const base = { mode: 'machines', stations: mline([2, 2, 2, 2], k => ({ distance: k < 3 ? 10 : 0 })), tspeed: 10, warmup: 300 };
+    const th = theory(Object.assign({ wip: 4 }, base));
+    check(G, 'theory(): T0 = 8 h of work + 3 h of transport = 11 h', th.T0, 11, 1e-9);
+    check(G, 'theory(): TR_b unchanged = 0.5 (transport has no capacity limit)', th.TRb, 0.5, 1e-9);
+    for (const w of [2, 4, 8]) {
+        const r = run(Object.assign({ wip: w }, base), 30000, true);
+        check(G, `best case with transport, w = ${w}: TR = min(w/T0, TR_b)`, r.m.TR, Math.min(w / 11, 0.5), 0.003);
+        check(G, `best case with transport, w = ${w}: LT = max(T0, w/TR_b)`, r.m.LT, Math.max(11, w / 0.5), 0.003);
+        assert(G, `invariants hold (w = ${w})`, r.errs.length === 0, r.errs.join('; '));
+    }
+    // no speed = no transport: the same as before
+    const r0 = run({ mode: 'machines', stations: mline([2, 2, 2, 2], { distance: 10 }), wip: 4, warmup: 100 }, 20000).m;
+    check(G, 'distances without a speed are ignored: LT = 8', r0.LT, 8, 0.003);
+    // finite buffers and move lots with transport, random times: accounting and Little
+    const rr = run({ mode: 'machines', stations: mline([2, 3, 2], k => ({ dist: 'exp', distance: 30, move: k === 0 ? 2 : 1 })), buffers: [0, 1], tspeed: 20, wip: 12, warmup: 500, seed: 7 }, 60000, true);
+    assert(G, 'buffers 0 and 1, move lot 2, exponential times: invariants hold', rr.errs.length === 0, rr.errs.join('; '));
+    check(G, "...and Little's law holds", rr.m.littleTRxLT, rr.m.WIP, 0.02);
+    // part 2, job dropping on a conveyor line
+    const rl = run({ stations: line([4, 4, 4], 1).map(x => Object.assign(x, { distance: 8 })), tspeed: 4, workers: workers(2), policy: 'dropping', wip: 6, warmup: 300 }, 30000, true);
+    assert(G, 'job dropping with transport: invariants hold', rl.errs.length === 0, rl.errs.join('; '));
+    // live change of the speed
+    const lv = new FlowLine(Object.assign({ wip: 4 }, base));
+    lv.advanceTo(2000); lv.update(Object.assign({ wip: 4 }, base, { tspeed: 30 })); lv.advanceTo(3000); lv.resetStats(); lv.advanceTo(13000);
+    check(G, 'live change to 30 m/h: LT = 8 + 3·(1/3) = 9 h', lv.metrics().LT, 9, 0.003);
+}
+
 // ---------------------------------------------------------------------------
 const pad = (s, n) => (s + ' '.repeat(n)).slice(0, n);
 let lastG = '', nOk = 0;

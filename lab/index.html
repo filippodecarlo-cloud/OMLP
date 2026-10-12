@@ -300,7 +300,9 @@
                             <input id="nStations" type="number" min="2" max="12" value="5">
                             <button type="button" class="btn btn-sq" data-step="nStations" data-d="1" aria-label="One station more">+</button>
                         </div>
-                        <label class="check"><input id="showMore" type="checkbox"> batches, move lots, OEE, automatic cycle</label>
+                        <label class="check"><input id="showMore" type="checkbox"> batches, move lots, OEE, automatic cycle, transport</label>
+                        <label id="tspeedCtl" class="small-label tspeed-ctl" hidden>Transport speed <span class="tip" tabindex="0" data-tip="Speed of the transport between stations (conveyor, forklift). Transport time = distance / speed. It adds to the raw process time T₀ but does not limit the capacity. 0 = instant transfer. Parts carried by workers use the walking time instead.">?</span>
+                            <input id="tspeed" type="number" min="0" step="any" value="0"> <span id="tspeedUnit">m/min</span></label>
                     </div>
                 </div>
                 <div class="table-scroll">

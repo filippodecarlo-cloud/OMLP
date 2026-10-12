@@ -133,10 +133,14 @@
             return {
                 st: Math.max(0, +s.st || 0), auto: Math.max(0, +s.auto || 0), m,
                 batch: c.carry ? 1 : Math.max(1, s.batch | 0 || 1), move: c.carry ? 1 : Math.max(1, s.move | 0 || 1),
-                oee: oees.reduce((a, b) => a + b, 0) / m, oees, dist, cv
+                oee: oees.reduce((a, b) => a + b, 0) / m, oees, dist, cv,
+                distance: Math.max(0, +s.distance || 0)            // to the next station
             };
         });
         c.stations.forEach(s => { if (s.st + s.auto <= 0) s.st = 1e-3; });
+        // transport between stations: time = distance / speed (parts carried by workers use the walking time instead)
+        c.tspeed = +cfg.tspeed > 0 ? +cfg.tspeed : 0;
+        c.travel = c.stations.map((x, k) => k < N - 1 && c.tspeed > 0 && !c.carry ? x.distance / c.tspeed : 0);
         // buffers[k] = capacity of the buffer before station k (k >= 1)
         const b = cfg.buffers || [];
         c.buffers = [Infinity];
@@ -191,7 +195,8 @@
         const vMax = n ? Math.max(...speeds) : 1;
         const vRef = labor ? (equalSpeeds ? speeds[0] : vMax) : 1;
         const te = S.map(s => (s.st + s.auto) / s.oee);                      // time of one operation (one batch)
-        const T0 = te.reduce((a, b, k) => a + b / S[k].batch, 0);            // raw process time per part (VAT)
+        const travel = c.travel.reduce((a, b) => a + b, 0);                 // transport times (no capacity limit)
+        const T0 = te.reduce((a, b, k) => a + b / S[k].batch, 0) + travel;   // raw process time per part (VAT)
         const rate = S.map((s, k) => s.m * s.batch / te[k]);                 // station capacity [parts/time]
         const TRb = Math.min(...rate);
         const bottleneck = rate.indexOf(TRb);
@@ -208,7 +213,7 @@
         const out = {
             mode: c.mode, policy: c.policy, carry: c.carry, N, n, VAT: T0, T0, te, rate, TRb, TRbEff, bottleneck, WIPc,
             laborContent, TRlabor, TRmax, vSum, vMax, equalSpeeds, ample, deterministic, onePiece, walk: c.walk, capped, w,
-            binding: TRlabor < TRbEff - 1e-12 ? 'labor' : 'machines', warnings: [], release: c.release
+            binding: TRlabor < TRbEff - 1e-12 ? 'labor' : 'machines', warnings: [], release: c.release, travel, travels: c.travel
         };
         if (w != null) {
             out.best = { TR: Math.min(w / T0, TRb), LT: Math.max(T0, w / TRb) };
@@ -241,6 +246,7 @@
         if (capped && c.wip < maxT) W.push(`WIP w = ${c.wip} is smaller than the largest move lot (${maxT} parts): the lot is never complete and the line stops.`);
         if (cfgIn.stations.some(s => (s.batch | 0) > 1 || (s.move | 0) > 1) && c.carry) W.push('Batches and move lots are ignored when workers carry the jobs (tied workers, bucket brigade).');
         if (cfgIn.buffers && cfgIn.buffers.some(x => x != null && isFinite(x)) && c.carry) W.push('Buffer sizes are ignored when workers carry the jobs: the job stays with the worker.');
+        if (c.carry && c.tspeed > 0 && S.some(x => x.distance > 0)) W.push('Workers carry the parts: the transport times are not used; set the walking time instead.');
         if (c.release.mode === 'push') {
             out.rho = c.release.rate / TRmax;
             if (c.release.rate >= TRmax * 0.999) W.push(`Release rate ${+c.release.rate.toPrecision(3)} ≥ capacity ${+TRmax.toPrecision(3)}: the queue before S1 grows without limit.`);
@@ -268,6 +274,7 @@
             this.inLine = 0;
             this.queues = Array.from({ length: this.N }, () => []);
             this.outbox = Array.from({ length: this.N }, () => []);
+            this.transit = Array.from({ length: this.N }, () => []);      // transit[k]: {jobs, from, arrive} going to the buffer before k
             this.machines = c.stations.map((s, k) => Array.from({ length: s.m }, (_, i) => this.makeSlot(k, i)));
             this.slots = [].concat(...this.machines);
             this.cumWork = [0];
@@ -335,7 +342,7 @@
             this.updates++;
             n2.stations.forEach((s, k) => {
                 const old = c.stations[k];
-                ['st', 'auto', 'dist', 'cv', 'oee', 'oees', 'batch', 'move'].forEach(key => { old[key] = s[key]; });
+                ['st', 'auto', 'dist', 'cv', 'oee', 'oees', 'batch', 'move', 'distance'].forEach(key => { old[key] = s[key]; });
                 const slots = this.machines[k];
                 const active = slots.filter(x => !x.retire);
                 if (s.m > active.length) {
@@ -353,6 +360,7 @@
             });
             this.slots = [].concat(...this.machines);
             c.buffers = n2.buffers;
+            c.tspeed = n2.tspeed; c.travel = n2.travel;          // parts already travelling keep their arrival time
             c.wip = n2.wip; c.walk = n2.walk; c.preempt = n2.preempt;
             const wasPush = c.release.mode === 'push';
             c.release = n2.release;
@@ -458,17 +466,20 @@
         upToDrum() { let n = 0; const d = this.cfg.release.drum; for (const j of this.jobs) if (j.k <= d && j.state !== 'done') n++; return n; }
         // kanban: station k may start b jobs only if it holds a free card for each
         kanbanLoad(k) {
-            return this.machines[k].reduce((a, s) => a + s.jobs.length, 0) + (k + 1 < this.N ? this.queues[k + 1].length : 0) + this.outbox[k].length;
+            return this.machines[k].reduce((a, s) => a + s.jobs.length, 0) + (k + 1 < this.N ? this.queues[k + 1].length + this.inTransit(k + 1) : 0) + this.outbox[k].length;
         }
         canStart(k, b) { return this.cfg.release.mode !== 'kanban' || this.kanbanLoad(k) + b <= this.cfg.release.cards[k]; }
         cap(k) { return this.cfg.buffers[k]; }
-        space(k) { return this.cap(k) - this.queues[k].length; }
+        inTransit(k) { let n = 0; for (const it of this.transit[k]) n += it.jobs.length; return n; }
+        // with a transport, a buffer of 0 still needs a place for the part that arrives
+        capEff(k) { const c = this.cap(k); return k > 0 && this.cfg.travel[k - 1] > 0 && c === 0 ? Math.max(1, this.cfg.stations[k - 1].move) : c; }
+        space(k) { return this.capEff(k) - this.queues[k].length - this.inTransit(k); }
         doneSlots(k) { return this.machines[k].filter(s => s.phase === 'done' && s.jobs.length).sort((a, b) => a.since - b.since); }
         // parts that station k can pull right now
         available(k) {
             if (k === 0) return this.srcQueue() ? this.queues[0].length : Infinity;
             let a = this.queues[k].length;
-            if (this.cap(k) === 0 && this.cfg.stations[k - 1].move === 1) for (const s of this.doneSlots(k - 1)) a += s.jobs.length;
+            if (this.cap(k) === 0 && this.cfg.stations[k - 1].move === 1 && !(this.cfg.travel[k - 1] > 0)) for (const s of this.doneSlots(k - 1)) a += s.jobs.length;
             return a;
         }
         take(k, b) {
@@ -568,16 +579,29 @@
         }
 
         // move finished parts downstream (buffers, move lots, exits); no worker needed
+        // parts to the buffer before k+1: straight in, or on the transport for travel[k]
+        send(k, jobs) {
+            const tt = this.cfg.travel[k];
+            if (tt > 0) { jobs.forEach(j => { j.state = 'transit'; }); this.transit[k + 1].push({ jobs, from: k, arrive: this.t + tt }); }
+            else jobs.forEach(j => { j.state = 'queue'; this.queues[k + 1].push(j); });
+        }
         flush() {
             let changed = false;
             const S = this.cfg.stations;
+            for (let k = 1; k < this.N; k++) {
+                const tr = this.transit[k];
+                while (tr.length && tr[0].arrive <= this.t + EPS) {
+                    tr.shift().jobs.forEach(j => { j.state = 'queue'; this.queues[k].push(j); });
+                    changed = true;
+                }
+            }
             for (let k = this.N - 1; k >= 0; k--) {
                 const last = k === this.N - 1, lot = S[k].move;
                 for (const s of this.doneSlots(k)) {
                     if (lot > 1) { s.jobs.forEach(j => { j.state = 'outbox'; this.outbox[k].push(j); }); this.freeSlot(s); changed = true; continue; }
                     if (last) { s.jobs.forEach(j => this.exitJob(j)); this.freeSlot(s); changed = true; continue; }
                     while (s.jobs.length && this.space(k + 1) > 0) {
-                        const j = s.jobs.shift(); j.state = 'queue'; this.queues[k + 1].push(j); changed = true;
+                        this.send(k, [s.jobs.shift()]); changed = true;
                     }
                     if (!s.jobs.length) this.freeSlot(s);
                 }
@@ -585,7 +609,7 @@
                     while (this.outbox[k].length >= lot) {
                         if (last) { this.outbox[k].splice(0, lot).forEach(j => this.exitJob(j)); changed = true; }
                         else if (this.space(k + 1) >= lot) {
-                            this.outbox[k].splice(0, lot).forEach(j => { j.state = 'queue'; this.queues[k + 1].push(j); }); changed = true;
+                            this.send(k, this.outbox[k].splice(0, lot)); changed = true;
                         } else break;
                     }
                 }
@@ -759,6 +783,7 @@
             if (this.t < this.cfg.warmup - EPS) dt = this.cfg.warmup - this.t;
             if (isFinite(this.nextArrival)) dt = Math.min(dt, Math.max(0, this.nextArrival - this.t));
             for (const w of this.workers) if (w.readyAt > this.t + EPS) dt = Math.min(dt, w.readyAt - this.t);
+            for (const tr of this.transit) if (tr.length) dt = Math.min(dt, Math.max(0, tr[0].arrive - this.t));
             for (const s of this.slots) {
                 if (s.phase === 'manual') { const r = this.progressRate(s); if (r > 0) dt = Math.min(dt, Math.max(0, s.rem) / r); }
                 else if (s.phase === 'auto') dt = Math.min(dt, Math.max(0, s.autoRem));
@@ -777,7 +802,7 @@
         // something is still in progress (an operation or a walk)?
         active() {
             return this.slots.some(s => (s.phase === 'manual' && this.progressRate(s) > 0) || s.phase === 'auto') ||
-                this.workers.some(w => w.state === 'walking');
+                this.workers.some(w => w.state === 'walking') || this.transit.some(tr => tr.length > 0);
         }
 
         slotState(s) {
@@ -913,6 +938,8 @@
             const add = (j, where) => { if (seen.has(j.id)) errs.push(`job ${j.id} in two places (${where})`); seen.add(j.id); count++; };
             this.queues.forEach((q, k) => q.forEach(j => add(j, 'queue ' + k)));
             this.outbox.forEach((q, k) => q.forEach(j => add(j, 'outbox ' + k)));
+            this.transit.forEach((tr, k) => tr.forEach(it => it.jobs.forEach(j => add(j, 'transit ' + k))));
+            this.transit.forEach(tr => { for (let i = 1; i < tr.length; i++) if (tr[i].arrive < tr[i - 1].arrive - EPS) errs.push('transport out of order'); });
             this.slots.forEach(s => s.jobs.forEach(j => add(j, 'slot ' + s.k)));
             if (count !== this.jobs.size) errs.push(`job accounting: ${count} placed vs ${this.jobs.size} in system`);
             this.slots.forEach(s => {
@@ -921,7 +948,7 @@
                 if (!this.updates && s.jobs.length > this.cfg.stations[s.k].batch) errs.push('batch overflow at S' + (s.k + 1));
                 if (s.worker && s.worker.slot !== s) errs.push('slot/worker link broken at S' + (s.k + 1));
             });
-            if (!this.updates) for (let k = 1; k < this.N; k++) if (this.queues[k].length > this.cap(k)) errs.push('buffer overflow before S' + (k + 1));
+            if (!this.updates) for (let k = 1; k < this.N; k++) if (this.queues[k].length + this.inTransit(k) > this.capEff(k)) errs.push('buffer overflow before S' + (k + 1));
             for (const w of this.workers) {
                 if (w.state === 'working' && (!w.slot || w.slot.worker !== w || w.slot.phase !== 'manual')) errs.push('worker ' + w.id + ' working without a machine');
                 if (w.job && !seen.has(w.job.id)) errs.push('worker ' + w.id + ' holds a job that is nowhere');
