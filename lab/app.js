@@ -94,7 +94,7 @@
     let running = false, speed = 10, activePreset = null;
     let series = [], exits = [], entries = [], exitAnims = [], disp = [], logRows = [], nextLog = 0;
     let geo = null, charts = {}, colors = {};
-    let lastUi = 0, lastFrame = 0, sweepDone = false, lastAlert = null, animPhase = 0, manualFrames = false;
+    let lastUi = 0, lastFrame = 0, sweepDone = false, lastAlert = null, animPhase = 0, manualFrames = false, stationUtil = null;
     let deferredInstall = null;
     let appliedCfg = null;          // configuration the running line was built / last updated with
     let markers = [];               // live changes shown on the time charts {t, short, label}
@@ -625,6 +625,7 @@
         th = E.theory(engineCfg(cfg));
         if (chartsUnit !== cfg.unit) makeCharts();          // axis titles carry the time unit
         appliedCfg = deepCopy(cfg);
+        stationUtil = null;
         markers = [];
         views = Object.assign({}, DEFAULT_VIEWS);
         markViews();
@@ -809,7 +810,7 @@
         const slotH = maxM > 5 ? (labor ? 26 : 22) : (labor ? 36 : 32);
         const kanban = sim.cfg.release.mode === 'kanban';
         const top = kanban ? 38 : 18, head = badges ? 48 : 36;
-        const stH = head + maxM * slotH + 8;
+        const stH = head + maxM * slotH + 22;          // room at the bottom for the utilization
         const lotY = top + stH + 8;
         const laneY = lotY + (anyLot ? 26 : 0) + (labor ? 28 : 0);
         const laneY2 = laneY;                   // one walkway: workers carrying a part stay beside the machines
@@ -1093,8 +1094,12 @@
             }
             if (slots.length > shown) {
                 ctx.fillStyle = colors.muted; ctx.font = `11px ${colors.mono}`;
-                ctx.fillText('+' + (slots.length - shown) + ' more', cx, y + geo.stH - 4);
+                ctx.fillText('+' + (slots.length - shown) + ' more', cx, y + geo.stH - 22);
             }
+            // utilization of the station (share of time processing, after the warm-up)
+            ctx.font = `600 11px ${colors.mono}`; ctx.textAlign = 'center';
+            ctx.fillStyle = isB ? colors.waiting : colors.muted;
+            ctx.fillText('util ' + (stationUtil && stationUtil[k] != null ? Math.round(stationUtil[k] * 100) + '%' : '–'), cx, y + geo.stH - 9);
             // move lot being formed
             if (geo.anyLot && s.move > 1) {
                 const ob = sim.outbox[k];
@@ -1345,6 +1350,7 @@
             const c = $('s_cap_' + k); if (!c) return;
             c.textContent = fmt(r); c.classList.toggle('bottleneck', Math.abs(r - th.TRb) < 1e-12);
         });
+        stationUtil = m.time > 0 ? m.stations.map(s => s.working) : null;   // shown on the line
         m.stations.forEach((s, k) => {
             const set = (key, v) => { const el = $(`s_${key}_${k}`); if (el) el.textContent = m.time > 0 ? pct(v) : '–'; };
             set('work', s.working); set('block', s.blocked); set('wait', s.waitWorker); set('idle', s.idle);
@@ -1511,7 +1517,8 @@
         const lOpts = baseOptions('WIP, time average [pcs]', 'TR · LT [pcs]');
         charts.little = new Chart($('chLittle'), { type: 'scatter', data: { datasets: [
             { label: 'samples during the run', data: [], backgroundColor: colors.accent, pointRadius: 2.5 },
-            { label: 'WIP = TR · LT', data: [], borderColor: colors.muted, borderDash: [6, 4], borderWidth: 1.5, pointRadius: 0, showLine: true }
+            { label: 'WIP = TR · LT', data: [], borderColor: colors.muted, borderDash: [6, 4], borderWidth: 1.5, pointRadius: 0, showLine: true },
+            { label: 'now (last sample)', data: [], backgroundColor: colors.waiting, borderColor: colors.surface, borderWidth: 2, pointRadius: 7, pointStyle: 'rectRot', order: -1 }
         ] }, options: lOpts });
         charts.cum = new Chart($('chCum'), { type: 'line', data: { datasets: [
             { label: 'entered S1', data: [], borderColor: colors.walking, pointRadius: 0, stepped: true },
@@ -1588,6 +1595,7 @@
         lc.data.datasets[0].data = pts;
         const mx = Math.max(1, ...pts.map(p => Math.max(p.x, p.y))) * 1.1;
         lc.data.datasets[1].data = [{ x: 0, y: 0 }, { x: mx, y: mx }];
+        lc.data.datasets[2].data = pts.length ? [pts[pts.length - 1]] : [];   // where the line is now
         lc.options.scales.x.max = mx; lc.options.scales.y.max = mx;
         lc.update('none');
         // cumulative entries / exits
