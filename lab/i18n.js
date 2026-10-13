@@ -8,7 +8,7 @@
     'use strict';
     const IT = window.FLOW_IT || {};
     const NUM = /[-−+]?\d+(?:[.,]\d+)*%?/g;
-    const UNIT = /(?<!['’])\b(min|h|s)\b(?![\w(])/g;
+    const UNIT = /(^|[^\w'’])(min|h|s)\b(?![\w(])/g;      // no look-behind: older Safari
     let lang = '';
     try { lang = localStorage.getItem('flowLab.lang') || ''; } catch (e) { lang = ''; }
     if (lang !== 'it' && lang !== 'en') lang = /^it\b/i.test(navigator.language || '') ? 'it' : 'en';
@@ -16,7 +16,7 @@
     // exact match of the skeleton (numbers -> {n}, units -> {u}), then the numbers go back in order
     function look(s) {
         const nums = [], units = [];
-        const k = s.replace(NUM, m => { nums.push(m); return '{n}'; }).replace(UNIT, m => { units.push(m); return '{u}'; });
+        const k = s.replace(NUM, m => { nums.push(m); return '{n}'; }).replace(UNIT, (m, pre, u) => { units.push(u); return pre + '{u}'; });
         const t = IT[k];
         if (t == null) return null;
         let i = 0, j = 0;
@@ -52,7 +52,7 @@
         const r = one(s);
         if (r != null) return r;
         // long notes are made of sentences: translate them one by one
-        const parts = s.split(/(?<=[.!?])\s+(?=[A-Z“(])/);
+        const parts = s.replace(/([.!?])\s+(?=[A-Z“(])/g, '$1\u0001').split('\u0001');
         if (parts.length > 1) {
             let any = false;
             const o = parts.map(p => { const t = one(p); if (t != null) { any = true; return t; } return p; });
