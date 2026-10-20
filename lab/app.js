@@ -48,6 +48,8 @@
           cfg: { stations: L([2, 2, 2, 2], { dist: 'exp' }), wip: 27, unit: 'h', warmup: 500 } },
         { id: 'pushOver', mode: 'machines', ref: 'Push and pull', name: 'Push above capacity: the WIP explodes',
           cfg: { stations: L([2, 2.5, 2, 2]), wipMode: 'push', release: { rate: 0.45, arrivals: 'det' }, unit: 'h' } },
+        { id: 'saturation', mode: 'machines', ref: 'Push and pull', name: 'Line saturation: 7 stations, push at 10 pcs/h',
+          cfg: { stations: L([1.02, 0.45, 0.4, 0.923, 0.923, 1.5, 0.75]), wipMode: 'push', release: { rate: 1 / 6, arrivals: 'det' }, rateUnit: 'h', unit: 'min', warmup: 1 } },
         { id: 'kanban', mode: 'machines', ref: 'Push and pull', name: 'Kanban: 2 cards per station',
           cfg: { stations: L([2, 2, 2, 2], { dist: 'exp' }), wipMode: 'kanban', release: { cards: [2, 2, 2, 2] }, unit: 'h', warmup: 200 } },
         { id: 'dbr', mode: 'machines', ref: 'Push and pull', name: 'Drum-Buffer-Rope: release tied to the bottleneck',
@@ -112,6 +114,9 @@
     const SEC = { s: 1, min: 60, h: 3600 };                 // seconds in one time unit
     // transport speed in metres per time unit of the line
     const speedPerUnit = c => (c.tspeed || 0) * SEC[c.unit] / SEC[c.tspeedUnit || c.unit];
+    // the push release rate is stored in pcs per time unit of the line and shown in its own unit (pcs/s, pcs/min, pcs/h)
+    const rateUnit = c => SEC[c.rateUnit] ? c.rateUnit : c.unit;
+    const rateShown = (c, r) => r * SEC[rateUnit(c)] / SEC[c.unit];
     function presetToCfg(p) {
         const c = p.cfg;
         const stations = c.stations.map(s => Object.assign(ST(1), s));
@@ -124,7 +129,7 @@
             walk: c.walk || 0, preempt: true, warmup: c.warmup || 0, seed: 1, unit: c.unit || 'min', chartWindow: 0,
             stopAfter: c.stopAfter || 0,
             release: Object.assign(REL_DEFAULT(), c.release ? deepCopy(c.release) : {}), tspeed: c.tspeed || 0, tspeedUnit: c.tspeedUnit || c.unit || 'min',
-            stagger: c.stagger != null ? c.stagger : p.mode === 'labor'
+            rateUnit: c.rateUnit || c.unit || 'min', stagger: c.stagger != null ? c.stagger : p.mode === 'labor'
         };
         while (out.buffers.length < N - 1) out.buffers.push(null);
         out.showMore = stations.some(s => s.batch > 1 || s.move > 1 || s.oee < 1 || s.auto > 0 || s.oeeM || (out.tspeed > 0 && s.distance > 0));
@@ -298,12 +303,12 @@
 
     // release rules: values shown are the ones the engine uses (defaults filled in)
     function renderRelease() {
-        const t = E.theory(engineCfg(cfg)), R = t.release, u = cfg.unit;
-        $('relRate').value = +R.rate.toPrecision(4);
-        $('relRateUnit').textContent = 'pcs/' + u;
+        const t = E.theory(engineCfg(cfg)), R = t.release, u = cfg.unit, ru = rateUnit(cfg);
+        $('relRate').value = +rateShown(cfg, R.rate).toPrecision(4);
+        $('relRateUnit').value = ru;
         $('relArr').value = R.arrivals;
         const rho = R.rate / t.TRmax;
-        $('relPushHint').textContent = `Capacity of the line ${fmt(t.TRmax)} pcs/${u}: utilization ρ = ${(rho * 100).toFixed(0)}%. ` +
+        $('relPushHint').textContent = `One job every ${fmt(1 / R.rate)} ${u}. Capacity of the line ${fmt(rateShown(cfg, t.TRmax))} pcs/${ru}: utilization ρ = ${(rho * 100).toFixed(0)}%. ` +
             (rho >= 0.999 ? 'Above capacity: the queue before S1 grows without limit.' : R.arrivals === 'exp' || cfg.stations.some(s => s.dist !== 'det')
                 ? 'With variability the queues grow quickly as ρ approaches 100% (VUT equation).' : 'Regular arrivals and times below capacity: TR = rate and nobody waits.');
         const cards = $('kanbanCards');
@@ -449,7 +454,7 @@
         const out = [];
         const wTxt = c => c.wipMode === 'free' ? '∞' : String(c.wip);
         const R = c => c.release || {};
-        const relTxt = c => ({ cap: 'CONWIP w ' + c.wip, free: 'no cap', push: `push ${R(c).rate}${R(c).arrivals === 'exp' ? ' random' : ''}`,
+        const relTxt = c => ({ cap: 'CONWIP w ' + c.wip, free: 'no cap', push: `push ${R(c).rate > 0 ? +rateShown(c, R(c).rate).toPrecision(4) + ' pcs/' + rateUnit(c) : 'auto'}${R(c).arrivals === 'exp' ? ' random' : ''}`,
             kanban: 'kanban ' + (R(c).cards ? R(c).cards.join('/') : 'auto'), dbr: 'DBR R ' + (R(c).rope || 'auto') + (R(c).drum != null ? ' S' + (R(c).drum + 1) : '') })[c.wipMode];
         if (['cap', 'free'].includes(a.wipMode) && ['cap', 'free'].includes(b.wipMode)) { if (wTxt(a) !== wTxt(b)) out.push(`w ${wTxt(a)}→${wTxt(b)}`); }
         else if (relTxt(a) !== relTxt(b)) out.push(`${relTxt(a)}→${relTxt(b)}`);
@@ -488,6 +493,7 @@
         cfg.logStep = r6(cfg.logStep * f); cfg.chartWindow = r6(cfg.chartWindow * f);
         if (cfg.release.rate > 0) cfg.release.rate = r6(cfg.release.rate / f);
         if (!cfg.tspeedUnit) cfg.tspeedUnit = old;            // the transport speed keeps its own unit
+        if (!cfg.rateUnit) cfg.rateUnit = old;                // and so does the release rate
         cfg.unit = nu;
         activePreset = null;
         renderAll(); makeCharts(); rebuild();
@@ -536,7 +542,12 @@
             if (r.value === 'push' && !(cfg.release.rate > 0)) cfg.release.rate = +(0.9 * E.theory(engineCfg(cfg)).TRmax).toPrecision(2);
             changed();
         }));
-        $('relRate').addEventListener('change', e => { cfg.release.rate = clampNum(e.target.value, 1e-6, 1e6, cfg.release.rate || 1); changed(); });
+        $('relRate').addEventListener('change', e => {
+            const v = clampNum(e.target.value, 1e-9, 1e9, NaN);
+            if (isFinite(v)) cfg.release.rate = v / rateShown(cfg, 1);
+            changed();
+        });
+        $('relRateUnit').addEventListener('change', e => { cfg.rateUnit = e.target.value; renderRelease(); });
         $('relArr').addEventListener('change', e => { cfg.release.arrivals = e.target.value; changed(); });
         $('relDrum').addEventListener('change', e => { cfg.release.drum = e.target.value === '' ? null : +e.target.value; changed(); });
         $('relRope').addEventListener('change', e => { cfg.release.rope = Math.round(clampNum(e.target.value, 1, 500, 4)); changed(); });
@@ -622,6 +633,7 @@
             cfg = Object.assign(base, c);
             cfg.release = Object.assign(REL_DEFAULT(), c.release || {});
             if (!c.tspeedUnit) cfg.tspeedUnit = cfg.unit;
+            if (!c.rateUnit) cfg.rateUnit = cfg.unit;
             if (!RMODE[cfg.wipMode]) cfg.wipMode = 'cap';
             cfg.stations = c.stations.map(s => Object.assign(ST(1), s));
             if (!Array.isArray(cfg.buffers)) cfg.buffers = [];
@@ -1989,7 +2001,7 @@
             workers: ec.workers.map(w => ({ speed: w.speed, name: w.name })), skills: ec.skills, policy: ec.policy,
             wipMode: isFinite(ec.wip) ? 'cap' : 'free', wip: isFinite(ec.wip) ? ec.wip : 4, walk: ec.walk, preempt: ec.preempt !== false,
             warmup: 0, seed: ec.seed, unit: unit || 'min', chartWindow: 0, stopAfter: 0, showMore: true, logStep: 5,
-            release: REL_DEFAULT(), stagger: false, tspeedUnit: unit || 'min'
+            release: REL_DEFAULT(), stagger: false, tspeedUnit: unit || 'min', rateUnit: unit || 'min'
         };
     }
     const api = {
