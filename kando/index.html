@@ -350,7 +350,7 @@ const T = {
   end:"Fine",go:"Via",pause:"Pausa",cont:"Riprendi",backGame:"Torna al gioco",toSetup:"Impostazioni",
   save:"Salva nel Production Summary",csv:"Esporta CSV",prodSummary:"Production Summary",clearSum:"Svuota",
   team:"Squadra",order:"Ordine",deliverBy:"consegna entro",next:"Poi",waitFirst:"Primo ordine tra",
-  deliver:"CONSEGNATO",okQ:"? da controllare",okS:"buono",koS:"difettoso",ko:"KO",notDel:"non consegnato",delivered:"✓ consegnato",noOrder:"nessun ordine aperto",stopIn:"stop tra",opensIn:"apre tra",
+  deliver:"CONSEGNATO",okQ:"? da controllare",allChecked:"✓ tutto controllato",okS:"buono",koS:"difettoso",ko:"KO",notDel:"non consegnato",delivered:"✓ consegnato",noOrder:"nessun ordine aperto",stopIn:"stop tra",opensIn:"apre tra",
   over:"Prova finita",ended:"Fine prova",del:"Cons.",ok:"OK",sl:"S.L.",ordered:"Ordinati",accepted:"Accettati",deliveredH:"Consegnati",
   time:"Ora",code:"Cod.",unchecked:"consegnati ma non controllati (contano come non OK)",saved:"Salvato nel Production Summary",nextPhase:"Vai alla fase",newRun:"Nuova prova ▶",
   confirmEnd:"Terminare la prova adesso?",confirmDiscard:"Cancellare la prova in corso?",confirmClear:"Svuotare il Production Summary?",
@@ -366,7 +366,7 @@ const T = {
 <li>All'<b>apertura</b> di ogni ordine (start) suonano due bip acuti e, se attiva, la voce legge la consegna (prima, seconda…), il numero del carrello e, dalla fase 2, i colori. In alto vedi l'ordine aperto con la <b>foto del carrello</b>, così sai già cosa deve arrivare.</li>
 <li>Alla <b>scadenza</b> (stop) suona un bip lungo e grave; negli ultimi 5 secondi un bip al secondo.</li>
 <li>Quando una squadra consegna in tempo, tocca il suo pulsante grande <b>CONSEGNATO</b>. Un secondo tocco, finché l'ordine è aperto, annulla.</li>
-<li><b>Controllo qualità dopo</b>: accanto a CONSEGNATO c'è il pulsante arancione <b>Pezzo buono?</b> con la foto dell'<b>ordine precedente</b>. Quando il turno successivo è partito, guarda il pezzo e toccalo: ogni tocco passa da <b>?</b> (da controllare, arancione) a <b>OK</b> (buono, verde) a <b>KO</b> (difettoso, viola) e di nuovo a <b>?</b>. Si può anche toccare il riquadro dell'ordine nella griglia sotto: stessi tre stati.</li>
+<li><b>Controllo qualità dopo</b>: accanto a CONSEGNATO c'è il pulsante arancione <b>? da controllare</b> con la foto del <b>pezzo più vecchio consegnato e non ancora controllato</b>: compare appena la squadra consegna e resta lì finché non lo controlli (“+2” vuol dire altri due in coda). Quando hai tempo guarda il pezzo e toccalo: ogni tocco passa da <b>?</b> (da controllare, arancione) a <b>OK</b> (buono, verde) a <b>KO</b> (difettoso, viola) e di nuovo a <b>?</b>. Si può anche toccare il riquadro dell'ordine nella griglia sotto: stessi tre stati.</li>
 <li>Correzioni: <b>tieni premuto</b> un riquadro per segnare o togliere la consegna di un ordine già chiuso.</li>
 <li>A fine prova suonano tre bip. Con <b>Fine</b> vai ai risultati: il report (come le schede cartacee) entra da solo nel Production Summary e il pulsante <b>Vai alla fase …</b> riporta alle impostazioni con la fase successiva e le stesse squadre. In <b>Risultati</b> trovi il report (come le schede cartacee), il service level e il Production Summary di tutte le fasi; puoi esportare in CSV.</li>
 <li><b>Report e archivio</b>: in <b>Risultati</b>, <b>📄 Report PDF</b> prepara il report di tutte le fasi giocate fino a quel momento (anche a metà gara): nella finestra di stampa scegli “Salva come PDF”. <b>💾 Salva gara</b> scarica un file con tutti i dati della giornata; <b>📂 Apri gara</b> lo ricarica, anche su un altro dispositivo o l'anno dopo.</li>
@@ -385,7 +385,7 @@ const T = {
   end:"End",go:"Go",pause:"Pause",cont:"Resume",backGame:"Back to the game",toSetup:"Settings",
   save:"Save to Production Summary",csv:"Export CSV",prodSummary:"Production Summary",clearSum:"Clear",
   team:"Team",order:"Order",deliverBy:"deliver by",next:"Next",waitFirst:"First order in",
-  deliver:"DELIVERED",okQ:"? to check",okS:"good",koS:"defective",ko:"KO",notDel:"not delivered",delivered:"✓ delivered",noOrder:"no open order",stopIn:"stop in",opensIn:"opens in",
+  deliver:"DELIVERED",okQ:"? to check",allChecked:"✓ all checked",okS:"good",koS:"defective",ko:"KO",notDel:"not delivered",delivered:"✓ delivered",noOrder:"no open order",stopIn:"stop in",opensIn:"opens in",
   over:"Run over",ended:"End of run",del:"Del.",ok:"OK",sl:"S.L.",ordered:"Ordered",accepted:"Accepted",deliveredH:"Delivered",
   time:"Time",code:"Code",unchecked:"delivered but not checked (counted as not OK)",saved:"Saved to the Production Summary",nextPhase:"Go to phase",newRun:"New run ▶",
   confirmEnd:"End the run now?",confirmDiscard:"Discard the run in progress?",confirmClear:"Clear the Production Summary?",
@@ -401,7 +401,7 @@ const T = {
 <li>When each order <b>opens</b> (start) two high beeps sound and, if enabled, a voice reads the delivery (first, second…), the trolley number and, from phase 2, the colours. At the top you see the open order with the <b>trolley picture</b>, so you already know what must arrive.</li>
 <li>At the <b>deadline</b> (stop) a long low beep sounds; in the last 5 seconds one beep per second.</li>
 <li>When a team delivers on time, tap its big <b>DELIVERED</b> button. A second tap, while the order is open, undoes it.</li>
-<li><b>Quality check later</b>: next to DELIVERED there is the orange button <b>Good piece?</b> with the picture of the <b>previous order</b>. Once the next order has started, look at the trolley and tap it: each tap goes from <b>?</b> (to check, orange) to <b>OK</b> (good, green) to <b>KO</b> (defective, purple) and back to <b>?</b>. You can also tap the order tile in the grid below: same three states.</li>
+<li><b>Quality check later</b>: next to DELIVERED there is the orange button <b>? to check</b> with the picture of the <b>oldest delivered trolley not yet checked</b>: it appears as soon as the team delivers and stays until you check it (“+2” means two more are waiting). When you have time, look at the trolley and tap it: each tap goes from <b>?</b> (to check, orange) to <b>OK</b> (good, green) to <b>KO</b> (defective, purple) and back to <b>?</b>. You can also tap the order tile in the grid below: same three states.</li>
 <li>Corrections: <b>press and hold</b> a tile to add or remove the delivery of a closed order.</li>
 <li>At the end three beeps sound. <b>End</b> takes you to the results: the report goes into the Production Summary by itself and the <b>Go to phase …</b> button takes you back to the settings with the next phase and the same teams. <b>Results</b> shows the report (like the paper sheets), the service level and the Production Summary of all phases; you can export CSV.</li>
 <li><b>Report and archive</b>: in <b>Results</b>, <b>📄 PDF report</b> builds the report of all phases played so far (also halfway through the game): in the print window choose “Save as PDF”. <b>💾 Save game</b> downloads a file with all the data of the day; <b>📂 Open game</b> loads it again, also on another device or the next year.</li>
@@ -620,15 +620,21 @@ function frame(){
       b.classList.toggle("done",mk.d!=null);
       setHtml(b, mk.d!=null ? `${L().delivered}<small>#${open.n} ${open.code} · ${fmt(mk.d)}</small>` : `${L().deliver}<small>#${open.n} ${open.code}</small>`);
     } else { b.disabled=true; b.classList.remove("done"); setHtml(b, r.ended?L().ended:L().noOrder); }
-    // quality button: the last closed order (the one delivered in the previous turn)
-    const q=$("qb"+ti), pv=prevOrder(t);
-    if(pv && r.startedAt){
-      const mk=m[pv.i]; q.dataset.i=pv.i; q.disabled = mk.d==null;
-      q.classList.toggle("done",!!mk.ok); q.classList.toggle("ko",!!mk.ko); q.classList.toggle("todo",mk.d!=null && !mk.ok && !mk.ko);
-      const img=IMG[pv.n]?`<img src="${IMG[pv.n]}" alt="">`:"";
-      setHtml(q, mk.d==null ? `<span>✗ #${pv.n} ${pv.code}<small>${L().notDel}</small></span>`
-        : `${img}<span>${mk.ok?"OK · "+L().okS:mk.ko?"KO · "+L().koS:L().okQ}<small>#${pv.n} ${pv.code}</small></span>`);
-    } else { q.disabled=true; q.classList.remove("done","todo","ko"); setHtml(q, `<span>${L().okQ}<small>–</small></span>`); }
+    // quality button: the oldest delivered piece not yet checked (also the one just delivered);
+    // after a tap it stays on that piece for a few seconds, so OK -> KO -> ? can be cycled
+    const q=$("qb"+ti), lk=QLOCK[ti];
+    let qi = lk && lk.until>Date.now() ? lk.i : m.findIndex(x=>x.d!=null && !x.ok && !x.ko);
+    const left = m.filter((x,i)=>i!==qi && x.d!=null && !x.ok && !x.ko).length;
+    if(qi>=0 && r.startedAt){
+      const mk=m[qi], o=r.orders[qi]; q.dataset.i=qi; q.disabled=false;
+      q.classList.toggle("done",!!mk.ok); q.classList.toggle("ko",!!mk.ko); q.classList.toggle("todo",!mk.ok && !mk.ko);
+      const img=IMG[o.n]?`<img src="${IMG[o.n]}" alt="">`:"";
+      setHtml(q, `${img}<span>${mk.ok?"OK · "+L().okS:mk.ko?"KO · "+L().koS:L().okQ}<small>#${o.n} ${o.code}${left?` · +${left}`:""}</small></span>`);
+    } else {
+      delete q.dataset.i; q.disabled=true; q.classList.remove("done","todo","ko");
+      const any=m.some(x=>x.d!=null);
+      setHtml(q, `<span>${any?L().allChecked:L().okQ}<small>–</small></span>`);
+    }
     const tiles=$("tl"+ti).children;
     r.orders.forEach((o,i)=>{
       const el=tiles[i], mk=m[i]; let cls="tile", mark="";
@@ -647,14 +653,15 @@ setInterval(frame,200);
 
 // rewrite a button only when its content changes (a rewrite under the finger would swallow the tap)
 // quality of a delivered piece: ? (to check) -> OK -> KO -> ?
+const QLOCK={};
 function cycleQ(mk){ if(mk.ok){ mk.ok=false; mk.ko=true; } else if(mk.ko){ mk.ko=false; } else mk.ok=true; }
 function setHtml(el,h){ if(el._h!==h){ el._h=h; el.innerHTML=h; } }
 function prevOrder(t){ const r=S.run; let p=null; for(const o of r.orders){ if(r.ended || o.stop<=t) p=o; } return p }
 // quality button: toggles OK of the previous order
 $("teams").addEventListener("click",e=>{
   const q=e.target.closest(".okbtn"); if(!q||q.disabled||q.dataset.i==null) return;
-  const mk=S.run.marks[+q.dataset.t][+q.dataset.i]; if(mk.d==null) return;
-  cycleQ(mk); beepTap(); save(); frame();
+  const ti=+q.dataset.t, i=+q.dataset.i, mk=S.run.marks[ti][i]; if(mk.d==null) return;
+  cycleQ(mk); QLOCK[ti]={i,until:Date.now()+2500}; beepTap(); save(); frame();
 });
 // deliver button
 $("teams").addEventListener("click",e=>{
