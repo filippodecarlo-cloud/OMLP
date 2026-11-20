@@ -222,6 +222,8 @@ td.miss{color:var(--red)}
   <div class="row" style="margin:14px 0">
    <button class="primary" id="saveBtn" data-t="save"></button>
    <button id="csvBtn" data-t="csv"></button>
+   <button class="primary" id="showBtn" style="background:#7c3aed;border-color:#7c3aed"></button>
+   <button id="shareBtn"></button>
   </div>
   <h2 data-t="prodSummary"></h2>
   <div class="tablewrap"><table id="sumTable"></table></div>
@@ -239,6 +241,59 @@ td.miss{color:var(--red)}
   <div class="card" id="helpBody"></div>
  </div>
 </section>
+
+<!-- ================= SHOW (projector) ================= -->
+<style>
+#show{background:radial-gradient(ellipse at top,#1e3a8a 0%,#0b1020 70%);color:#f8fafc;cursor:pointer;user-select:none;-webkit-user-select:none;overflow:hidden}
+#show .sbar{position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;padding:10px 16px;font-size:clamp(.8rem,1.6vw,1.1rem);color:#93c5fd;z-index:3}
+#show .sbar button{background:transparent;border:1px solid #334155;color:#cbd5e1;padding:.3em .7em;border-radius:8px}
+#show .stage{position:absolute;inset:48px 16px 40px;display:flex;flex-direction:column;align-items:center;justify-content:center}
+#show .hint{position:absolute;bottom:10px;left:0;right:0;text-align:center;color:#64748b;font-size:clamp(.75rem,1.4vw,1rem)}
+#show h2.big{font-size:clamp(2rem,7vw,5.5rem);margin:0;text-align:center;line-height:1.05}
+#show .sub{font-size:clamp(1rem,2.6vw,2rem);color:#cbd5e1;text-align:center;margin-top:.4em}
+#show .board{width:min(1100px,100%);display:flex;flex-direction:column;gap:clamp(4px,1vh,10px);flex:1 1 auto;justify-content:center}
+#show .srow{display:grid;grid-template-columns:clamp(2.2rem,6vw,4.5rem) minmax(5rem,15rem) 1fr clamp(3.5rem,9vw,7rem);align-items:center;gap:clamp(6px,1.2vw,16px);
+  background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:clamp(4px,1vh,10px) clamp(8px,1.4vw,16px);min-height:0}
+#show .srow.hid{opacity:.35}
+#show .srow.new{animation:pop .7s cubic-bezier(.2,1.4,.4,1) both;border-color:#fbbf24;box-shadow:0 0 0 2px #fbbf24,0 0 30px rgba(251,191,36,.35)}
+@keyframes pop{0%{transform:translateX(-60px) scale(.9);opacity:0}100%{transform:none;opacity:1}}
+#show .rk{font-size:clamp(1.3rem,3.6vw,3rem);font-weight:900;color:#fbbf24;text-align:center}
+#show .nm{font-size:clamp(1rem,2.6vw,2.2rem);font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#show .det{font-size:clamp(.7rem,1.3vw,1rem);color:#cbd5e1;display:flex;flex-direction:column;gap:4px;min-width:0}
+#show .bar{height:clamp(8px,1.6vh,16px);background:rgba(255,255,255,.12);border-radius:99px;overflow:hidden}
+#show .bar i{display:block;height:100%;background:linear-gradient(90deg,#22c55e,#a3e635);border-radius:99px;width:0;transition:width 1.1s ease-out}
+#show .strip{display:flex;gap:3px}
+#show .strip b{flex:1;height:clamp(8px,1.6vh,16px);border-radius:3px;background:#334155}
+#show .strip b.O{background:#22c55e} #show .strip b.K{background:#a78bfa} #show .strip b.Q{background:#f59e0b} #show .strip b.X{background:#ef4444}
+#show .pc{font-size:clamp(1.4rem,4vw,3.4rem);font-weight:900;text-align:right;font-variant-numeric:tabular-nums}
+#show .podium{display:flex;align-items:flex-end;justify-content:center;gap:clamp(8px,2vw,24px);width:min(1000px,100%);flex:1 1 auto;padding-top:2vh}
+#show .pod{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;min-width:0}
+#show .pod .pn{font-size:clamp(1rem,3vw,2.6rem);font-weight:900;text-align:center;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#show .pod .pp{font-size:clamp(.9rem,2.2vw,1.8rem);color:#cbd5e1;margin-bottom:6px}
+#show .pod .blk{width:100%;border-radius:14px 14px 0 0;display:flex;align-items:flex-start;justify-content:center;font-size:clamp(2rem,7vw,6rem);font-weight:900;color:#0b1020;animation:rise .9s ease-out both}
+#show .pod.p1 .blk{background:linear-gradient(#fde047,#f59e0b);height:42vh} #show .pod.p2 .blk{background:linear-gradient(#e5e7eb,#94a3b8);height:30vh;animation-delay:.25s}
+#show .pod.p3 .blk{background:linear-gradient(#fdba74,#c2410c);height:22vh;animation-delay:.5s}
+@keyframes rise{0%{transform:scaleY(0);transform-origin:bottom}100%{transform:scaleY(1);transform-origin:bottom}}
+#show .drum{font-size:clamp(3rem,12vw,9rem);animation:shake .12s infinite}
+@keyframes shake{0%{transform:translateX(-4px) rotate(-2deg)}50%{transform:translateX(4px) rotate(2deg)}100%{transform:translateX(-4px)}}
+#show svg text{fill:#cbd5e1}
+#confetti{position:absolute;inset:0;pointer-events:none;z-index:2}
+#qrBox{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:60}
+#qrBox .card{max-width:min(92vw,420px);text-align:center}
+#qrBox #qr{display:flex;justify-content:center;margin:10px 0}
+#qrBox #qr img,#qrBox #qr canvas{width:min(80vw,320px)!important;height:auto!important}
+</style>
+<section id="show" class="screen hidden">
+ <canvas id="confetti"></canvas>
+ <div class="sbar"><span id="showTitle"></span><span><button id="showFs">⛶</button> <button id="showClose">✕</button></span></div>
+ <div class="stage" id="stage"></div>
+ <div class="hint" id="showHint"></div>
+</section>
+<div id="qrBox" class="hidden"><div class="card">
+ <b data-t="qrTitle"></b><div id="qr"></div>
+ <p class="small muted" data-t="qrNote"></p>
+ <div class="row" style="justify-content:center"><button id="qrShare" class="primary" data-t="shareLink"></button><button id="qrCopy" data-t="copyLink"></button><button id="qrClose">OK</button></div>
+</div></div>
 
 <div id="toast"></div>
 
@@ -280,6 +335,7 @@ const T = {
 <li><b>Controllo qualità dopo</b>: accanto a CONSEGNATO c'è il pulsante arancione <b>Pezzo buono?</b> con la foto dell'<b>ordine precedente</b>. Quando il turno successivo è partito, guarda il pezzo e toccalo: ogni tocco passa da <b>?</b> (da controllare, arancione) a <b>OK</b> (buono, verde) a <b>KO</b> (difettoso, viola) e di nuovo a <b>?</b>. Si può anche toccare il riquadro dell'ordine nella griglia sotto: stessi tre stati.</li>
 <li>Correzioni: <b>tieni premuto</b> un riquadro per segnare o togliere la consegna di un ordine già chiuso.</li>
 <li>A fine prova suonano tre bip. Con <b>Fine</b> vai ai risultati: il report (come le schede cartacee) entra da solo nel Production Summary e il pulsante <b>Vai alla fase …</b> riporta alle impostazioni con la fase successiva e le stesse squadre. In <b>Risultati</b> trovi il report (come le schede cartacee), il service level e il Production Summary di tutte le fasi; puoi esportare in CSV.</li>
+<li><b>Show per la classe</b>: nei risultati, <b>🎬 Classifica</b> svela le squadre dalla peggiore alla migliore (tocco o → per andare avanti, ← indietro), con rullo di tamburi prima della prima, podio e grafico del service level fase per fase. Per proiettarla dal computer usa <b>🔗 Link per il proiettore</b>: mandati il link (WhatsApp, mail) e aprilo sul PC; con il telecomando delle slide si va avanti con i tasti pagina.</li>
 </ol>
 <h2>Colori dei riquadri</h2>
 <p>grigio chiaro = ordine futuro · bordo blu = ordine aperto · arancione <b>?</b> = consegnato, da controllare · verde <b>OK</b> = buono · viola <b>KO</b> = difettoso · rosso <b>✗</b> = non consegnato in tempo.</p>
@@ -313,6 +369,7 @@ const T = {
 <li><b>Quality check later</b>: next to DELIVERED there is the orange button <b>Good piece?</b> with the picture of the <b>previous order</b>. Once the next order has started, look at the trolley and tap it: each tap goes from <b>?</b> (to check, orange) to <b>OK</b> (good, green) to <b>KO</b> (defective, purple) and back to <b>?</b>. You can also tap the order tile in the grid below: same three states.</li>
 <li>Corrections: <b>press and hold</b> a tile to add or remove the delivery of a closed order.</li>
 <li>At the end three beeps sound. <b>End</b> takes you to the results: the report goes into the Production Summary by itself and the <b>Go to phase …</b> button takes you back to the settings with the next phase and the same teams. <b>Results</b> shows the report (like the paper sheets), the service level and the Production Summary of all phases; you can export CSV.</li>
+<li><b>Show for the class</b>: in the results, <b>🎬 Leaderboard</b> reveals the teams from the worst to the best (tap or → to go on, ← back), with a drum roll before the winner, podium and service-level chart phase by phase. To project it from the computer use <b>🔗 Link for the projector</b>: send yourself the link (WhatsApp, mail) and open it on the PC; a slide clicker works with its page keys.</li>
 </ol>
 <h2>Tile colours</h2>
 <p>light grey = future order · blue border = open order · orange <b>?</b> = delivered, to check · green <b>OK</b> = good · purple <b>KO</b> = defective · red <b>✗</b> = not delivered on time.</p>
@@ -445,7 +502,7 @@ function layoutTeams(){
 }
 addEventListener("resize",layoutTeams);
 function esc(s){ return s.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])) }
-function hideAll(){ ["setup","game","report","help"].forEach(id=>$(id).classList.add("hidden")) }
+function hideAll(){ ["setup","game","report","help","show"].forEach(id=>$(id).classList.add("hidden")) }
 function toggleFs(){ try{ if(!document.fullscreenElement) document.documentElement.requestFullscreen(); else document.exitFullscreen(); }catch(e){} }
 
 $("goBtn").onclick=()=>{
@@ -592,6 +649,8 @@ function showReport(){
   const r=S.run;
   if(r && r.ended) saveSummary();
   const nb=$("nextBtn"); nb.textContent = r && r.phase<5 ? `${L().nextPhase} ${r.phase+1} ▶` : L().newRun;
+  $("showBtn").textContent=SHOW_T[S.lang].showBtn; $("shareBtn").textContent=SHOW_T[S.lang].share;
+  $("showBtn").classList.toggle("hidden",!r); $("shareBtn").classList.toggle("hidden",!r);
   $("repBack").classList.toggle("hidden",!r); $("saveBtn").classList.toggle("hidden",!r); $("csvBtn").classList.toggle("hidden",!r);
   if(r){
     $("repTitle").textContent=`Customer Satisfaction Report – ${L().phase} ${r.phase}`;
@@ -648,8 +707,163 @@ $("sumCsvBtn").onclick=()=>{ const rows=[[L().phase,L().team,L().ordered,L().del
   Object.keys(S.summary).sort().forEach(p=>S.summary[p].teams.forEach(tm=>rows.push([p,tm.name,tm.ordered,tm.del,tm.ok,Math.round(100*tm.sl)+"%"])));
   download("kando-production-summary.csv",rows); };
 
+/* ---------------- show mode (results for the projector) ---------------- */
+const SHOW_T = {
+ it:{showBtn:"🎬 Classifica (show)",share:"🔗 Link per il proiettore",qrTitle:"Apri i risultati su un altro schermo",
+  qrNote:"Manda il link a te stesso (WhatsApp, mail…) e aprilo sul computer del proiettore: parte la classifica. I ragazzi possono anche inquadrare il QR.",
+  shareLink:"Condividi",copyLink:"Copia link",copied:"Link copiato",results:"Risultati",hint:"tocca, clic o → per andare avanti · ← indietro",
+  intro:(o,n)=>`${o} ordini · ${n} squadre`,ready:"Chi ha servito meglio il cliente?",del:"consegnati",ok:"buoni",ko:"difettosi",
+  podium:"Il podio",progress:"Service level fase per fase",phase:"Fase",place:"°",openApp:"Apri l'app"},
+ en:{showBtn:"🎬 Leaderboard (show)",share:"🔗 Link for the projector",qrTitle:"Open the results on another screen",
+  qrNote:"Send the link to yourself (WhatsApp, mail…) and open it on the projector computer: the leaderboard starts. Students can also scan the QR.",
+  shareLink:"Share",copyLink:"Copy link",copied:"Link copied",results:"Results",hint:"tap, click or → to go on · ← back",
+  intro:(o,n)=>`${o} orders · ${n} teams`,ready:"Who served the customer best?",del:"delivered",ok:"good",ko:"defective",
+  podium:"The podium",progress:"Service level phase by phase",phase:"Phase",place:"",openApp:"Open the app"}};
+Object.keys(SHOW_T).forEach(l=>Object.assign(T[l],{qrTitle:SHOW_T[l].qrTitle,qrNote:SHOW_T[l].qrNote,shareLink:SHOW_T[l].shareLink,copyLink:SHOW_T[l].copyLink}));
+const ST = () => SHOW_T[SHOW.lang||S.lang];
+const TEAM_COL=["#60a5fa","#f472b6","#34d399","#fbbf24","#a78bfa","#fb923c"];
+
+// compact results: one character per order: O good, K defective, Q delivered not checked, X not delivered, - not reached
+function packRun(r){
+  const t=elapsed();
+  return {v:1,l:S.lang,p:r.phase,o:r.orders.map(o=>o.n),
+    t:r.names.map((n,ti)=>({n,m:r.marks[ti].map((x,i)=>x.d!=null?(x.ok?"O":x.ko?"K":"Q"):((r.ended||t>=r.orders[i].stop)?"X":"-")).join("")})),
+    s:Object.fromEntries(Object.entries(S.summary).map(([p,v])=>[p,v.teams.map(tm=>[tm.name,Math.round(100*tm.sl)])]))};
+}
+const b64e = s => { const b=new TextEncoder().encode(s); let x=""; b.forEach(c=>x+=String.fromCharCode(c)); return btoa(x).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,""); };
+const b64d = s => { s=s.replace(/-/g,"+").replace(/_/g,"/"); const x=atob(s); return new TextDecoder().decode(Uint8Array.from(x,c=>c.charCodeAt(0))); };
+const showLink = D => location.origin+location.pathname+"#show="+b64e(JSON.stringify(D));
+
+let SHOW={D:null,step:0,steps:[],fromLink:false,lang:null,busy:false};
+function openShow(D,fromLink){
+  SHOW={D,step:0,fromLink,lang:D.l||S.lang,busy:false,steps:[]};
+  const teams=D.t.map((tm,i)=>{ const m=tm.m; const ok=(m.match(/O/g)||[]).length, ko=(m.match(/K/g)||[]).length, del=ok+ko+(m.match(/Q/g)||[]).length;
+    return {i,name:tm.n,m,ok,ko,del,sl:ok/m.length,col:TEAM_COL[i%6]}; });
+  const key=x=>x.ok*10000+x.del*100-x.ko;
+  const desc=teams.slice().sort((a,b)=>key(b)-key(a));
+  desc.forEach((x,k)=>{ x.rank = k>0 && key(desc[k-1])===key(x) ? desc[k-1].rank : k+1; });
+  SHOW.desc=desc; SHOW.asc=desc.slice().reverse();
+  SHOW.steps=["intro",...SHOW.asc.map((_,k)=>"rev"+(k+1)),"podium"];
+  if(Object.keys(D.s||{}).length>=2) SHOW.steps.push("progress");
+  hideAll(); $("show").classList.remove("hidden");
+  $("showTitle").textContent=`KanDo · ${ST().phase} ${D.p} · ${ST().results}`;
+  $("showHint").textContent=ST().hint;
+  try{ if(!document.fullscreenElement) document.documentElement.requestFullscreen(); }catch(e){}
+  renderShow(false);
+}
+function closeShow(){
+  confettiStop(); try{ if(document.fullscreenElement) document.exitFullscreen(); }catch(e){}
+  if(SHOW.fromLink){ history.replaceState(null,"",location.pathname); hideAll(); $("setup").classList.remove("hidden"); renderSetup(); return; }
+  showReport();
+}
+function showStep(d){
+  if(SHOW.busy) return; const n=SHOW.step+d; if(n<0||n>=SHOW.steps.length) return;
+  SHOW.step=n; renderShow(d>0);
+}
+function renderShow(fwd){
+  const st=SHOW.steps[SHOW.step], D=SHOW.D, g=$("stage"); confettiStop();
+  if(st==="intro"){
+    g.innerHTML=`<h2 class="big">${ST().phase} ${D.p}</h2><div class="sub">${ST().intro(D.o.length,D.t.length)}</div><div class="sub" style="margin-top:1.2em;color:#fbbf24">${ST().ready}</div>`;
+    return;
+  }
+  if(st.startsWith("rev")){
+    const k=+st.slice(3), last = k===SHOW.asc.length;
+    if(fwd && last){ // drum roll before the winner
+      SHOW.busy=true; g.innerHTML=`<div class="drum">🥁</div>`; drumRoll(2.2);
+      setTimeout(()=>{ SHOW.busy=false; drawBoard(k); tadaa(); },2300); return;
+    }
+    drawBoard(k); if(fwd) revealTone(k); return;
+  }
+  if(st==="podium"){
+    const top=SHOW.desc.filter(x=>x.rank<=3).slice(0,3);
+    const by=r=>top.filter(x=>x.rank===r);
+    const pod=(cls,list,label)=>`<div class="pod ${cls}">${list.map(x=>`<div class="pn" style="color:${x.col}">${esc(x.name)}</div>`).join("")}
+      <div class="pp">${list.length?Math.round(100*list[0].sl)+"%":""}</div><div class="blk">${list.length?label:""}</div></div>`;
+    g.innerHTML=`<h2 class="big" style="font-size:clamp(1.6rem,4.5vw,3.4rem)">${ST().podium}</h2><div class="podium">${pod("p2",by(2),"2")}${pod("p1",by(1),"1")}${pod("p3",by(3),"3")}</div>`;
+    if(fwd) tadaa(); confetti(); return;
+  }
+  if(st==="progress") drawProgress();
+}
+function drawBoard(k){
+  const rev=new Set(SHOW.asc.slice(0,k).map(x=>x.i)), newest=SHOW.asc[k-1].i;
+  const rows=SHOW.desc.map(x=>{
+    if(!rev.has(x.i)) return `<div class="srow hid"><div class="rk">?</div><div class="nm">? ? ?</div><div class="det"></div><div class="pc">–</div></div>`;
+    const strip=x.m.split("").map(c=>`<b class="${c==="-"?"":c}"></b>`).join("");
+    return `<div class="srow${x.i===newest?" new":""}"><div class="rk">${x.rank}${ST().place}</div>
+      <div class="nm" style="color:${x.col}">${esc(x.name)}</div>
+      <div class="det"><div class="bar"><i data-w="${Math.round(100*x.sl)}"></i></div><div class="strip">${strip}</div>
+      <div>✓ ${x.del} ${ST().del} · OK ${x.ok} ${ST().ok}${x.ko?` · KO ${x.ko} ${ST().ko}`:""}</div></div>
+      <div class="pc">${Math.round(100*x.sl)}%</div></div>`;
+  }).join("");
+  $("stage").innerHTML=`<div class="board">${rows}</div>`;
+  requestAnimationFrame(()=>requestAnimationFrame(()=>document.querySelectorAll("#stage .bar i").forEach(b=>b.style.width=b.dataset.w+"%")));
+}
+function drawProgress(){
+  const s=SHOW.D.s, ph=Object.keys(s).map(Number).sort((a,b)=>a-b), names=[];
+  ph.forEach(p=>s[p].forEach(([n])=>{ if(!names.includes(n)) names.push(n) }));
+  const W=1000,H=520,L=70,R=190,Tp=20,B=60, X=i=>L+(ph.length<2?0:i*(W-L-R)/(ph.length-1)), Y=v=>Tp+(100-v)*(H-Tp-B)/100;
+  let svg=`<svg viewBox="0 0 ${W} ${H}" style="width:min(1100px,100%);height:auto;max-height:100%">`;
+  [0,25,50,75,100].forEach(v=>svg+=`<line x1="${L}" x2="${W-R}" y1="${Y(v)}" y2="${Y(v)}" stroke="#334155"/><text x="${L-10}" y="${Y(v)+6}" text-anchor="end" font-size="18">${v}%</text>`);
+  ph.forEach((p,i)=>svg+=`<text x="${X(i)}" y="${H-20}" text-anchor="middle" font-size="20">${ST().phase} ${p}</text>`);
+  const labels=[];
+  names.forEach((n,k)=>{
+    const col=TEAM_COL[k%6], pts=ph.map((p,i)=>{ const e=s[p].find(x=>x[0]===n); return e?[X(i),Y(e[1])]:null }).filter(Boolean);
+    svg+=`<polyline fill="none" stroke="${col}" stroke-width="5" stroke-linejoin="round" points="${pts.map(q=>q.join(",")).join(" ")}" style="stroke-dasharray:3000;stroke-dashoffset:3000;animation:draw 1.6s ${k*.2}s ease-out forwards"/>`;
+    pts.forEach(q=>svg+=`<circle cx="${q[0]}" cy="${q[1]}" r="7" fill="${col}"/>`);
+    const lp=pts[pts.length-1]; if(lp) labels.push({x:lp[0]+14,y:lp[1]+6,n,col});
+  });
+  // keep end labels apart when lines finish at the same value
+  labels.sort((a,b)=>a.y-b.y).forEach((l,k,a)=>{ if(k && l.y-a[k-1].y<24) l.y=a[k-1].y+24; });
+  labels.forEach(l=>svg+=`<text x="${l.x}" y="${l.y}" font-size="20" style="fill:${l.col};font-weight:700">${esc(l.n)}</text>`);
+  svg+=`</svg><style>@keyframes draw{to{stroke-dashoffset:0}}</style>`;
+  $("stage").innerHTML=`<h2 class="big" style="font-size:clamp(1.4rem,3.6vw,2.8rem);margin-bottom:.4em">${ST().progress}</h2>${svg}`;
+}
+// sounds
+function revealTone(k){ const f=330+40*k; tone(f,.12,0,.3,"triangle"); tone(f*1.5,.25,.12,.3,"triangle"); }
+function drumRoll(sec){ const a=ac(); if(!a) return; for(let t=0;t<sec;t+=.045){ tone(110+Math.random()*30,.04,t,.08+.25*t/sec,"square"); } }
+function tadaa(){ tone(523,.18,0,.4,"triangle"); tone(659,.18,.18,.4,"triangle"); tone(784,.18,.36,.4,"triangle"); tone(1046,.8,.54,.45,"triangle"); }
+// confetti
+let CF=null;
+function confetti(){
+  const c=$("confetti"), x=c.getContext("2d"); c.width=innerWidth; c.height=innerHeight;
+  const cols=["#fde047","#f472b6","#60a5fa","#34d399","#fb923c","#a78bfa"];
+  const P=Array.from({length:180},()=>({x:Math.random()*c.width,y:-20-Math.random()*c.height*.6,vx:(Math.random()-.5)*3,vy:2+Math.random()*4,s:5+Math.random()*7,r:Math.random()*6,vr:(Math.random()-.5)*.3,c:cols[Math.random()*6|0]}));
+  const t0=performance.now();
+  (function loop(now){ x.clearRect(0,0,c.width,c.height);
+    P.forEach(p=>{ p.x+=p.vx; p.y+=p.vy; p.r+=p.vr; x.save(); x.translate(p.x,p.y); x.rotate(p.r); x.fillStyle=p.c; x.fillRect(-p.s/2,-p.s/4,p.s,p.s/2); x.restore(); });
+    if(now-t0<5000) CF=requestAnimationFrame(loop); else x.clearRect(0,0,c.width,c.height); })(t0);
+}
+function confettiStop(){ if(CF) cancelAnimationFrame(CF); CF=null; const c=$("confetti"); c.getContext("2d").clearRect(0,0,c.width,c.height); }
+// controls
+$("show").addEventListener("click",e=>{ if(e.target.closest("button")) return; showStep(e.clientX<innerWidth*.2?-1:1); });
+$("showClose").onclick=e=>{ e.stopPropagation(); closeShow(); };
+$("showFs").onclick=e=>{ e.stopPropagation(); toggleFs(); };
+addEventListener("keydown",e=>{
+  if($("show").classList.contains("hidden")) return;
+  if(["ArrowRight","PageDown"," ","Enter"].includes(e.key)){ e.preventDefault(); showStep(1); }
+  else if(["ArrowLeft","PageUp","Backspace"].includes(e.key)){ e.preventDefault(); showStep(-1); }
+  else if(e.key==="Escape") closeShow();
+});
+// report buttons
+$("showBtn").onclick=()=>{ if(S.run){ if(S.run.ended) saveSummary(); openShow(packRun(S.run),false); } };
+$("shareBtn").onclick=()=>{
+  if(!S.run) return; if(S.run.ended) saveSummary();
+  const url=showLink(packRun(S.run)); $("qrBox").classList.remove("hidden"); $("qrBox").dataset.url=url; applyLang();
+  const q=$("qr"); q.innerHTML="";
+  const draw=()=>{ try{ new QRCode(q,{text:url,width:320,height:320,correctLevel:QRCode.CorrectLevel.L}); }catch(e){ q.textContent=""; } };
+  if(window.QRCode) draw(); else { const sc=document.createElement("script"); sc.src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"; sc.onload=draw; document.head.appendChild(sc); }
+};
+$("qrShare").onclick=async()=>{ const url=$("qrBox").dataset.url; if(navigator.share){ try{ await navigator.share({title:"KanDo",url}); }catch(e){} } else { $("qrCopy").click(); } };
+$("qrCopy").onclick=async()=>{ const url=$("qrBox").dataset.url; try{ await navigator.clipboard.writeText(url); toast(SHOW_T[S.lang].copied); }catch(e){ prompt("Link",url); } };
+$("qrClose").onclick=()=>$("qrBox").classList.add("hidden");
+function showFromHash(){
+  const m=location.hash.match(/^#show=([A-Za-z0-9_-]+)/); if(!m) return false;
+  try{ openShow(JSON.parse(b64d(m[1])),true); return true; }catch(e){ return false; }
+}
+
 /* ---------------- boot ---------------- */
 renderSetup();
+showFromHash();
 if("serviceWorker" in navigator && location.protocol.startsWith("http")) navigator.serviceWorker.register("sw.js").catch(()=>{});
 </script>
 </body>
