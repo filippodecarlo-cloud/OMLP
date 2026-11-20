@@ -11,7 +11,7 @@
 :root{
   --bg:#f3f4f6; --panel:#ffffff; --ink:#111827; --muted:#6b7280; --line:#d1d5db;
   --blue:#1d4ed8; --green:#15803d; --green-l:#dcfce7; --red:#b91c1c; --red-l:#fee2e2;
-  --amber:#b45309; --amber-l:#fef3c7; --kR:#c00000; --kG:#008a3e; --kY:#f5c400;
+  --amber:#b45309; --ko:#6d28d9; --ko-l:#ede9fe; --amber-l:#fef3c7; --kR:#c00000; --kG:#008a3e; --kY:#f5c400;
 }
 *{box-sizing:border-box}
 html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);
@@ -64,10 +64,26 @@ input[type=number]{width:5.5em}
 .tname{font-weight:800;font-size:1.15rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tstat{font-size:.85rem;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
 .tstat b{color:var(--ink)}
-.deliver{flex:0 0 auto;min-height:64px;height:22%;max-height:120px;font-size:1.35rem;font-weight:800;border-radius:12px;border:2px solid var(--blue);background:#eff6ff;color:var(--blue);line-height:1.15}
+.actions{flex:0 0 auto;display:flex;gap:6px;min-height:64px;height:24%;max-height:130px}
+.actions button{border-radius:12px;font-weight:800;line-height:1.15;padding:4px 6px;min-width:0;box-shadow:0 2px 0 rgba(0,0,0,.18)}
+.actions button *{pointer-events:none}
+.actions button small{display:block;font-size:.8rem;font-weight:600}
+.deliver{flex:3 1 0;font-size:1.25rem;border:2px solid var(--blue);background:var(--blue);color:#fff}
 .deliver.done{background:var(--green);border-color:var(--green);color:#fff}
-.deliver:disabled{border-color:var(--line);background:#f9fafb;color:var(--muted)}
-.deliver small{display:block;font-size:.8rem;font-weight:600}
+.deliver:disabled,.okbtn:disabled{border:2px solid var(--line);background:#f9fafb;color:var(--muted);box-shadow:none}
+.okbtn{flex:2 1 0;font-size:1.05rem;border:2px solid var(--amber);background:var(--amber-l);color:var(--amber);display:flex;align-items:center;justify-content:center;gap:4px;overflow:hidden}
+.okbtn img{height:70%;max-height:60px;max-width:45%;object-fit:contain}
+.okbtn.todo{animation:pulse 1.2s ease-in-out infinite}
+.okbtn.done{background:var(--green-l);border-color:var(--green);color:var(--green)}
+.okbtn.ko{background:var(--ko-l);border-color:var(--ko);color:var(--ko)}
+.team{container-type:inline-size}
+/* narrow team panels (phone): the two buttons one above the other, each full width */
+@container (max-width:330px){
+  .actions{flex-direction:column;height:44%;max-height:none;min-height:120px}
+  .deliver{font-size:1.1rem} .okbtn{font-size:.95rem}
+  .okbtn img{height:100%;max-height:44px}
+  .tname{font-size:1rem} .tstat{font-size:.75rem}
+}
 .tiles{flex:1 1 auto;display:grid;gap:4px;min-height:0}
 .tile{position:relative;border:1px solid var(--line);border-radius:9px;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2px;min-height:0;min-width:0;overflow:hidden;user-select:none;-webkit-user-select:none;touch-action:manipulation}
 .tile .tn{font-size:.75rem;color:var(--muted);line-height:1}
@@ -82,6 +98,8 @@ input[type=number]{width:5.5em}
 .tile.ok .tm{color:var(--green)}
 .tile.miss{background:var(--red-l);border-color:#fca5a5}
 .tile.miss .tm{color:var(--red)}
+.tile.ko{background:var(--ko-l);border-color:var(--ko)}
+.tile.ko .tm{color:var(--ko)}
 .tile.pending{animation:pulse 1.2s ease-in-out infinite}
 @keyframes pulse{50%{box-shadow:0 0 0 3px var(--amber)}}
 .small-teams .tile img{max-height:none}
@@ -91,6 +109,7 @@ table{border-collapse:collapse;font-variant-numeric:tabular-nums}
 th,td{border:1px solid var(--line);padding:4px 7px;text-align:center;white-space:nowrap}
 th{background:#f9fafb}
 td.ok{background:var(--green-l);color:var(--green);font-weight:700}
+td.ko{background:var(--ko-l);color:var(--ko);font-weight:700}
 td.del{background:var(--amber-l)}
 td.miss{color:var(--red)}
 .tablewrap{overflow:auto;max-width:100%}
@@ -236,7 +255,7 @@ const T = {
   end:"Fine",go:"Via",pause:"Pausa",cont:"Riprendi",backGame:"Torna al gioco",toSetup:"Impostazioni",
   save:"Salva nel Production Summary",csv:"Esporta CSV",prodSummary:"Production Summary",clearSum:"Svuota",
   team:"Squadra",order:"Ordine",deliverBy:"consegna entro",next:"Poi",waitFirst:"Primo ordine tra",
-  deliver:"CONSEGNATO",delivered:"✓ consegnato",noOrder:"nessun ordine aperto",stopIn:"stop tra",opensIn:"apre tra",
+  deliver:"CONSEGNATO",okQ:"? da controllare",okS:"buono",koS:"difettoso",ko:"KO",notDel:"non consegnato",delivered:"✓ consegnato",noOrder:"nessun ordine aperto",stopIn:"stop tra",opensIn:"apre tra",
   over:"Prova finita",ended:"Fine prova",del:"Cons.",ok:"OK",sl:"S.L.",ordered:"Ordinati",accepted:"Accettati",deliveredH:"Consegnati",
   time:"Ora",code:"Cod.",unchecked:"consegnati ma non controllati (contano come non OK)",saved:"Salvato nel Production Summary",
   confirmEnd:"Terminare la prova adesso?",confirmDiscard:"Cancellare la prova in corso?",confirmClear:"Svuotare il Production Summary?",
@@ -252,12 +271,12 @@ const T = {
 <li>All'<b>apertura</b> di ogni ordine (start) suonano due bip acuti e, se attiva, la voce legge numero e colori. In alto vedi l'ordine aperto con la <b>foto del carrello</b>, così sai già cosa deve arrivare.</li>
 <li>Alla <b>scadenza</b> (stop) suona un bip lungo e grave; negli ultimi 5 secondi un bip al secondo.</li>
 <li>Quando una squadra consegna in tempo, tocca il suo pulsante grande <b>CONSEGNATO</b>. Un secondo tocco, finché l'ordine è aperto, annulla.</li>
-<li><b>Controllo qualità dopo</b>: con calma, quando il turno successivo è partito, guarda i pezzi consegnati. I riquadri consegnati e non ancora controllati sono <b>arancioni</b> e lampeggiano: tocca il riquadro solo se il pezzo è <b>buono</b> (diventa verde, OK). Un altro tocco toglie l'OK.</li>
+<li><b>Controllo qualità dopo</b>: accanto a CONSEGNATO c'è il pulsante arancione <b>Pezzo buono?</b> con la foto dell'<b>ordine precedente</b>. Quando il turno successivo è partito, guarda il pezzo e toccalo: ogni tocco passa da <b>?</b> (da controllare, arancione) a <b>OK</b> (buono, verde) a <b>KO</b> (difettoso, viola) e di nuovo a <b>?</b>. Si può anche toccare il riquadro dell'ordine nella griglia sotto: stessi tre stati.</li>
 <li>Correzioni: <b>tieni premuto</b> un riquadro per segnare o togliere la consegna di un ordine già chiuso.</li>
 <li>A fine prova suonano tre bip. In <b>Risultati</b> trovi il report (come le schede cartacee), il service level e il Production Summary di tutte le fasi; puoi esportare in CSV.</li>
 </ol>
 <h2>Colori dei riquadri</h2>
-<p>grigio chiaro = ordine futuro · bordo blu = ordine aperto · arancione = consegnato, da controllare · verde = consegnato e buono · rosso = non consegnato in tempo.</p>
+<p>grigio chiaro = ordine futuro · bordo blu = ordine aperto · arancione <b>?</b> = consegnato, da controllare · verde <b>OK</b> = buono · viola <b>KO</b> = difettoso · rosso <b>✗</b> = non consegnato in tempo.</p>
 <h2>Calcoli</h2>
 <p>Consegnati = pezzi consegnati in tempo; Accettati = consegnati e OK; Service level = accettati / ordinati.</p>
 <p class="muted">I dati restano sul telefono (anche se ricarichi la pagina). Per installarla: menu del browser → “Aggiungi a schermata Home”.</p>`},
@@ -269,7 +288,7 @@ const T = {
   end:"End",go:"Go",pause:"Pause",cont:"Resume",backGame:"Back to the game",toSetup:"Settings",
   save:"Save to Production Summary",csv:"Export CSV",prodSummary:"Production Summary",clearSum:"Clear",
   team:"Team",order:"Order",deliverBy:"deliver by",next:"Next",waitFirst:"First order in",
-  deliver:"DELIVERED",delivered:"✓ delivered",noOrder:"no open order",stopIn:"stop in",opensIn:"opens in",
+  deliver:"DELIVERED",okQ:"? to check",okS:"good",koS:"defective",ko:"KO",notDel:"not delivered",delivered:"✓ delivered",noOrder:"no open order",stopIn:"stop in",opensIn:"opens in",
   over:"Run over",ended:"End of run",del:"Del.",ok:"OK",sl:"S.L.",ordered:"Ordered",accepted:"Accepted",deliveredH:"Delivered",
   time:"Time",code:"Code",unchecked:"delivered but not checked (counted as not OK)",saved:"Saved to the Production Summary",
   confirmEnd:"End the run now?",confirmDiscard:"Discard the run in progress?",confirmClear:"Clear the Production Summary?",
@@ -285,12 +304,12 @@ const T = {
 <li>When each order <b>opens</b> (start) two high beeps sound and, if enabled, a voice reads number and colours. At the top you see the open order with the <b>trolley picture</b>, so you already know what must arrive.</li>
 <li>At the <b>deadline</b> (stop) a long low beep sounds; in the last 5 seconds one beep per second.</li>
 <li>When a team delivers on time, tap its big <b>DELIVERED</b> button. A second tap, while the order is open, undoes it.</li>
-<li><b>Quality check later</b>: calmly, once the next order has started, look at the delivered trolleys. Delivered tiles not yet checked are <b>orange</b> and blink: tap a tile only if the trolley is <b>good</b> (it turns green, OK). Another tap removes the OK.</li>
+<li><b>Quality check later</b>: next to DELIVERED there is the orange button <b>Good piece?</b> with the picture of the <b>previous order</b>. Once the next order has started, look at the trolley and tap it: each tap goes from <b>?</b> (to check, orange) to <b>OK</b> (good, green) to <b>KO</b> (defective, purple) and back to <b>?</b>. You can also tap the order tile in the grid below: same three states.</li>
 <li>Corrections: <b>press and hold</b> a tile to add or remove the delivery of a closed order.</li>
 <li>At the end three beeps sound. <b>Results</b> shows the report (like the paper sheets), the service level and the Production Summary of all phases; you can export CSV.</li>
 </ol>
 <h2>Tile colours</h2>
-<p>light grey = future order · blue border = open order · orange = delivered, to check · green = delivered and good · red = not delivered on time.</p>
+<p>light grey = future order · blue border = open order · orange <b>?</b> = delivered, to check · green <b>OK</b> = good · purple <b>KO</b> = defective · red <b>✗</b> = not delivered on time.</p>
 <h2>Figures</h2>
 <p>Delivered = trolleys delivered on time; Accepted = delivered and OK; Service level = accepted / ordered.</p>
 <p class="muted">Data stay on the phone (also after a reload). To install: browser menu → “Add to Home screen”.</p>`}
@@ -402,7 +421,7 @@ function showGame(){
   const no=r.orders.length, tcols = n<=3 ? Math.ceil(no/2) : Math.ceil(no/2); // 2 rows of tiles
   tc.innerHTML=r.names.map((nm,t)=>`<div class="team" data-t="${t}">
     <div class="thead"><span class="tname">${esc(nm)}</span><span class="tstat" id="st${t}"></span></div>
-    <button class="deliver" id="dv${t}" data-t="${t}"></button>
+    <div class="actions"><button class="deliver" id="dv${t}" data-t="${t}"></button><button class="okbtn" id="qb${t}" data-t="${t}"></button></div>
     <div class="tiles" id="tl${t}" style="grid-template-columns:repeat(${tcols},minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr))">
      ${r.orders.map(o=>`<div class="tile" data-t="${t}" data-i="${o.i}"><span class="tn">${o.i+1} · #${o.n}</span><span class="tc">${o.code}</span>${IMG[o.n]?`<img src="${IMG[o.n]}" alt="">`:""}<span class="tm"></span></div>`).join("")}
     </div></div>`).join("");
@@ -484,20 +503,29 @@ function frame(){
   // teams
   r.names.forEach((nm,ti)=>{
     const m=r.marks[ti]; let del=0, ok=0, pend=0;
-    m.forEach(x=>{ if(x.d!=null){ del++; if(x.ok) ok++; else pend++; } });
+    m.forEach(x=>{ if(x.d!=null){ del++; if(x.ok) ok++; else if(!x.ko) pend++; } });
     $("st"+ti).innerHTML=`${L().del} <b>${del}</b> · ${L().ok} <b>${ok}</b> · ${L().sl} <b>${Math.round(100*ok/r.orders.length)}%</b>`;
     const b=$("dv"+ti);
     if(open && !r.ended && !r.pausedAt){
       const mk=m[open.i]; b.disabled=false;
       b.classList.toggle("done",mk.d!=null);
-      b.innerHTML = mk.d!=null ? `${L().delivered}<small>#${open.n} ${open.code} · ${fmt(mk.d)}</small>` : `${L().deliver}<small>#${open.n} ${open.code}</small>`;
-    } else { b.disabled=true; b.classList.remove("done"); b.innerHTML=`${r.ended?L().ended:L().noOrder}`; }
+      setHtml(b, mk.d!=null ? `${L().delivered}<small>#${open.n} ${open.code} · ${fmt(mk.d)}</small>` : `${L().deliver}<small>#${open.n} ${open.code}</small>`);
+    } else { b.disabled=true; b.classList.remove("done"); setHtml(b, r.ended?L().ended:L().noOrder); }
+    // quality button: the last closed order (the one delivered in the previous turn)
+    const q=$("qb"+ti), pv=prevOrder(t);
+    if(pv && r.startedAt){
+      const mk=m[pv.i]; q.dataset.i=pv.i; q.disabled = mk.d==null;
+      q.classList.toggle("done",!!mk.ok); q.classList.toggle("ko",!!mk.ko); q.classList.toggle("todo",mk.d!=null && !mk.ok && !mk.ko);
+      const img=IMG[pv.n]?`<img src="${IMG[pv.n]}" alt="">`:"";
+      setHtml(q, mk.d==null ? `<span>✗ #${pv.n} ${pv.code}<small>${L().notDel}</small></span>`
+        : `${img}<span>${mk.ok?"OK · "+L().okS:mk.ko?"KO · "+L().koS:L().okQ}<small>#${pv.n} ${pv.code}</small></span>`);
+    } else { q.disabled=true; q.classList.remove("done","todo","ko"); setHtml(q, `<span>${L().okQ}<small>–</small></span>`); }
     const tiles=$("tl"+ti).children;
     r.orders.forEach((o,i)=>{
       const el=tiles[i], mk=m[i]; let cls="tile", mark="";
       const past = r.startedAt && t>=o.stop || r.ended;
       const isOpen = open && open.i===i && !r.ended;
-      if(mk.d!=null){ if(mk.ok){cls+=" ok"; mark="OK"} else {cls+=" del"; mark="✓ ?"; if(past) cls+=" pending"} }
+      if(mk.d!=null){ if(mk.ok){cls+=" ok"; mark="OK"} else if(mk.ko){cls+=" ko"; mark="KO"} else {cls+=" del"; mark="?"; if(past) cls+=" pending"} }
       else if(past){ cls+=" miss"; mark="✗" }
       else if(!isOpen) cls+=" future";
       if(isOpen) cls+=" active";
@@ -508,12 +536,23 @@ function frame(){
 }
 setInterval(frame,200);
 
+// rewrite a button only when its content changes (a rewrite under the finger would swallow the tap)
+// quality of a delivered piece: ? (to check) -> OK -> KO -> ?
+function cycleQ(mk){ if(mk.ok){ mk.ok=false; mk.ko=true; } else if(mk.ko){ mk.ko=false; } else mk.ok=true; }
+function setHtml(el,h){ if(el._h!==h){ el._h=h; el.innerHTML=h; } }
+function prevOrder(t){ const r=S.run; let p=null; for(const o of r.orders){ if(r.ended || o.stop<=t) p=o; } return p }
+// quality button: toggles OK of the previous order
+$("teams").addEventListener("click",e=>{
+  const q=e.target.closest(".okbtn"); if(!q||q.disabled||q.dataset.i==null) return;
+  const mk=S.run.marks[+q.dataset.t][+q.dataset.i]; if(mk.d==null) return;
+  cycleQ(mk); beepTap(); save(); frame();
+});
 // deliver button
 $("teams").addEventListener("click",e=>{
   const b=e.target.closest(".deliver"); if(!b||b.disabled) return;
   const r=S.run, t=elapsed(), {open}=state(t); if(!open) return;
   const mk=r.marks[+b.dataset.t][open.i];
-  if(mk.d==null){ mk.d=Math.round(t); beepTap(); } else { mk.d=null; mk.ok=false; }
+  if(mk.d==null){ mk.d=Math.round(t); beepTap(); } else { mk.d=null; mk.ok=false; mk.ko=false; }
   save(); frame();
 });
 // tiles: tap = OK toggle (only if delivered); long press = toggle delivery of a closed order
@@ -531,17 +570,17 @@ $("teams").addEventListener("contextmenu",e=>{ if(e.target.closest(".tile")) e.p
 function tapTile(el){
   const r=S.run, mk=r.marks[+el.dataset.t][+el.dataset.i];
   if(mk.d==null){ toast(L().longpress); return; }
-  mk.ok=!mk.ok; beepTap(); save(); frame();
+  cycleQ(mk); beepTap(); save(); frame();
 }
 function longPress(el){
   const r=S.run, i=+el.dataset.i, o=r.orders[i], mk=r.marks[+el.dataset.t][i];
-  if(mk.d==null){ mk.d=o.stop; } else { mk.d=null; mk.ok=false; }
+  if(mk.d==null){ mk.d=o.stop; } else { mk.d=null; mk.ok=false; mk.ko=false; }
   if(navigator.vibrate) navigator.vibrate(40);
   beepTap(); save(); frame();
 }
 
 /* ---------------- report ---------------- */
-function teamStats(r,ti){ let del=0,ok=0,pend=0; r.marks[ti].forEach(x=>{ if(x.d!=null){del++; if(x.ok) ok++; else pend++;} }); return {del,ok,pend,sl:ok/r.orders.length} }
+function teamStats(r,ti){ let del=0,ok=0,pend=0; r.marks[ti].forEach(x=>{ if(x.d!=null){del++; if(x.ok) ok++; else if(!x.ko) pend++;} }); return {del,ok,pend,sl:ok/r.orders.length} }
 function showReport(){
   hideAll(); $("report").classList.remove("hidden"); applyLang();
   const r=S.run;
@@ -552,7 +591,7 @@ function showReport(){
       r.names.map(n=>`<th colspan="2">${esc(n)}</th>`).join("")+`</tr><tr>`+r.names.map(()=>`<th>${L().del}</th><th>${L().ok}</th>`).join("")+`</tr>`;
     r.orders.forEach((o,i)=>{
       h+=`<tr><td>${i+1}</td><td>${fmt(o.start)}</td><td>${fmt(o.stop)}</td><td>${o.n}</td><td>${codeHtml(o.code)}</td>`+
-        r.marks.map(m=>{ const x=m[i]; return x.d!=null ? `<td class="del">✓ ${fmt(x.d)}</td><td class="${x.ok?"ok":""}">${x.ok?"OK":""}</td>` : `<td class="miss">–</td><td></td>`; }).join("")+`</tr>`;
+        r.marks.map(m=>{ const x=m[i]; return x.d!=null ? `<td class="del">✓ ${fmt(x.d)}</td><td class="${x.ok?"ok":x.ko?"ko":""}">${x.ok?"OK":x.ko?"KO":"?"}</td>` : `<td class="miss">–</td><td></td>`; }).join("")+`</tr>`;
     });
     const st=r.names.map((_,ti)=>teamStats(r,ti));
     h+=`<tr><th colspan="5">${L().deliveredH} / ${L().accepted}</th>`+st.map(s=>`<th>${s.del}</th><th>${s.ok}</th>`).join("")+`</tr>`;
@@ -585,7 +624,7 @@ function download(name,rows){
   const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"})); a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),2000);
 }
 $("csvBtn").onclick=()=>{ const r=S.run; const rows=[[L().order,"start","stop","#",L().code,...r.names.flatMap(n=>[n+" "+L().del,n+" "+L().ok])]];
-  r.orders.forEach((o,i)=>rows.push([i+1,fmt(o.start),fmt(o.stop),o.n,o.code,...r.marks.flatMap(m=>[m[i].d!=null?fmt(m[i].d):"",m[i].ok?"OK":""])]));
+  r.orders.forEach((o,i)=>rows.push([i+1,fmt(o.start),fmt(o.stop),o.n,o.code,...r.marks.flatMap(m=>[m[i].d!=null?fmt(m[i].d):"",m[i].ok?"OK":m[i].ko?"KO":(m[i].d!=null?"?":"")])]));
   rows.push(["Service level","","","","",...r.names.flatMap((_,ti)=>[Math.round(100*teamStats(r,ti).sl)+"%",""])]);
   download(`kando-fase${r.phase}.csv`,rows); };
 $("sumCsvBtn").onclick=()=>{ const rows=[[L().phase,L().team,L().ordered,L().deliveredH,L().accepted,"S.L."]];
