@@ -292,6 +292,12 @@ td.miss{color:var(--red)}
 #show .strip{display:flex;gap:3px}
 #show .strip b{flex:1;height:clamp(8px,1.6vh,16px);border-radius:3px;background:#334155}
 #show .strip b.O{background:#22c55e} #show .strip b.K{background:#a78bfa} #show .strip b.Q{background:#f59e0b} #show .strip b.X{background:#ef4444}
+#show .board{min-height:0} #show .board .srow{flex:1 1 0;max-height:110px;overflow:hidden}
+#show .btitle{font-size:clamp(1rem,2.6vw,1.9rem);font-weight:800;color:#fbbf24;margin-bottom:clamp(4px,1.2vh,12px);text-align:center}
+#show .strip b.D{background:#60a5fa}
+#show .bar i.bl{background:linear-gradient(90deg,#3b82f6,#60a5fa)}
+#show .mv{display:block;font-size:.38em;font-weight:800;line-height:1}
+#show .mv.up{color:#4ade80} #show .mv.dn{color:#f87171} #show .mv.eq{color:#94a3b8}
 #show .pc{font-size:clamp(1.4rem,4vw,3.4rem);font-weight:900;text-align:right;font-variant-numeric:tabular-nums}
 #show .podium{display:flex;align-items:flex-end;justify-content:center;gap:clamp(8px,2vw,24px);width:min(1000px,100%);flex:1 1 auto;padding-top:2vh}
 #show .pod{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;min-width:0}
@@ -877,12 +883,16 @@ const SHOW_T = {
   qrNote:"Manda il link a te stesso (WhatsApp, mail…) e aprilo sul computer del proiettore: parte la classifica. I ragazzi possono anche inquadrare il QR.",
   shareLink:"Condividi",copyLink:"Copia link",copied:"Link copiato",results:"Risultati",hint:"tocca, clic o → per andare avanti · ← indietro",
   intro:(o,n)=>`${o} ordini · ${n} squadre`,ready:"Chi ha servito meglio il cliente?",del:"consegnati",ok:"buoni",ko:"difettosi",
-  podium:"Il podio",progress:"Service level fase per fase",phase:"Fase",place:"°",openApp:"Apri l'app"},
+  podium:"Il podio",progress:"Service level fase per fase",phase:"Fase",place:"°",openApp:"Apri l'app",
+  delTitle:"Prima classifica: chi ha consegnato di più?",delOf:(d,o)=>`${d} consegne su ${o}`,
+  twist:"Ma il cliente accetta solo carrelli <b>buoni</b>…",twistSub:"Ecco la classifica vera: il service level",qTitle:"Classifica finale: pezzi buoni"},
  en:{showBtn:"🎬 Leaderboard (show)",share:"🔗 Link for the projector",qrTitle:"Open the results on another screen",
   qrNote:"Send the link to yourself (WhatsApp, mail…) and open it on the projector computer: the leaderboard starts. Students can also scan the QR.",
   shareLink:"Share",copyLink:"Copy link",copied:"Link copied",results:"Results",hint:"tap, click or → to go on · ← back",
   intro:(o,n)=>`${o} orders · ${n} teams`,ready:"Who served the customer best?",del:"delivered",ok:"good",ko:"defective",
-  podium:"The podium",progress:"Service level phase by phase",phase:"Phase",place:"",openApp:"Open the app"}};
+  podium:"The podium",progress:"Service level phase by phase",phase:"Phase",place:"",openApp:"Open the app",
+  delTitle:"First ranking: who delivered the most?",delOf:(d,o)=>`${d} deliveries out of ${o}`,
+  twist:"But the customer accepts only <b>good</b> trolleys…",twistSub:"Here is the real ranking: the service level",qTitle:"Final ranking: good trolleys"}};
 Object.keys(SHOW_T).forEach(l=>Object.assign(T[l],{qrTitle:SHOW_T[l].qrTitle,qrNote:SHOW_T[l].qrNote,shareLink:SHOW_T[l].shareLink,copyLink:SHOW_T[l].copyLink}));
 const ST = () => SHOW_T[SHOW.lang||S.lang];
 const TEAM_COL=["#60a5fa","#f472b6","#34d399","#fbbf24","#a78bfa","#fb923c"];
@@ -907,7 +917,11 @@ function openShow(D,fromLink){
   const desc=teams.slice().sort((a,b)=>key(b)-key(a));
   desc.forEach((x,k)=>{ x.rank = k>0 && key(desc[k-1])===key(x) ? desc[k-1].rank : k+1; });
   SHOW.desc=desc; SHOW.asc=desc.slice().reverse();
-  SHOW.steps=["intro",...SHOW.asc.map((_,k)=>"rev"+(k+1)),"podium"];
+  // first ranking: deliveries only (good or not)
+  const ddesc=teams.slice().sort((a,b)=>b.del-a.del);
+  ddesc.forEach((x,k)=>{ x.drank = k>0 && ddesc[k-1].del===x.del ? ddesc[k-1].drank : k+1; });
+  SHOW.ddesc=ddesc; SHOW.dasc=ddesc.slice().reverse();
+  SHOW.steps=["intro",...SHOW.dasc.map((_,k)=>"del"+(k+1)),"twist",...SHOW.asc.map((_,k)=>"rev"+(k+1)),"podium"];
   if(Object.keys(D.s||{}).length>=2) SHOW.steps.push("progress");
   hideAll(); $("show").classList.remove("hidden");
   $("showTitle").textContent=`KanDo · ${ST().phase} ${D.p} · ${ST().results}`;
@@ -929,6 +943,11 @@ function renderShow(fwd){
   if(st==="intro"){
     g.innerHTML=`<h2 class="big">${ST().phase} ${D.p}</h2><div class="sub">${ST().intro(D.o.length,D.t.length)}</div><div class="sub" style="margin-top:1.2em;color:#fbbf24">${ST().ready}</div>`;
     return;
+  }
+  if(st.startsWith("del")){ const k=+st.slice(3); drawDelBoard(k); if(fwd){ revealTone(k); if(k===SHOW.dasc.length) setTimeout(tadaa,300); } return; }
+  if(st==="twist"){
+    g.innerHTML=`<h2 class="big" style="font-size:clamp(1.8rem,5.5vw,4.4rem)">${ST().twist}</h2><div class="sub" style="color:#fbbf24;margin-top:.8em">${ST().twistSub}</div>`;
+    if(fwd){ tone(330,.5,0,.35,"sawtooth"); tone(247,.9,.45,.35,"sawtooth"); } return;
   }
   if(st.startsWith("rev")){
     const k=+st.slice(3), last = k===SHOW.asc.length;
@@ -957,9 +976,26 @@ function drawBoard(k){
       <div class="nm" style="color:${x.col}">${esc(x.name)}</div>
       <div class="det"><div class="bar"><i data-w="${Math.round(100*x.sl)}"></i></div><div class="strip">${strip}</div>
       <div>✓ ${x.del} ${ST().del} · OK ${x.ok} ${ST().ok}${x.ko?` · KO ${x.ko} ${ST().ko}`:""}</div></div>
-      <div class="pc">${Math.round(100*x.sl)}%</div></div>`;
+      <div class="pc">${Math.round(100*x.sl)}%${move(x)}</div></div>`;
   }).join("");
-  $("stage").innerHTML=`<div class="board">${rows}</div>`;
+  $("stage").innerHTML=`<div class="btitle">${ST().qTitle}</div><div class="board">${rows}</div>`;
+  requestAnimationFrame(()=>requestAnimationFrame(()=>document.querySelectorAll("#stage .bar i").forEach(b=>b.style.width=b.dataset.w+"%")));
+}
+function move(x){ const d=x.drank-x.rank;
+  return d>0?`<span class="mv up">▲${d}</span>`:d<0?`<span class="mv dn">▼${-d}</span>`:`<span class="mv eq">=</span>`; }
+// first ranking: deliveries, quality hidden (delivered = blue, not delivered = red)
+function drawDelBoard(k){
+  const rev=new Set(SHOW.dasc.slice(0,k).map(x=>x.i)), newest=SHOW.dasc[k-1].i, n=SHOW.D.o.length;
+  const rows=SHOW.ddesc.map(x=>{
+    if(!rev.has(x.i)) return `<div class="srow hid"><div class="rk">?</div><div class="nm">? ? ?</div><div class="det"></div><div class="pc">–</div></div>`;
+    const strip=x.m.split("").map(c=>`<b class="${c==="X"?"X":c==="-"?"":"D"}"></b>`).join("");
+    return `<div class="srow${x.i===newest?" new":""}"><div class="rk">${x.drank}${ST().place}</div>
+      <div class="nm" style="color:${x.col}">${esc(x.name)}</div>
+      <div class="det"><div class="bar"><i class="bl" data-w="${Math.round(100*x.del/n)}"></i></div><div class="strip">${strip}</div>
+      <div>${ST().delOf(x.del,n)}</div></div>
+      <div class="pc">${x.del}<small style="font-size:.45em;color:#94a3b8">/${n}</small></div></div>`;
+  }).join("");
+  $("stage").innerHTML=`<div class="btitle">${ST().delTitle}</div><div class="board">${rows}</div>`;
   requestAnimationFrame(()=>requestAnimationFrame(()=>document.querySelectorAll("#stage .bar i").forEach(b=>b.style.width=b.dataset.w+"%")));
 }
 function drawProgress(){
