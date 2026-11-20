@@ -357,7 +357,7 @@ const T = {
 <ol>
 <li><b>Impostazioni</b>: scegli la fase (1–5) e il numero di squadre (2–6), scrivi i nomi. I tempi e la sequenza dei 10 ordini sono quelli dei report del docente; si possono cambiare.</li>
 <li><b>Inizia la fase</b>, poi <b>Via</b> quando dai il segnale ai ragazzi. Il cronometro parte e lo schermo resta acceso.</li>
-<li>All'<b>apertura</b> di ogni ordine (start) suonano due bip acuti e, se attiva, la voce legge numero e colori. In alto vedi l'ordine aperto con la <b>foto del carrello</b>, così sai già cosa deve arrivare.</li>
+<li>All'<b>apertura</b> di ogni ordine (start) suonano due bip acuti e, se attiva, la voce legge la consegna (prima, seconda…), il numero del carrello e, dalla fase 2, i colori. In alto vedi l'ordine aperto con la <b>foto del carrello</b>, così sai già cosa deve arrivare.</li>
 <li>Alla <b>scadenza</b> (stop) suona un bip lungo e grave; negli ultimi 5 secondi un bip al secondo.</li>
 <li>Quando una squadra consegna in tempo, tocca il suo pulsante grande <b>CONSEGNATO</b>. Un secondo tocco, finché l'ordine è aperto, annulla.</li>
 <li><b>Controllo qualità dopo</b>: accanto a CONSEGNATO c'è il pulsante arancione <b>Pezzo buono?</b> con la foto dell'<b>ordine precedente</b>. Quando il turno successivo è partito, guarda il pezzo e toccalo: ogni tocco passa da <b>?</b> (da controllare, arancione) a <b>OK</b> (buono, verde) a <b>KO</b> (difettoso, viola) e di nuovo a <b>?</b>. Si può anche toccare il riquadro dell'ordine nella griglia sotto: stessi tre stati.</li>
@@ -392,7 +392,7 @@ const T = {
 <ol>
 <li><b>Settings</b>: choose the phase (1–5) and the number of teams (2–6), type the names. Timing and the 10-order sequence come from the teacher's reports; they can be changed.</li>
 <li><b>Start the phase</b>, then <b>Go</b> when you give the signal. The clock starts and the screen stays on.</li>
-<li>When each order <b>opens</b> (start) two high beeps sound and, if enabled, a voice reads number and colours. At the top you see the open order with the <b>trolley picture</b>, so you already know what must arrive.</li>
+<li>When each order <b>opens</b> (start) two high beeps sound and, if enabled, a voice reads the delivery (first, second…), the trolley number and, from phase 2, the colours. At the top you see the open order with the <b>trolley picture</b>, so you already know what must arrive.</li>
 <li>At the <b>deadline</b> (stop) a long low beep sounds; in the last 5 seconds one beep per second.</li>
 <li>When a team delivers on time, tap its big <b>DELIVERED</b> button. A second tap, while the order is open, undoes it.</li>
 <li><b>Quality check later</b>: next to DELIVERED there is the orange button <b>Good piece?</b> with the picture of the <b>previous order</b>. Once the next order has started, look at the trolley and tap it: each tap goes from <b>?</b> (to check, orange) to <b>OK</b> (good, green) to <b>KO</b> (defective, purple) and back to <b>?</b>. You can also tap the order tile in the grid below: same three states.</li>
@@ -431,6 +431,16 @@ const beepTick  = () => tone(880,.07,0,.25);
 const beepStop  = () => tone(392,.9,0,.5,"sawtooth");
 const beepEnd   = () => { tone(523,.35,0,.45); tone(659,.35,.4,.45); tone(784,.7,.8,.45); };
 const beepTap   = () => tone(1760,.05,0,.15);
+// spoken order: delivery sequence as an ordinal, trolley model as a cardinal, colours only from phase 2
+const ORD = {it:["prima","seconda","terza","quarta","quinta","sesta","settima","ottava","nona","decima","undicesima","dodicesima","tredicesima","quattordicesima","quindicesima","sedicesima","diciassettesima","diciottesima","diciannovesima","ventesima"],
+             en:["first","second","third","fourth","fifth","sixth","seventh","eighth","ninth","tenth","eleventh","twelfth","thirteenth","fourteenth","fifteenth","sixteenth","seventeenth","eighteenth","nineteenth","twentieth"]};
+function sayOrder(o,phase){
+  const it=S.lang==="it", w=ORD[S.lang][o.i];
+  let txt = it ? (w ? `${w[0].toUpperCase()+w.slice(1)} consegna. Carrello numero ${o.n}.` : `Consegna numero ${o.i+1}. Carrello numero ${o.n}.`)
+               : (w ? `${w[0].toUpperCase()+w.slice(1)} delivery. Trolley number ${o.n}.` : `Delivery number ${o.i+1}. Trolley number ${o.n}.`);
+  if(phase>=2){ const c=codeWords(o.code); txt += " "+c[0].toUpperCase()+c.slice(1)+"."; }
+  return txt;
+}
 function speak(text){
   if(!S.voice||!("speechSynthesis" in window)) return;
   try{ speechSynthesis.cancel(); const u=new SpeechSynthesisUtterance(text); u.lang=S.lang==="it"?"it-IT":"en-GB"; u.rate=1.05; speechSynthesis.speak(u);}catch(e){}
@@ -480,7 +490,7 @@ $("fSeq").onchange=e=>{ const v=e.target.value.split(/[^0-9]+/).map(Number).filt
 $("defBtn").onclick=()=>{ S.timing={...PH[S.phase]}; S.seq=DEF_SEQ.slice(); save(); renderSetup(); };
 $("fVoice").onchange=e=>{ S.voice=e.target.checked; save(); };
 $("fTick").onchange=e=>{ S.tick=e.target.checked; save(); };
-$("testBtn").onclick=()=>{ beepStart(); setTimeout(beepTick,700); setTimeout(beepStop,1100); setTimeout(()=>speak(L().speak(3,codeWords("YRG"))),2200); };
+$("testBtn").onclick=()=>{ beepStart(); setTimeout(beepTick,700); setTimeout(beepStop,1100); setTimeout(()=>speak(sayOrder({i:0,n:3,code:"YRG"},S.phase)),2200); };
 $("helpBtn").onclick=()=>{ $("help").classList.remove("hidden") };
 $("helpClose").onclick=()=>{ $("help").classList.add("hidden") };
 
@@ -550,7 +560,7 @@ function finish(sound){ const r=S.run; r.ended=true; if(!r.endT) r.endT=elapsed(
 function events(t0,t1){
   const r=S.run; if(t1<=t0) return;
   for(const o of r.orders){
-    if(t0<o.start && o.start<=t1){ beepStart(); setTimeout(()=>speak(L().speak(o.n,codeWords(o.code))),450); }
+    if(t0<o.start && o.start<=t1){ beepStart(); setTimeout(()=>speak(sayOrder(o,S.run.phase)),450); }
     if(S.tick) for(let k=1;k<=5;k++){ const x=o.stop-k; if(x>o.start && t0<x && x<=t1) beepTick(); }
     if(t0<o.stop && o.stop<=t1) beepStop();
   }
