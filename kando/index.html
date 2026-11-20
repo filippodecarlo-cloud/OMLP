@@ -210,7 +210,7 @@ td.miss{color:var(--red)}
 <section id="report" class="screen hidden">
  <div class="scroll">
   <div class="topbar"><h1 id="repTitle"></h1>
-   <div class="row"><button id="repBack" data-t="backGame"></button><button id="repSetup" data-t="toSetup"></button></div></div>
+   <div class="row"><button id="repBack" data-t="backGame"></button><button id="repSetup" data-t="toSetup"></button><button class="primary" id="nextBtn"></button></div></div>
   <p class="muted small" id="repNote"></p>
   <div class="tablewrap"><table id="repTable"></table></div>
   <div class="row" style="margin:14px 0">
@@ -257,7 +257,7 @@ const T = {
   team:"Squadra",order:"Ordine",deliverBy:"consegna entro",next:"Poi",waitFirst:"Primo ordine tra",
   deliver:"CONSEGNATO",okQ:"? da controllare",okS:"buono",koS:"difettoso",ko:"KO",notDel:"non consegnato",delivered:"✓ consegnato",noOrder:"nessun ordine aperto",stopIn:"stop tra",opensIn:"apre tra",
   over:"Prova finita",ended:"Fine prova",del:"Cons.",ok:"OK",sl:"S.L.",ordered:"Ordinati",accepted:"Accettati",deliveredH:"Consegnati",
-  time:"Ora",code:"Cod.",unchecked:"consegnati ma non controllati (contano come non OK)",saved:"Salvato nel Production Summary",
+  time:"Ora",code:"Cod.",unchecked:"consegnati ma non controllati (contano come non OK)",saved:"Salvato nel Production Summary",nextPhase:"Vai alla fase",newRun:"Nuova prova ▶",
   confirmEnd:"Terminare la prova adesso?",confirmDiscard:"Cancellare la prova in corso?",confirmClear:"Svuotare il Production Summary?",
   phaseDesc:{1:"Montaggio libero: un ordine al minuto, 1 minuto di ritardo all'inizio.",2:"Qualità e conoscenza del prodotto: stessa cadenza della fase 1.",
    3:"Kanban squares: un ordine ogni 45 s, nessun ritardo.",4:"Flow kanban: consegna entro 15 s dalla scadenza, un ordine ogni 30 s.",5:"Supply chain: tre tavoli; stessa cadenza della fase 4."},
@@ -273,7 +273,7 @@ const T = {
 <li>Quando una squadra consegna in tempo, tocca il suo pulsante grande <b>CONSEGNATO</b>. Un secondo tocco, finché l'ordine è aperto, annulla.</li>
 <li><b>Controllo qualità dopo</b>: accanto a CONSEGNATO c'è il pulsante arancione <b>Pezzo buono?</b> con la foto dell'<b>ordine precedente</b>. Quando il turno successivo è partito, guarda il pezzo e toccalo: ogni tocco passa da <b>?</b> (da controllare, arancione) a <b>OK</b> (buono, verde) a <b>KO</b> (difettoso, viola) e di nuovo a <b>?</b>. Si può anche toccare il riquadro dell'ordine nella griglia sotto: stessi tre stati.</li>
 <li>Correzioni: <b>tieni premuto</b> un riquadro per segnare o togliere la consegna di un ordine già chiuso.</li>
-<li>A fine prova suonano tre bip. In <b>Risultati</b> trovi il report (come le schede cartacee), il service level e il Production Summary di tutte le fasi; puoi esportare in CSV.</li>
+<li>A fine prova suonano tre bip. Con <b>Fine</b> vai ai risultati: il report (come le schede cartacee) entra da solo nel Production Summary e il pulsante <b>Vai alla fase …</b> riporta alle impostazioni con la fase successiva e le stesse squadre. In <b>Risultati</b> trovi il report (come le schede cartacee), il service level e il Production Summary di tutte le fasi; puoi esportare in CSV.</li>
 </ol>
 <h2>Colori dei riquadri</h2>
 <p>grigio chiaro = ordine futuro · bordo blu = ordine aperto · arancione <b>?</b> = consegnato, da controllare · verde <b>OK</b> = buono · viola <b>KO</b> = difettoso · rosso <b>✗</b> = non consegnato in tempo.</p>
@@ -290,7 +290,7 @@ const T = {
   team:"Team",order:"Order",deliverBy:"deliver by",next:"Next",waitFirst:"First order in",
   deliver:"DELIVERED",okQ:"? to check",okS:"good",koS:"defective",ko:"KO",notDel:"not delivered",delivered:"✓ delivered",noOrder:"no open order",stopIn:"stop in",opensIn:"opens in",
   over:"Run over",ended:"End of run",del:"Del.",ok:"OK",sl:"S.L.",ordered:"Ordered",accepted:"Accepted",deliveredH:"Delivered",
-  time:"Time",code:"Code",unchecked:"delivered but not checked (counted as not OK)",saved:"Saved to the Production Summary",
+  time:"Time",code:"Code",unchecked:"delivered but not checked (counted as not OK)",saved:"Saved to the Production Summary",nextPhase:"Go to phase",newRun:"New run ▶",
   confirmEnd:"End the run now?",confirmDiscard:"Discard the run in progress?",confirmClear:"Clear the Production Summary?",
   phaseDesc:{1:"Free assembly: one order every minute, 1 minute delay at the start.",2:"Quality and product knowledge: same rate as phase 1.",
    3:"Kanban squares: one order every 45 s, no delay.",4:"Flow kanbans: delivery within 15 s of the deadline, one order every 30 s.",5:"Supply chain: three tables; same rate as phase 4."},
@@ -306,7 +306,7 @@ const T = {
 <li>When a team delivers on time, tap its big <b>DELIVERED</b> button. A second tap, while the order is open, undoes it.</li>
 <li><b>Quality check later</b>: next to DELIVERED there is the orange button <b>Good piece?</b> with the picture of the <b>previous order</b>. Once the next order has started, look at the trolley and tap it: each tap goes from <b>?</b> (to check, orange) to <b>OK</b> (good, green) to <b>KO</b> (defective, purple) and back to <b>?</b>. You can also tap the order tile in the grid below: same three states.</li>
 <li>Corrections: <b>press and hold</b> a tile to add or remove the delivery of a closed order.</li>
-<li>At the end three beeps sound. <b>Results</b> shows the report (like the paper sheets), the service level and the Production Summary of all phases; you can export CSV.</li>
+<li>At the end three beeps sound. <b>End</b> takes you to the results: the report goes into the Production Summary by itself and the <b>Go to phase …</b> button takes you back to the settings with the next phase and the same teams. <b>Results</b> shows the report (like the paper sheets), the service level and the Production Summary of all phases; you can export CSV.</li>
 </ol>
 <h2>Tile colours</h2>
 <p>light grey = future order · blue border = open order · orange <b>?</b> = delivered, to check · green <b>OK</b> = good · purple <b>KO</b> = defective · red <b>✗</b> = not delivered on time.</p>
@@ -584,6 +584,8 @@ function teamStats(r,ti){ let del=0,ok=0,pend=0; r.marks[ti].forEach(x=>{ if(x.d
 function showReport(){
   hideAll(); $("report").classList.remove("hidden"); applyLang();
   const r=S.run;
+  if(r && r.ended) saveSummary();
+  const nb=$("nextBtn"); nb.textContent = r && r.phase<5 ? `${L().nextPhase} ${r.phase+1} ▶` : L().newRun;
   $("repBack").classList.toggle("hidden",!r); $("saveBtn").classList.toggle("hidden",!r); $("csvBtn").classList.toggle("hidden",!r);
   if(r){
     $("repTitle").textContent=`Customer Satisfaction Report – ${L().phase} ${r.phase}`;
@@ -617,7 +619,16 @@ function renderSummary(){
 }
 $("repBack").onclick=()=>showGame();
 $("repSetup").onclick=()=>{ hideAll(); $("setup").classList.remove("hidden"); renderSetup(); };
-$("saveBtn").onclick=()=>{ const r=S.run; S.summary[r.phase]={teams:r.names.map((name,ti)=>({name,...teamStats(r,ti),ordered:r.orders.length}))}; save(); renderSummary(); toast(L().saved); };
+function saveSummary(){ const r=S.run; S.summary[r.phase]={teams:r.names.map((name,ti)=>({name,...teamStats(r,ti),ordered:r.orders.length}))}; save(); }
+$("saveBtn").onclick=()=>{ saveSummary(); renderSummary(); toast(L().saved); };
+// next phase: the finished run goes into the Production Summary, same teams, phase + 1
+$("nextBtn").onclick=()=>{
+  const r=S.run;
+  if(r){ if(r.startedAt && !r.ended){ if(!confirm(L().confirmEnd)) return; finish(false); }
+         if(r.ended) saveSummary(); S.phase=Math.min(5,r.phase+1); }
+  S.timing={...PH[S.phase]}; S.run=null; save();
+  hideAll(); $("setup").classList.remove("hidden"); renderSetup(); window.scrollTo(0,0);
+};
 $("clearSumBtn").onclick=()=>{ if(confirm(L().confirmClear)){ S.summary={}; save(); renderSummary(); } };
 function download(name,rows){
   const csv="﻿"+rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(";")).join("\r\n");
