@@ -127,6 +127,20 @@ td.miss{color:var(--red)}
   #hdr{grid-template-columns:1fr auto} #cur{grid-column:1/-1;order:3}
   #cur img{height:64px} #curMain{font-size:1.4rem} #countdown{font-size:1.8rem} #clock{font-size:2rem}
 }
+#print{color:#000;background:#fff;font-size:11pt}
+#print h1{font-size:20pt;margin:0 0 4px} #print h2{font-size:14pt;margin:14px 0 6px}
+#print .pmeta{color:#374151;margin:2px 0} #print table{margin:4px 0;font-size:10.5pt;width:100%} #print th,#print td{padding:3px 5px}
+#print .prank{margin:6px 0}
+@media screen{#print{display:none}}
+@media print{
+  @page{size:A4 landscape;margin:10mm}
+  html,body{height:auto!important;overflow:visible!important;background:#fff!important}
+  body>*:not(#print){display:none!important}
+  #print{display:block!important}
+  #print .pbreak{break-before:page}
+  #print table{break-inside:auto} #print tr{break-inside:avoid}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
 </style>
 </head>
 <body>
@@ -146,6 +160,12 @@ td.miss{color:var(--red)}
    <div class="row"><b data-t="resumeTxt"></b><span id="resumeInfo" class="muted"></span>
     <button class="primary" id="resumeBtn" data-t="resume"></button>
     <button id="discardBtn" data-t="discard"></button></div>
+  </div>
+
+  <div class="card">
+   <div class="row"><label style="flex:1"><b data-t="gameName"></b>
+    <input type="text" id="fGame" maxlength="60" style="width:100%"></label>
+    <button id="setupOpenBtn" data-t="openJson"></button></div>
   </div>
 
   <div class="card">
@@ -217,6 +237,12 @@ td.miss{color:var(--red)}
  <div class="scroll">
   <div class="topbar"><h1 id="repTitle"></h1>
    <div class="row"><button id="repBack" data-t="backGame"></button><button id="repSetup" data-t="toSetup"></button><button class="primary" id="nextBtn"></button></div></div>
+  <div class="row" style="margin:4px 0 10px">
+   <button class="primary" id="pdfBtn" data-t="pdf"></button>
+   <button id="jsonSaveBtn" data-t="saveJson"></button>
+   <button id="jsonOpenBtn" data-t="openJson"></button>
+   <input type="file" id="jsonFile" accept=".json,application/json" class="hidden">
+  </div>
   <p class="muted small" id="repNote"></p>
   <div class="tablewrap"><table id="repTable"></table></div>
   <div class="row" style="margin:14px 0">
@@ -231,6 +257,7 @@ td.miss{color:var(--red)}
    <button id="sumCsvBtn" data-t="csv"></button>
    <button id="clearSumBtn" data-t="clearSum"></button>
   </div>
+
  </div>
 </section>
 
@@ -295,6 +322,7 @@ td.miss{color:var(--red)}
  <div class="row" style="justify-content:center"><button id="qrShare" class="primary" data-t="shareLink"></button><button id="qrCopy" data-t="copyLink"></button><button id="qrClose">OK</button></div>
 </div></div>
 
+<div id="print"></div>
 <div id="toast"></div>
 
 <script>
@@ -335,6 +363,7 @@ const T = {
 <li><b>Controllo qualità dopo</b>: accanto a CONSEGNATO c'è il pulsante arancione <b>Pezzo buono?</b> con la foto dell'<b>ordine precedente</b>. Quando il turno successivo è partito, guarda il pezzo e toccalo: ogni tocco passa da <b>?</b> (da controllare, arancione) a <b>OK</b> (buono, verde) a <b>KO</b> (difettoso, viola) e di nuovo a <b>?</b>. Si può anche toccare il riquadro dell'ordine nella griglia sotto: stessi tre stati.</li>
 <li>Correzioni: <b>tieni premuto</b> un riquadro per segnare o togliere la consegna di un ordine già chiuso.</li>
 <li>A fine prova suonano tre bip. Con <b>Fine</b> vai ai risultati: il report (come le schede cartacee) entra da solo nel Production Summary e il pulsante <b>Vai alla fase …</b> riporta alle impostazioni con la fase successiva e le stesse squadre. In <b>Risultati</b> trovi il report (come le schede cartacee), il service level e il Production Summary di tutte le fasi; puoi esportare in CSV.</li>
+<li><b>Report e archivio</b>: in <b>Risultati</b>, <b>📄 Report PDF</b> prepara il report di tutte le fasi giocate fino a quel momento (anche a metà gara): nella finestra di stampa scegli “Salva come PDF”. <b>💾 Salva gara</b> scarica un file con tutti i dati della giornata; <b>📂 Apri gara</b> lo ricarica, anche su un altro dispositivo o l'anno dopo.</li>
 <li><b>Show per la classe</b>: nei risultati, <b>🎬 Classifica</b> svela le squadre dalla peggiore alla migliore (tocco o → per andare avanti, ← indietro), con rullo di tamburi prima della prima, podio e grafico del service level fase per fase. Per proiettarla dal computer usa <b>🔗 Link per il proiettore</b>: mandati il link (WhatsApp, mail) e aprilo sul PC; con il telecomando delle slide si va avanti con i tasti pagina.</li>
 </ol>
 <h2>Colori dei riquadri</h2>
@@ -369,6 +398,7 @@ const T = {
 <li><b>Quality check later</b>: next to DELIVERED there is the orange button <b>Good piece?</b> with the picture of the <b>previous order</b>. Once the next order has started, look at the trolley and tap it: each tap goes from <b>?</b> (to check, orange) to <b>OK</b> (good, green) to <b>KO</b> (defective, purple) and back to <b>?</b>. You can also tap the order tile in the grid below: same three states.</li>
 <li>Corrections: <b>press and hold</b> a tile to add or remove the delivery of a closed order.</li>
 <li>At the end three beeps sound. <b>End</b> takes you to the results: the report goes into the Production Summary by itself and the <b>Go to phase …</b> button takes you back to the settings with the next phase and the same teams. <b>Results</b> shows the report (like the paper sheets), the service level and the Production Summary of all phases; you can export CSV.</li>
+<li><b>Report and archive</b>: in <b>Results</b>, <b>📄 PDF report</b> builds the report of all phases played so far (also halfway through the game): in the print window choose “Save as PDF”. <b>💾 Save game</b> downloads a file with all the data of the day; <b>📂 Open game</b> loads it again, also on another device or the next year.</li>
 <li><b>Show for the class</b>: in the results, <b>🎬 Leaderboard</b> reveals the teams from the worst to the best (tap or → to go on, ← back), with a drum roll before the winner, podium and service-level chart phase by phase. To project it from the computer use <b>🔗 Link for the projector</b>: send yourself the link (WhatsApp, mail) and open it on the PC; a slide clicker works with its page keys.</li>
 </ol>
 <h2>Tile colours</h2>
@@ -436,7 +466,7 @@ function renderSetup(){
   $("nSeg").innerHTML=[2,3,4,5,6].map(n=>`<button data-n="${n}" class="${n===S.nTeams?"on":""}">${n}</button>`).join("");
   $("names").innerHTML=S.names.slice(0,S.nTeams).map((nm,i)=>`<input type="text" data-i="${i}" value="${nm.replace(/"/g,"&quot;")}" maxlength="20">`).join("");
   $("fFirst").value=S.timing.first; $("fInt").value=S.timing.interval; $("fWin").value=S.timing.window;
-  $("fSeq").value=S.seq.join(" "); $("fVoice").checked=S.voice; $("fTick").checked=S.tick;
+  $("fGame").value=S.gameName||""; $("fSeq").value=S.seq.join(" "); $("fVoice").checked=S.voice; $("fTick").checked=S.tick;
   const o=orders(S.timing,S.seq); $("timingInfo").textContent=o.length?L().timingInfo(o.length,fmt(o[0].start),fmt(o[o.length-1].stop)):"";
   const r=S.run; $("resumeCard").classList.toggle("hidden",!r);
   if(r) $("resumeInfo").textContent=`${L().phase} ${r.phase} · ${r.names.length} ${L().teams.toLowerCase()}`+(r.ended?` · ${L().over}`:"");
@@ -643,7 +673,7 @@ function longPress(el){
 }
 
 /* ---------------- report ---------------- */
-function teamStats(r,ti){ let del=0,ok=0,pend=0; r.marks[ti].forEach(x=>{ if(x.d!=null){del++; if(x.ok) ok++; else if(!x.ko) pend++;} }); return {del,ok,pend,sl:ok/r.orders.length} }
+function teamStats(r,ti){ let del=0,ok=0,ko=0,pend=0; r.marks[ti].forEach(x=>{ if(x.d!=null){del++; if(x.ok) ok++; else if(x.ko) ko++; else pend++;} }); return {del,ok,ko,pend,sl:ok/r.orders.length} }
 function showReport(){
   hideAll(); $("report").classList.remove("hidden"); applyLang();
   const r=S.run;
@@ -654,16 +684,8 @@ function showReport(){
   $("repBack").classList.toggle("hidden",!r); $("saveBtn").classList.toggle("hidden",!r); $("csvBtn").classList.toggle("hidden",!r);
   if(r){
     $("repTitle").textContent=`Customer Satisfaction Report – ${L().phase} ${r.phase}`;
-    let h=`<tr><th rowspan="2">${L().order}</th><th rowspan="2">start</th><th rowspan="2">stop</th><th rowspan="2">#</th><th rowspan="2">${L().code}</th>`+
-      r.names.map(n=>`<th colspan="2">${esc(n)}</th>`).join("")+`</tr><tr>`+r.names.map(()=>`<th>${L().del}</th><th>${L().ok}</th>`).join("")+`</tr>`;
-    r.orders.forEach((o,i)=>{
-      h+=`<tr><td>${i+1}</td><td>${fmt(o.start)}</td><td>${fmt(o.stop)}</td><td>${o.n}</td><td>${codeHtml(o.code)}</td>`+
-        r.marks.map(m=>{ const x=m[i]; return x.d!=null ? `<td class="del">✓ ${fmt(x.d)}</td><td class="${x.ok?"ok":x.ko?"ko":""}">${x.ok?"OK":x.ko?"KO":"?"}</td>` : `<td class="miss">–</td><td></td>`; }).join("")+`</tr>`;
-    });
+    $("repTable").innerHTML=runTableHtml(r);
     const st=r.names.map((_,ti)=>teamStats(r,ti));
-    h+=`<tr><th colspan="5">${L().deliveredH} / ${L().accepted}</th>`+st.map(s=>`<th>${s.del}</th><th>${s.ok}</th>`).join("")+`</tr>`;
-    h+=`<tr><th colspan="5">Service level</th>`+st.map(s=>`<th colspan="2">${Math.round(100*s.sl)}%</th>`).join("")+`</tr>`;
-    $("repTable").innerHTML=h;
     const pend=st.reduce((a,s)=>a+s.pend,0);
     $("repNote").textContent = pend ? `${pend} ${L().unchecked}` : "";
   } else { $("repTitle").textContent=L().summary; $("repTable").innerHTML=""; $("repNote").textContent=""; }
@@ -684,7 +706,7 @@ function renderSummary(){
 }
 $("repBack").onclick=()=>showGame();
 $("repSetup").onclick=()=>{ hideAll(); $("setup").classList.remove("hidden"); renderSetup(); };
-function saveSummary(){ const r=S.run; S.summary[r.phase]={teams:r.names.map((name,ti)=>({name,...teamStats(r,ti),ordered:r.orders.length}))}; save(); }
+function saveSummary(){ const r=S.run; archiveRun(); S.summary[r.phase]={teams:r.names.map((name,ti)=>({name,...teamStats(r,ti),ordered:r.orders.length}))}; save(); }
 $("saveBtn").onclick=()=>{ saveSummary(); renderSummary(); toast(L().saved); };
 // next phase: the finished run goes into the Production Summary, same teams, phase + 1
 $("nextBtn").onclick=()=>{
@@ -694,7 +716,7 @@ $("nextBtn").onclick=()=>{
   S.timing={...PH[S.phase]}; S.run=null; save();
   hideAll(); $("setup").classList.remove("hidden"); renderSetup(); window.scrollTo(0,0);
 };
-$("clearSumBtn").onclick=()=>{ if(confirm(L().confirmClear)){ S.summary={}; save(); renderSummary(); } };
+$("clearSumBtn").onclick=()=>{ if(confirm(RT().confirmClearAll)){ S.summary={}; S.runs={}; save(); renderSummary(); } };
 function download(name,rows){
   const csv="﻿"+rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(";")).join("\r\n");
   const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"})); a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),2000);
@@ -706,6 +728,138 @@ $("csvBtn").onclick=()=>{ const r=S.run; const rows=[[L().order,"start","stop","
 $("sumCsvBtn").onclick=()=>{ const rows=[[L().phase,L().team,L().ordered,L().deliveredH,L().accepted,"S.L."]];
   Object.keys(S.summary).sort().forEach(p=>S.summary[p].teams.forEach(tm=>rows.push([p,tm.name,tm.ordered,tm.del,tm.ok,Math.round(100*tm.sl)+"%"])));
   download("kando-production-summary.csv",rows); };
+
+/* ---------------- game archive: PDF report and JSON file ---------------- */
+const REP_T = {
+ it:{game:"Gara",gameName:"Nome della gara",pdf:"📄 Report PDF (tutte le fasi)",saveJson:"💾 Salva gara (file)",openJson:"📂 Apri gara (file)",
+  repTitle:"KanDo – Report della gara",teams:"Squadre",phases:"Fasi giocate",printed:"Stampato il",ranking:"Classifica",
+  inProgress:"in corso",settings:(a,b,c,n)=>`${n} ordini · primo ordine a ${a} · uno ogni ${b} s · finestra di consegna ${c} s`,
+  legend:"Legenda: ✓ ora di consegna (in tempo) · OK buono · KO difettoso · ? consegnato non controllato · – non consegnato in tempo. Service level = pezzi buoni / ordini.",
+  chart:"Service level fase per fase",noData:"Nessuna fase giocata: il report è vuoto.",
+  badFile:"File non valido: non è una gara KanDo.",confirmOpen:"Aprire la gara dal file? I dati della gara attuale su questo dispositivo verranno sostituiti (salvali prima, se servono).",
+  opened:"Gara aperta",confirmClearAll:"Svuotare il Production Summary e i dati di tutte le fasi della gara?",avg:"Media"},
+ en:{game:"Game",gameName:"Game name",pdf:"📄 PDF report (all phases)",saveJson:"💾 Save game (file)",openJson:"📂 Open game (file)",
+  repTitle:"KanDo – Game report",teams:"Teams",phases:"Phases played",printed:"Printed on",ranking:"Ranking",
+  inProgress:"in progress",settings:(a,b,c,n)=>`${n} orders · first order at ${a} · one every ${b} s · delivery window ${c} s`,
+  legend:"Legend: ✓ delivery time (on time) · OK good · KO defective · ? delivered, not checked · – not delivered on time. Service level = good trolleys / orders.",
+  chart:"Service level phase by phase",noData:"No phase played yet: the report is empty.",
+  badFile:"Invalid file: not a KanDo game.",confirmOpen:"Open the game from the file? The current game data on this device will be replaced (save them first, if needed).",
+  opened:"Game opened",confirmClearAll:"Clear the Production Summary and the data of all phases of the game?",avg:"Average"}};
+const RT = () => REP_T[S.lang];
+Object.keys(REP_T).forEach(l=>["gameName","pdf","saveJson","openJson"].forEach(k=>T[l][k]=REP_T[l][k]));
+if(!S.runs) S.runs={};
+if(!S.gameName) S.gameName="KanDo "+new Date().toLocaleDateString(S.lang==="it"?"it-IT":"en-GB");
+
+// detailed table of one run (same layout as the paper sheet)
+function runTableHtml(r){
+  let h=`<tr><th rowspan="2">${L().order}</th><th rowspan="2">start</th><th rowspan="2">stop</th><th rowspan="2">#</th><th rowspan="2">${L().code}</th>`+
+    r.names.map(n=>`<th colspan="2">${esc(n)}</th>`).join("")+`</tr><tr>`+r.names.map(()=>`<th>${L().del}</th><th>${L().ok}</th>`).join("")+`</tr>`;
+  const now = (r===S.run && !r.ended) ? (r.startedAt?elapsed():-1) : Infinity;
+  r.orders.forEach((o,i)=>{
+    if(now<o.stop && r.marks.every(m=>m[i].d==null)){ h+=`<tr><td>${i+1}</td><td>${fmt(o.start)}</td><td>${fmt(o.stop)}</td><td>${o.n}</td><td>${codeHtml(o.code)}</td>`+r.marks.map(()=>`<td></td><td></td>`).join("")+`</tr>`; return; }
+    h+=`<tr><td>${i+1}</td><td>${fmt(o.start)}</td><td>${fmt(o.stop)}</td><td>${o.n}</td><td>${codeHtml(o.code)}</td>`+
+      r.marks.map(m=>{ const x=m[i]; return x.d!=null ? `<td class="del">✓ ${fmt(x.d)}</td><td class="${x.ok?"ok":x.ko?"ko":""}">${x.ok?"OK":x.ko?"KO":"?"}</td>` : `<td class="miss">–</td><td></td>`; }).join("")+`</tr>`;
+  });
+  const st=r.names.map((_,ti)=>teamStats(r,ti));
+  h+=`<tr><th colspan="5">${L().deliveredH} / ${L().accepted}</th>`+st.map(s=>`<th>${s.del}</th><th>${s.ok}</th>`).join("")+`</tr>`;
+  h+=`<tr><th colspan="5">Service level</th>`+st.map(s=>`<th colspan="2">${Math.round(100*s.sl)}%</th>`).join("")+`</tr>`;
+  return h;
+}
+function archiveRun(){ const r=S.run; if(!r||!r.startedAt) return; S.runs[r.phase]=JSON.parse(JSON.stringify(r)); }
+function allRuns(){ const a={...S.runs}; if(S.run && S.run.startedAt) a[S.run.phase]=S.run; return a; }
+function ranking(r){
+  const key=s=>s.ok*10000+s.del*100-s.ko;
+  const list=r.names.map((name,ti)=>({name,...teamStats(r,ti)})).sort((a,b)=>key(b)-key(a));
+  list.forEach((x,k)=>x.rank = k>0 && key(list[k-1])===key(x) ? list[k-1].rank : k+1);
+  return list;
+}
+function summaryFromRuns(runs){ const s={}; Object.entries(runs).forEach(([p,r])=>s[p]={teams:r.names.map((name,ti)=>({name,...teamStats(r,ti),ordered:r.orders.length}))}); return s; }
+
+// light chart for paper
+function chartSvgLight(runs){
+  const ph=Object.keys(runs).map(Number).sort((a,b)=>a-b); if(ph.length<1) return "";
+  const names=[]; ph.forEach(p=>runs[p].names.forEach(n=>{ if(!names.includes(n)) names.push(n) }));
+  const W=900,H=330,LM=60,R=170,Tp=15,B=40, X=i=>LM+(ph.length<2?(W-LM-R)/2:i*(W-LM-R)/(ph.length-1)), Y=v=>Tp+(100-v)*(H-Tp-B)/100;
+  const cols=["#2563eb","#db2777","#059669","#d97706","#7c3aed","#ea580c"];
+  let g=`<svg viewBox="0 0 ${W} ${H}" width="100%" style="max-width:900px" font-family="system-ui,sans-serif">`;
+  [0,25,50,75,100].forEach(v=>g+=`<line x1="${LM}" x2="${W-R}" y1="${Y(v)}" y2="${Y(v)}" stroke="#d1d5db"/><text x="${LM-8}" y="${Y(v)+5}" text-anchor="end" font-size="13" fill="#374151">${v}%</text>`);
+  ph.forEach((p,i)=>g+=`<text x="${X(i)}" y="${H-12}" text-anchor="middle" font-size="14" fill="#374151">${L().phase} ${p}</text>`);
+  const labels=[];
+  names.forEach((n,k)=>{ const c=cols[k%6];
+    const pts=ph.map((p,i)=>{ const r=runs[p], ti=r.names.indexOf(n); return ti<0?null:[X(i),Y(100*teamStats(r,ti).sl)] }).filter(Boolean);
+    g+=`<polyline fill="none" stroke="${c}" stroke-width="3" points="${pts.map(q=>q.join(",")).join(" ")}"/>`;
+    pts.forEach(q=>g+=`<circle cx="${q[0]}" cy="${q[1]}" r="4.5" fill="${c}"/>`);
+    const lp=pts[pts.length-1]; if(lp) labels.push({x:lp[0]+10,y:lp[1]+5,n,c});
+  });
+  labels.sort((a,b)=>a.y-b.y).forEach((l,k,a)=>{ if(k && l.y-a[k-1].y<16) l.y=a[k-1].y+16; });
+  const over=labels.length?labels[labels.length-1].y-(H-B+8):0; if(over>0) labels.forEach(l=>l.y-=over);
+  labels.sort((a,b)=>b.y-a.y).forEach((l,k,a)=>{ if(k && a[k-1].y-l.y<16) l.y=a[k-1].y-16; });
+  labels.forEach(l=>g+=`<text x="${l.x}" y="${l.y}" font-size="14" font-weight="700" fill="${l.c}">${esc(l.n)}</text>`);
+  return g+"</svg>";
+}
+
+function buildPrint(){
+  const runs=allRuns(), ph=Object.keys(runs).map(Number).sort((a,b)=>a-b);
+  const names=[]; ph.forEach(p=>runs[p].names.forEach(n=>{ if(!names.includes(n)) names.push(n) }));
+  const today=new Date().toLocaleString(S.lang==="it"?"it-IT":"en-GB",{dateStyle:"long",timeStyle:"short"});
+  let h=`<header><h1>${RT().repTitle}</h1><div class="pmeta"><b>${esc(S.gameName||"")}</b> · ${RT().printed} ${today}</div>
+    <div class="pmeta">${RT().teams}: ${names.map(esc).join(", ")||"–"} · ${RT().phases}: ${ph.join(", ")||"–"}</div></header>`;
+  if(!ph.length){ $("print").innerHTML=h+`<p>${RT().noData}</p>`; return; }
+  // production summary
+  h+=`<h2>Production Summary</h2><table><tr><th>${L().team}</th>`+ph.map(p=>`<th colspan="3">${L().phase} ${p}${runs[p].ended?"":" ("+RT().inProgress+")"}</th>`).join("")+`<th>${RT().avg} S.L.</th></tr>`+
+     `<tr><th></th>`+ph.map(()=>`<th>${L().del}</th><th>${L().ok}</th><th>S.L.</th>`).join("")+`<th></th></tr>`;
+  names.forEach(n=>{ let sum=0,c=0;
+    h+=`<tr><th>${esc(n)}</th>`+ph.map(p=>{ const r=runs[p], ti=r.names.indexOf(n); if(ti<0) return "<td></td><td></td><td></td>";
+      const s=teamStats(r,ti); sum+=s.sl; c++; return `<td>${s.del}</td><td>${s.ok}</td><td><b>${Math.round(100*s.sl)}%</b></td>`; }).join("")+
+      `<td><b>${c?Math.round(100*sum/c)+"%":""}</b></td></tr>`; });
+  h+=`</table>`;
+  if(ph.length>=2) h+=`<h2>${RT().chart}</h2>${chartSvgLight(runs)}`;
+  // one page per phase
+  ph.forEach(p=>{ const r=runs[p], o=r.orders, tm={first:o[0]?o[0].start:0, interval:o[1]?o[1].start-o[0].start:0, window:o[0]?o[0].stop-o[0].start:0};
+    h+=`<section class="pbreak"><h2>${L().phase} ${p} – Customer Satisfaction Report${r.ended?"":" ("+RT().inProgress+")"}</h2>
+      <div class="pmeta">${RT().settings(fmt(tm.first),tm.interval,tm.window,o.length)}</div>
+      <table>${runTableHtml(r)}</table>
+      <p class="prank"><b>${RT().ranking}:</b> ${ranking(r).map(x=>`${x.rank}° ${esc(x.name)} ${Math.round(100*x.sl)}%`).join(" · ")}</p></section>`;
+  });
+  h+=`<p class="pmeta">${RT().legend}</p>`;
+  $("print").innerHTML=h;
+}
+function printReport(){
+  if(S.run && S.run.ended) saveSummary();
+  buildPrint();
+  const t=document.title; document.title=`KanDo report – ${S.gameName||""}`.replace(/[\\/:*?"<>|]/g,"-");
+  addEventListener("afterprint",()=>{ document.title=t; },{once:true});
+  setTimeout(()=>window.print(),100);
+}
+
+// JSON file of the whole game
+function saveGameFile(){
+  if(S.run && S.run.ended) saveSummary();
+  const runs=allRuns();
+  const data={app:"kando-score",version:1,name:S.gameName,savedAt:new Date().toISOString(),lang:S.lang,names:S.names.slice(0,S.nTeams),runs,summary:summaryFromRuns(runs)};
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,1)],{type:"application/json"}));
+  a.download=`kando-${(S.gameName||"gara").replace(/[^\w\-]+/g,"_")}.json`; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+}
+function openGameFile(file){
+  const fr=new FileReader();
+  fr.onload=()=>{
+    let d; try{ d=JSON.parse(fr.result); }catch(e){ d=null; }
+    if(!d || d.app!=="kando-score" || typeof d.runs!=="object"){ alert(RT().badFile); return; }
+    if(!confirm(RT().confirmOpen)) return;
+    S.runs=d.runs; S.summary=summaryFromRuns(d.runs); S.gameName=d.name||S.gameName; S.run=null;
+    const last=Object.keys(d.runs).map(Number).sort((a,b)=>a-b).pop();
+    if(last){ const nm=d.runs[last].names; S.nTeams=nm.length; nm.forEach((n,i)=>S.names[i]=n); }
+    save(); toast(RT().opened); showReport();
+  };
+  fr.readAsText(file);
+}
+$("pdfBtn").onclick=printReport;
+$("jsonSaveBtn").onclick=saveGameFile;
+$("jsonOpenBtn").onclick=()=>$("jsonFile").click();
+$("setupOpenBtn").onclick=()=>$("jsonFile").click();
+$("jsonFile").onchange=e=>{ const f=e.target.files[0]; if(f) openGameFile(f); e.target.value=""; };
+$("fGame").onchange=e=>{ S.gameName=e.target.value.trim()||S.gameName; save(); };
 
 /* ---------------- show mode (results for the projector) ---------------- */
 const SHOW_T = {
