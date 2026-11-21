@@ -213,6 +213,16 @@ td.miss{color:var(--red)}
   </div>
 
   <div class="card">
+   <h2 style="margin-top:0" data-t="liveTitle"></h2>
+   <label><input type="checkbox" id="fLive"> <span data-t="liveOn"></span></label>
+   <div id="liveBox" class="hidden" style="margin-top:8px">
+    <div class="small"><b data-t="liveLink"></b>: <span id="liveUrl" style="word-break:break-all"></span></div>
+    <div class="row" style="margin-top:6px"><button id="liveCopyBtn" data-t="copyLink"></button><button id="liveShareBtn" data-t="shareLink"></button><button id="liveQrBtn">QR</button><button id="liveSendBtn" data-t="liveSend"></button></div>
+    <p class="muted small" data-t="liveNote"></p>
+   </div>
+  </div>
+
+  <div class="card">
    <h2 style="margin-top:0" data-t="warmup"></h2>
    <div class="row"><span id="warm">10:00</span>
     <button id="warmBtn" data-t="warmStart"></button><button id="warmReset" data-t="reset"></button></div>
@@ -257,6 +267,7 @@ td.miss{color:var(--red)}
    <button id="csvBtn" data-t="csv"></button>
    <button class="primary" id="showBtn" style="background:#7c3aed;border-color:#7c3aed"></button>
    <button id="shareBtn"></button>
+   <button id="repLiveBtn" data-t="liveSend"></button>
   </div>
   <h2 data-t="prodSummary"></h2>
   <div class="tablewrap"><table id="sumTable"></table></div>
@@ -325,7 +336,7 @@ td.miss{color:var(--red)}
 </style>
 <section id="show" class="screen hidden">
  <canvas id="confetti"></canvas>
- <div class="sbar"><span id="showTitle"></span><span><button id="showFs">⛶</button> <button id="showClose">✕</button></span></div>
+ <div class="sbar"><span id="showTitle"></span><span><button id="liveNewBtn" class="hidden" style="background:#f59e0b;color:#111;border-color:#f59e0b;font-weight:800"></button> <button id="showFs">⛶</button> <button id="showClose">✕</button></span></div>
  <div class="stage" id="stage"></div>
  <div class="hint" id="showHint"></div>
 </section>
@@ -494,6 +505,7 @@ function renderSetup(){
   $("seqLock").textContent=locked?L().seqLocked:"";
   $("fGame").value=S.gameName||""; $("fSeq").value=S.seq.join(" "); $("fVoice").checked=S.voice; $("fTick").checked=S.tick;
   const o=orders(S.timing,S.seq); $("timingInfo").textContent=o.length?L().timingInfo(o.length,fmt(o[0].start),fmt(o[o.length-1].stop)):"";
+  renderLive();
   const r=S.run; $("resumeCard").classList.toggle("hidden",!r);
   if(r) $("resumeInfo").textContent=`${L().phase} ${r.phase} · ${r.names.length} ${L().teams.toLowerCase()}`+(r.ended?` · ${L().over}`:"");
 }
@@ -733,7 +745,8 @@ function showReport(){
     const pend=st.reduce((a,s)=>a+s.pend,0);
     $("repNote").textContent = pend ? `${pend} ${L().unchecked}` : "";
   } else { $("repTitle").textContent=L().summary; $("repTable").innerHTML=""; $("repNote").textContent=""; }
-  renderSummary();
+  renderSummary(); renderLive();
+  if(r && r.ended) livePushIfNew();
 }
 function renderSummary(){
   const ph=Object.keys(S.summary).map(Number).sort();
@@ -959,6 +972,7 @@ function openShow(D,fromLink){
 }
 function closeShow(){
   confettiStop(); try{ if(document.fullscreenElement) document.exitFullscreen(); }catch(e){}
+  if(SHOW.live){ liveWaitScreen(LT().liveConn); return; }
   if(SHOW.fromLink){ history.replaceState(null,"",location.pathname); hideAll(); $("setup").classList.remove("hidden"); renderSetup(); return; }
   showReport();
 }
@@ -1076,7 +1090,10 @@ addEventListener("keydown",e=>{
 $("showBtn").onclick=()=>{ if(S.run){ if(S.run.ended) saveSummary(); openShow(packRun(S.run),false); } };
 $("shareBtn").onclick=()=>{
   if(!S.run) return; if(S.run.ended) saveSummary();
-  const url=showLink(packRun(S.run)); $("qrBox").classList.remove("hidden"); $("qrBox").dataset.url=url; applyLang();
+  openQr(showLink(packRun(S.run)));
+};
+function openQr(url){
+  $("qrBox").classList.remove("hidden"); $("qrBox").dataset.url=url; applyLang();
   const q=$("qr"); q.innerHTML="";
   const draw=()=>{ try{ new QRCode(q,{text:url,width:320,height:320,correctLevel:QRCode.CorrectLevel.L}); }catch(e){ q.textContent=""; } };
   if(window.QRCode) draw(); else { const sc=document.createElement("script"); sc.src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"; sc.onload=draw; document.head.appendChild(sc); }
@@ -1089,9 +1106,95 @@ function showFromHash(){
   try{ openShow(JSON.parse(b64d(m[1])),true); return true; }catch(e){ return false; }
 }
 
+/* ---------------- live projector: fixed link on the PC, results pushed by the phone ---------------- */
+const LIVE_SERVER = "https://kando-live.onrender.com";
+const LIVE_T = {
+ it:{liveTitle:"📡 Proiettore in diretta",liveOn:"Invia i risultati al PC del proiettore",
+  liveNote:"Apri una volta questo link fisso sul PC del proiettore: a ogni fine fase i risultati arrivano da soli e parte la classifica. Il server è gratuito: se dorme, il primo invio può richiedere fino a un minuto.",
+  liveSend:"📡 Invia ora",liveSending:"Invio al proiettore…",liveSent:v=>`Risultati inviati al proiettore${v?` (${v} schermo collegato)`:""}`,liveFail:"Invio non riuscito: controlla la rete e riprova",
+  liveWait:"In attesa dei risultati dal telefono…",liveWake:"Collegamento al server (può servire un minuto)…",liveConn:"Collegato: i risultati arriveranno a fine fase",
+  liveRetry:"Collegamento perso, riprovo…",liveNew:p=>`▶ Fase ${p}: nuovi risultati`,liveLink:"Link fisso"},
+ en:{liveTitle:"📡 Live projector",liveOn:"Send the results to the projector PC",
+  liveNote:"Open this fixed link once on the projector PC: at the end of every phase the results arrive by themselves and the leaderboard starts. The server is free: if it is asleep, the first sending can take up to a minute.",
+  liveSend:"📡 Send now",liveSending:"Sending to the projector…",liveSent:v=>`Results sent to the projector${v?` (${v} screen connected)`:""}`,liveFail:"Sending failed: check the network and try again",
+  liveWait:"Waiting for the results from the phone…",liveWake:"Connecting to the server (it can take a minute)…",liveConn:"Connected: the results will arrive at the end of the phase",
+  liveRetry:"Connection lost, retrying…",liveNew:p=>`▶ Phase ${p}: new results`,liveLink:"Fixed link"}};
+Object.keys(LIVE_T).forEach(l=>["liveTitle","liveOn","liveNote","liveSend","liveLink"].forEach(k=>T[l][k]=LIVE_T[l][k]));
+const LT = () => LIVE_T[S.lang];
+const rid = n => { const a=new Uint8Array(n), c="abcdefghijkmnpqrstuvwxyz23456789"; crypto.getRandomValues(a); return Array.from(a,x=>c[x%c.length]).join(""); };
+function liveSetup(){ if(!S.live) S.live={on:false}; if(!S.live.room){ S.live.room=rid(10); S.live.key=rid(24); save(); } }
+const liveLink = () => location.origin+location.pathname+"#live="+S.live.room;
+const liveServer = () => (S.live && S.live.server) || LIVE_SERVER;
+
+// phone side
+function renderLive(){
+  liveSetup();
+  $("fLive").checked=!!S.live.on; $("liveBox").classList.toggle("hidden",!S.live.on);
+  $("liveUrl").textContent=liveLink();
+  $("liveSendBtn").classList.toggle("hidden",!(S.live.on && S.run && S.run.startedAt));
+  $("repLiveBtn").classList.toggle("hidden",!(S.live.on && S.run && S.run.startedAt));
+}
+let PUSHING=false;
+async function livePush(manual){
+  if(!S.live || !S.live.on || !S.run || !S.run.startedAt || PUSHING) return;
+  PUSHING=true; const body=JSON.stringify(packRun(S.run)); toast(LT().liveSending);
+  const waits=[0,4000,8000,15000,25000,30000];
+  for(const w of waits){
+    if(w) await new Promise(r=>setTimeout(r,w));
+    try{
+      const r=await fetch(`${liveServer()}/api/push?room=${S.live.room}`,{method:"POST",headers:{"Content-Type":"application/json","X-Key":S.live.key},body});
+      if(r.ok){ const j=await r.json().catch(()=>({})); PUSHING=false; toast(LT().liveSent(j.viewers)); return true; }
+      if(r.status===403){ S.live.room=rid(10); S.live.key=rid(24); save(); renderLive(); break; }
+    }catch(e){}
+  }
+  PUSHING=false; toast(LT().liveFail); return false;
+}
+// automatic sending: when the results of an ended phase are shown and they changed since the last sending
+function livePushIfNew(){ if(!S.live||!S.live.on||!S.run) return; const sig=JSON.stringify(packRun(S.run)); if(S.live.sent===sig) return;
+  livePush(false).then(ok=>{ if(ok){ S.live.sent=sig; save(); } }); }
+$("fLive").onchange=e=>{ liveSetup(); S.live.on=e.target.checked; save(); renderLive(); if(S.live.on) fetch(`${liveServer()}/api/ping`).catch(()=>{}); };
+$("liveCopyBtn").onclick=async()=>{ try{ await navigator.clipboard.writeText(liveLink()); toast(SHOW_T[S.lang].copied); }catch(e){ prompt("Link",liveLink()); } };
+$("liveShareBtn").onclick=async()=>{ if(navigator.share){ try{ await navigator.share({title:"KanDo",url:liveLink()}); }catch(e){} } else $("liveCopyBtn").click(); };
+$("liveQrBtn").onclick=()=>openQr(liveLink());
+$("liveSendBtn").onclick=()=>livePush(true);
+$("repLiveBtn").onclick=()=>livePush(true);
+
+// projector side
+let LIVE={room:null,es:null,shown:null,pending:null};
+function liveWaitScreen(msg){
+  hideAll(); $("show").classList.remove("hidden");
+  $("showTitle").textContent="KanDo · "+LT().liveTitle.replace("📡 ","");
+  $("stage").innerHTML=`<h2 class="big" style="font-size:clamp(1.6rem,5vw,4rem)">KanDo</h2><div class="sub" id="liveMsg">${msg}</div>`;
+  $("showHint").textContent="";
+}
+function liveSetMsg(m){ const e=$("liveMsg"); if(e) e.textContent=m; }
+function liveReceive(D){
+  if(!D || !Array.isArray(D.t)) return;
+  const sig=JSON.stringify(D);
+  if(LIVE.shown===sig) return;
+  const idle = !LIVE.shown || SHOW.step===0 || SHOW.step>=SHOW.steps.length-1;
+  if(idle){ LIVE.shown=sig; LIVE.pending=null; $("liveNewBtn").classList.add("hidden"); openShow(D,true); }
+  else { LIVE.pending=D; const b=$("liveNewBtn"); b.textContent=LIVE_T[D.l||S.lang].liveNew(D.p); b.classList.remove("hidden"); }
+}
+function startLive(room){
+  LIVE.room=room; SHOW.live=true;
+  liveWaitScreen(LT().liveWake);
+  fetch(`${liveServer()}/api/last?room=${room}`).then(r=>r.status===200?r.json():null).then(D=>{ if(D) liveReceive(D); else liveSetMsg(LT().liveWait); }).catch(()=>{});
+  const es=new EventSource(`${liveServer()}/api/live?room=${room}`); LIVE.es=es;
+  es.onopen=()=>{ if(!LIVE.shown) liveSetMsg(LT().liveConn); };
+  es.onmessage=e=>{ try{ liveReceive(JSON.parse(e.data)); }catch(x){} };
+  es.onerror=()=>{ if(!LIVE.shown) liveSetMsg(LT().liveRetry); };
+  setInterval(()=>fetch(`${liveServer()}/api/ping`).catch(()=>{}),9*60e3); // keep the free server awake while the page is open
+}
+$("liveNewBtn").onclick=e=>{ e.stopPropagation(); const D=LIVE.pending; if(!D) return; LIVE.shown=JSON.stringify(D); LIVE.pending=null; $("liveNewBtn").classList.add("hidden"); openShow(D,true); };
+function liveFromHash(){
+  const m=location.hash.match(/^#live=([A-Za-z0-9_-]{8,40})/); if(!m) return false;
+  startLive(m[1]); return true;
+}
+
 /* ---------------- boot ---------------- */
 renderSetup();
-showFromHash();
+if(!liveFromHash()) showFromHash();
 if("serviceWorker" in navigator && location.protocol.startsWith("http")) navigator.serviceWorker.register("sw.js").catch(()=>{});
 </script>
 </body>
