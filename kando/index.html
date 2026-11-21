@@ -328,6 +328,20 @@ td.miss{color:var(--red)}
 #show .drum{font-size:clamp(3rem,12vw,9rem);animation:shake .12s infinite}
 @keyframes shake{0%{transform:translateX(-4px) rotate(-2deg)}50%{transform:translateX(4px) rotate(2deg)}100%{transform:translateX(-4px)}}
 #show svg text{fill:#cbd5e1}
+#show .nerd{flex:1 1 auto;align-self:stretch;min-height:0;display:grid;grid-template-rows:auto auto minmax(0,1fr) auto;gap:clamp(4px,1vh,10px)}
+#show .nerd h2{margin:0;text-align:center;font-size:clamp(1.1rem,2.6vw,2.2rem);color:#fbbf24}
+#show .kpis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:clamp(4px,.8vw,10px)}
+#show .kpi{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:clamp(3px,.8vh,8px) clamp(6px,.8vw,12px);min-width:0}
+#show .kpi span{display:block;font-size:clamp(.6rem,1vw,.9rem);color:#93c5fd;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#show .kpi b{display:block;font-size:clamp(1rem,2.3vw,2rem);color:#f8fafc;font-variant-numeric:tabular-nums;white-space:nowrap}
+#show .kpi i{display:block;font-style:normal;font-size:clamp(.55rem,.85vw,.8rem);color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#show .charts{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:minmax(0,1fr) minmax(0,1fr);gap:clamp(4px,.8vw,10px);min-height:0}
+#show .ch{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:4px 8px;display:flex;flex-direction:column;min-height:0;min-width:0}
+#show .ch h4{margin:0;font-size:clamp(.7rem,1.25vw,1.05rem);color:#fbbf24;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#show .ch svg{flex:1 1 auto;min-height:0;width:100%;height:100%}
+#show .ch svg text{font-family:inherit}
+#show .foot{font-size:clamp(.55rem,.85vw,.78rem);color:#64748b;text-align:center}
+@media (max-width:760px){ #show .kpis{grid-template-columns:repeat(3,minmax(0,1fr))} #show .charts{grid-template-columns:1fr;grid-template-rows:repeat(4,220px)} #show .nerd{overflow-y:auto;display:block} #show .nerd>*{margin-bottom:8px} }
 #confetti{position:absolute;inset:0;pointer-events:none;z-index:2}
 #qrBox{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:60}
 #qrBox .card{max-width:min(92vw,420px);text-align:center}
@@ -941,8 +955,8 @@ const TEAM_COL=["#60a5fa","#f472b6","#34d399","#fbbf24","#a78bfa","#fb923c"];
 // compact results: one character per order: O good, K defective, Q delivered not checked, X not delivered, - not reached
 function packRun(r){
   const t=elapsed();
-  return {v:1,l:S.lang,p:r.phase,o:r.orders.map(o=>o.n),
-    t:r.names.map((n,ti)=>({n,m:r.marks[ti].map((x,i)=>x.d!=null?(x.ok?"O":x.ko?"K":"Q"):((r.ended||t>=r.orders[i].stop)?"X":"-")).join("")})),
+  return {v:1,l:S.lang,p:r.phase,o:r.orders.map(o=>o.n),w:r.orders.map(o=>[o.start,o.stop]),
+    t:r.names.map((n,ti)=>({n,d:r.marks[ti].map(x=>x.d==null?null:Math.round(x.d)),m:r.marks[ti].map((x,i)=>x.d!=null?(x.ok?"O":x.ko?"K":"Q"):((r.ended||t>=r.orders[i].stop)?"X":"-")).join("")})),
     s:Object.fromEntries(Object.entries(S.summary).map(([p,v])=>[p,v.teams.map(tm=>[tm.name,Math.round(100*tm.sl)])]))};
 }
 const b64e = s => { const b=new TextEncoder().encode(s); let x=""; b.forEach(c=>x+=String.fromCharCode(c)); return btoa(x).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,""); };
@@ -964,6 +978,7 @@ function openShow(D,fromLink){
   SHOW.ddesc=ddesc; SHOW.dasc=ddesc.slice().reverse();
   SHOW.steps=["intro",...SHOW.dasc.map((_,k)=>"del"+(k+1)),"twist",...SHOW.asc.map((_,k)=>"rev"+(k+1)),"podium"];
   if(Object.keys(D.s||{}).length>=2) SHOW.steps.push("progress");
+  SHOW.teams=teams; SHOW.steps.push("stats");
   hideAll(); $("show").classList.remove("hidden");
   $("showTitle").textContent=`KanDo · ${ST().phase} ${D.p} · ${ST().results}`;
   $("showHint").textContent=ST().hint;
@@ -1008,6 +1023,7 @@ function renderShow(fwd){
     if(fwd) tadaa(); confetti(); return;
   }
   if(st==="progress") drawProgress();
+  if(st==="stats") drawStats();
 }
 function drawBoard(k){
   const rev=new Set(SHOW.asc.slice(0,k).map(x=>x.i)), newest=SHOW.asc[k-1].i;
@@ -1104,6 +1120,208 @@ $("qrClose").onclick=()=>$("qrBox").classList.add("hidden");
 function showFromHash(){
   const m=location.hash.match(/^#show=([A-Za-z0-9_-]+)/); if(!m) return false;
   try{ openShow(JSON.parse(b64d(m[1])),true); return true; }catch(e){ return false; }
+}
+
+/* ---------------- show: production analytics for nerds (last screen) ---------------- */
+const NERD_T = {
+ it:{title:"Analisi della produzione (per nerd)",
+  fill:"Fill rate",fillS:(a,b)=>`${a} consegne su ${b} ordini`,
+  fpy:"First pass yield",fpyS:"OK / (OK + KO)",
+  sl:"Service level",slS:cv=>`media ± σ tra squadre · CV ${cv}`,
+  sig:"Livello sigma",sigS:d=>`DPMO ${d}`,
+  rt:"Tempo di risposta",rtS:(md,p9)=>`mediana ${md} s · P90 ${p9} s`,
+  th:"Throughput",thS:tk=>`buoni/min per squadra · takt ${tk} s`,
+  hist:"Distribuzione del tempo di risposta (s) e curva normale",
+  box:"Box plot del tempo di risposta per squadra (s)",
+  ord:"Ordine per ordine: quante squadre ce l'hanno fatta",
+  bin:"Pezzi buoni per squadra: osservato vs binomiale",
+  due:"scadenza",noT:"Tempi di consegna non disponibili",none:"Nessuna consegna",
+  obs:"squadre osservate",dof:"g.d.l.",exp:"attese se tutte uguali",hard:"il più difficile",
+  good:"OK",bad:"KO",unk:"?",miss:"non consegnato",
+  diff:"le squadre sono davvero diverse",same:"differenze compatibili con il caso",
+  foot:"Tempo di risposta = consegna − chiamata dell'ordine · livello σ = Φ⁻¹(1 − DPMO/10⁶) + 1,5 · χ² = Σ (OKᵢ − n·p̄)² / (n·p̄·(1 − p̄)), con g.d.l. = squadre − 1"},
+ en:{title:"Production analytics (for nerds)",
+  fill:"Fill rate",fillS:(a,b)=>`${a} deliveries out of ${b} orders`,
+  fpy:"First pass yield",fpyS:"OK / (OK + KO)",
+  sl:"Service level",slS:cv=>`mean ± σ across teams · CV ${cv}`,
+  sig:"Sigma level",sigS:d=>`DPMO ${d}`,
+  rt:"Response time",rtS:(md,p9)=>`median ${md} s · P90 ${p9} s`,
+  th:"Throughput",thS:tk=>`good/min per team · takt ${tk} s`,
+  hist:"Response time distribution (s) and normal curve",
+  box:"Response time box plot per team (s)",
+  ord:"Order by order: how many teams made it",
+  bin:"Good trolleys per team: observed vs binomial",
+  due:"deadline",noT:"Delivery times not available",none:"No deliveries",
+  obs:"observed teams",dof:"d.o.f.",exp:"expected if all equal",hard:"the hardest",
+  good:"OK",bad:"KO",unk:"?",miss:"not delivered",
+  diff:"the teams really differ",same:"differences compatible with chance",
+  foot:"Response time = delivery − order call · σ level = Φ⁻¹(1 − DPMO/10⁶) + 1.5 · χ² = Σ (OKᵢ − n·p̄)² / (n·p̄·(1 − p̄)), with d.o.f. = teams − 1"}};
+const NT = () => NERD_T[SHOW.lang||S.lang] || NERD_T.it;
+const nf = (x,d=1) => Number.isFinite(x) ? x.toLocaleString(SHOW.lang==="en"?"en-GB":"it-IT",{minimumFractionDigits:d,maximumFractionDigits:d}) : "–";
+const pc = x => Number.isFinite(x) ? Math.round(100*x)+"%" : "–";
+const mean = a => a.length ? a.reduce((s,x)=>s+x,0)/a.length : NaN;
+const sdev = a => { if(a.length<2) return 0; const m=mean(a); return Math.sqrt(a.reduce((s,x)=>s+(x-m)**2,0)/(a.length-1)); };
+const quant = (a,q) => { if(!a.length) return NaN; const s=a.slice().sort((x,y)=>x-y), p=(s.length-1)*q, i=Math.floor(p); return s[i]+(s[Math.min(i+1,s.length-1)]-s[i])*(p-i); };
+const npdf = (x,m,s) => Math.exp(-(((x-m)/s)**2)/2)/(s*Math.sqrt(2*Math.PI));
+const choose = (n,k) => { let r=1; for(let j=1;j<=k;j++) r=r*(n-k+j)/j; return r; };
+function invNorm(p){ // Acklam's rational approximation
+  const a=[-39.69683028665376,220.9460984245205,-275.9285104469687,138.3577518672690,-30.66479806614716,2.506628277459239],
+        b=[-54.47609879822406,161.5858368580409,-155.6989798598866,66.80131188771972,-13.28068155288572],
+        c=[-0.007784894002430293,-0.3223964580411365,-2.400758277161838,-2.549732539343734,4.374664141464968,2.938163982698783],
+        d=[0.007784695709041462,0.3224671290700398,2.445134137142996,3.754408661907416], pl=0.02425;
+  if(p<pl){ const q=Math.sqrt(-2*Math.log(p)); return (((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5])/((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1); }
+  if(p>1-pl){ const q=Math.sqrt(-2*Math.log(1-p)); return -(((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5])/((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1); }
+  const q=p-.5, r=q*q; return (((((a[0]*r+a[1])*r+a[2])*r+a[3])*r+a[4])*r+a[5])*q/(((((b[0]*r+b[1])*r+b[2])*r+b[3])*r+b[4])*r+1);
+}
+function lnGamma(z){ const c=[76.18009172947146,-86.50532032941677,24.01409824083091,-1.231739572450155,.1208650973866179e-2,-.5395239384953e-5];
+  let y=z, t=z+5.5; t-=(z+.5)*Math.log(t); let s=1.000000000190015; for(const k of c) s+=k/++y; return -t+Math.log(2.5066282746310005*s/z); }
+function gammaQ(a,x){ // upper regularized incomplete gamma: chi-square p-value = gammaQ(dof/2, chi2/2)
+  if(x<=0) return 1; const lg=-x+a*Math.log(x)-lnGamma(a);
+  if(x<a+1){ let s=1/a, d=s, ap=a; for(let i=0;i<300;i++){ ap++; d*=x/ap; s+=d; if(Math.abs(d)<Math.abs(s)*1e-13) break; } return Math.max(0,1-s*Math.exp(lg)); }
+  let b=x+1-a, c=1e300, d=1/b, h=d;
+  for(let i=1;i<300;i++){ const an=-i*(i-a); b+=2; d=an*d+b; if(Math.abs(d)<1e-300) d=1e-300; c=b+an/c; if(Math.abs(c)<1e-300) c=1e-300; d=1/d; const e=d*c; h*=e; if(Math.abs(e-1)<1e-13) break; }
+  return Math.exp(lg)*h;
+}
+
+function nerdData(){
+  const D=SHOW.D, T=SHOW.teams, nT=T.length;
+  const idx=D.o.map((_,i)=>i).filter(i=>T.some(t=>t.m[i]!=="-")); // orders already called
+  const n=idx.length;
+  const hasT=Array.isArray(D.w) && D.t.every(t=>Array.isArray(t.d));
+  const cnt=(t,c)=>idx.filter(i=>t.m[i]===c).length;
+  const teams=T.map(t=>({...t, okN:cnt(t,"O"), koN:cnt(t,"K"), qN:cnt(t,"Q"),
+    rt: hasT ? idx.filter(i=>D.t[t.i].d[i]!=null).map(i=>Math.max(0,D.t[t.i].d[i]-D.w[i][0])) : []}));
+  teams.forEach(t=>{ t.delN=t.okN+t.koN+t.qN; t.slN=n?t.okN/n:NaN; });
+  const all=teams.flatMap(t=>t.rt);
+  const win=hasT && idx.length ? Math.max(...idx.map(i=>D.w[i][1]-D.w[i][0])) : 0;
+  const good=teams.reduce((s,t)=>s+t.okN,0), del=teams.reduce((s,t)=>s+t.delN,0), ko=teams.reduce((s,t)=>s+t.koN,0);
+  const opp=nT*n, pbar=opp?good/opp:NaN;
+  const takt=hasT && D.w.length>1 ? D.w[1][0]-D.w[0][0] : (hasT && D.w.length ? D.w[0][1]-D.w[0][0] : NaN);
+  const span=hasT && n ? D.w[idx[idx.length-1]][1]/60 : NaN;
+  // chi-square test of homogeneity of the good-trolley proportions (2 x teams table)
+  let chi=NaN, pv=NaN;
+  if(nT>=2 && n && pbar>0 && pbar<1){ chi=teams.reduce((s,t)=>s+(t.okN-n*pbar)**2,0)/(n*pbar*(1-pbar)); pv=gammaQ((nT-1)/2,chi/2); }
+  return {D,teams,nT,idx,n,hasT,all,win,good,del,ko,opp,pbar,takt,span,chi,pv};
+}
+
+function drawStats(){
+  const z=nerdData(), t=NT();
+  const sls=z.teams.map(x=>x.slN), slM=mean(sls), slS=sdev(sls);
+  const dpmo=z.opp?Math.round((1-z.pbar)*1e6):NaN;
+  const sig=z.opp&&z.good ? invNorm(Math.min(z.pbar,1-3.4e-6))+1.5 : NaN;
+  const rtM=mean(z.all), rtS=sdev(z.all);
+  const thr=z.good/z.nT/z.span;
+  const kpi=(h,v,s)=>`<div class="kpi"><span>${h}</span><b>${v}</b><i>${s}</i></div>`;
+  const kpis=[
+    kpi(t.fill,pc(z.opp?z.del/z.opp:NaN),t.fillS(z.del,z.opp)),
+    kpi(t.fpy,pc((z.good+z.ko)?z.good/(z.good+z.ko):NaN),t.fpyS),
+    kpi(t.sl,`${pc(slM)} <small style="font-size:.5em;color:#94a3b8">± ${pc(slS)}</small>`,t.slS(slM?pc(slS/slM):"–")),
+    kpi(t.sig,Number.isFinite(sig)?nf(sig,1)+" σ":"–",t.sigS(Number.isFinite(dpmo)?dpmo.toLocaleString(SHOW.lang==="en"?"en-GB":"it-IT"):"–")),
+    kpi(t.rt,z.all.length?`${nf(rtM)} <small style="font-size:.5em;color:#94a3b8">± ${nf(rtS)} s</small>`:"–",z.all.length?t.rtS(nf(quant(z.all,.5)),nf(quant(z.all,.9))):t.noT),
+    kpi(t.th,Number.isFinite(thr)?nf(thr,2):"–",t.thS(Number.isFinite(z.takt)?z.takt:"–"))].join("");
+  $("stage").innerHTML=`<div class="nerd"><h2>${t.title} · ${ST().phase} ${z.D.p}</h2><div class="kpis">${kpis}</div>
+    <div class="charts"><div class="ch"><h4>📊 ${t.hist}</h4>${histSvg(z)}</div><div class="ch"><h4>📦 ${t.box}</h4>${boxSvg(z)}</div>
+    <div class="ch"><h4>🛒 ${t.ord}</h4>${orderSvg(z)}</div><div class="ch"><h4>🎲 ${t.bin}</h4>${binSvg(z)}</div></div>
+    <div class="foot">${t.foot}</div></div>`;
+}
+
+const VW=600, VH=260;
+const svgOpen = () => `<svg viewBox="0 0 ${VW} ${VH}" preserveAspectRatio="xMidYMid meet">`;
+const svgMsg = m => `${svgOpen()}<text x="${VW/2}" y="${VH/2}" text-anchor="middle" font-size="18">${m}</text></svg>`;
+function timeScale(z){ // common x axis for histogram and box plot
+  const xmax=Math.max(z.win,...z.all,1), bw=xmax<=20?2:xmax<=50?5:10, nb=Math.ceil((xmax+1e-9)/bw);
+  return {bw,nb,top:nb*bw};
+}
+function histSvg(z){
+  const t=NT(); if(!z.hasT) return svgMsg(t.noT); if(!z.all.length) return svgMsg(t.none);
+  const {bw,nb,top}=timeScale(z), L=40,R=14,Tp=28,B=34;
+  const cnt=Array.from({length:nb},()=>z.teams.map(()=>0));
+  z.teams.forEach((tm,k)=>tm.rt.forEach(v=>cnt[Math.min(nb-1,Math.floor(v/bw))][k]++));
+  const N=z.all.length, m=mean(z.all), s=sdev(z.all);
+  const curve=s>0&&N>=3 ? Array.from({length:81},(_,j)=>{ const x=top*j/80; return [x,N*bw*npdf(x,m,s)]; }) : [];
+  const ymax=Math.max(1,...cnt.map(c=>c.reduce((a,b)=>a+b,0)),...curve.map(q=>q[1]));
+  const step=Math.max(1,Math.ceil(ymax/4)), yTop=step*Math.ceil(ymax/step);
+  const X=v=>L+v*(VW-L-R)/top, Y=v=>VH-B-v*(VH-Tp-B)/yTop;
+  let g=svgOpen();
+  if(s>0) g+=`<rect x="${X(Math.max(0,m-s))}" y="${Tp}" width="${X(Math.min(top,m+s))-X(Math.max(0,m-s))}" height="${VH-Tp-B}" fill="rgba(251,191,36,.10)"/>`;
+  for(let v=0;v<=yTop;v+=step) g+=`<line x1="${L}" x2="${VW-R}" y1="${Y(v)}" y2="${Y(v)}" stroke="#334155"/><text x="${L-6}" y="${Y(v)+5}" text-anchor="end" font-size="13">${v}</text>`;
+  const lab=nb>12?2:1;
+  for(let b=0;b<=nb;b+=lab) g+=`<text x="${X(b*bw)}" y="${VH-B+18}" text-anchor="middle" font-size="13">${b*bw}</text>`;
+  cnt.forEach((c,b)=>{ let acc=0; c.forEach((v,k)=>{ if(!v) return;
+    g+=`<rect x="${X(b*bw)+1.5}" y="${Y(acc+v)}" width="${X(bw)-X(0)-3}" height="${Y(acc)-Y(acc+v)}" fill="${z.teams[k].col}" stroke="#0b1020" stroke-width=".8"/>`; acc+=v; }); });
+  if(curve.length) g+=`<path d="M${curve.map(q=>`${X(q[0]).toFixed(1)},${Y(q[1]).toFixed(1)}`).join("L")}" fill="none" stroke="#fbbf24" stroke-width="3"/>`;
+  g+=`<line x1="${X(m)}" x2="${X(m)}" y1="${Tp}" y2="${VH-B}" stroke="#f8fafc" stroke-width="2" stroke-dasharray="6 4"/>`;
+  if(z.win) g+=`<line x1="${X(z.win)}" x2="${X(z.win)}" y1="${Tp}" y2="${VH-B}" stroke="#ef4444" stroke-width="2" stroke-dasharray="3 3"/><text x="${X(z.win)-4}" y="${Tp+14}" text-anchor="end" font-size="12" style="fill:#f87171">${t.due}</text>`;
+  g+=`<text x="${L}" y="${Tp-10}" font-size="14" style="fill:#f8fafc;font-weight:700">μ = ${nf(m)} s · σ = ${nf(s)} s · N = ${N}${m?` · CV = ${pc(s/m)}`:""}</text>`;
+  return g+`</svg>`;
+}
+function boxSvg(z){
+  const t=NT(); if(!z.hasT) return svgMsg(t.noT); if(!z.all.length) return svgMsg(t.none);
+  const {bw,nb,top}=timeScale(z), L=110,R=64,Tp=8,B=34, rows=z.teams.length, rh=(VH-Tp-B)/rows;
+  const X=v=>L+v*(VW-L-R)/top;
+  let g=svgOpen();
+  const lab=nb>12?2:1;
+  for(let b=0;b<=nb;b+=lab) g+=`<line x1="${X(b*bw)}" x2="${X(b*bw)}" y1="${Tp}" y2="${VH-B}" stroke="#1e293b"/><text x="${X(b*bw)}" y="${VH-B+18}" text-anchor="middle" font-size="13">${b*bw}</text>`;
+  if(z.win) g+=`<line x1="${X(z.win)}" x2="${X(z.win)}" y1="${Tp}" y2="${VH-B}" stroke="#ef4444" stroke-width="2" stroke-dasharray="3 3"/>`;
+  z.teams.forEach((tm,k)=>{
+    const cy=Tp+rh*(k+.5), h=Math.min(26,rh*.55), a=tm.rt, nm=tm.name.length>13?tm.name.slice(0,12)+"…":tm.name;
+    g+=`<text x="${L-8}" y="${cy+5}" text-anchor="end" font-size="14" style="fill:${tm.col};font-weight:700">${esc(nm)}</text>`;
+    if(!a.length){ g+=`<text x="${X(0)+4}" y="${cy+5}" font-size="12">–</text>`; return; }
+    const q1=quant(a,.25), md=quant(a,.5), q3=quant(a,.75), mn=Math.min(...a), mx=Math.max(...a), m=mean(a);
+    g+=`<line x1="${X(mn)}" x2="${X(mx)}" y1="${cy}" y2="${cy}" stroke="${tm.col}" stroke-width="2"/>
+      <line x1="${X(mn)}" x2="${X(mn)}" y1="${cy-h/3}" y2="${cy+h/3}" stroke="${tm.col}" stroke-width="2"/><line x1="${X(mx)}" x2="${X(mx)}" y1="${cy-h/3}" y2="${cy+h/3}" stroke="${tm.col}" stroke-width="2"/>
+      <rect x="${X(q1)}" y="${cy-h/2}" width="${Math.max(2,X(q3)-X(q1))}" height="${h}" rx="4" fill="${tm.col}" fill-opacity=".3" stroke="${tm.col}" stroke-width="2"/>
+      <line x1="${X(md)}" x2="${X(md)}" y1="${cy-h/2}" y2="${cy+h/2}" stroke="#f8fafc" stroke-width="3"/>`;
+    a.forEach((v,j)=>g+=`<circle cx="${X(v)}" cy="${cy+((j*7)%11-5)*h/16}" r="2.6" fill="#f8fafc" fill-opacity=".75"/>`);
+    g+=`<path d="M${X(m)},${cy-7}L${X(m)+7},${cy}L${X(m)},${cy+7}L${X(m)-7},${cy}Z" fill="#fbbf24" stroke="#0b1020"/>
+      <text x="${VW-R+6}" y="${cy+5}" font-size="13">μ ${nf(m)}</text>`;
+  });
+  return g+`</svg>`;
+}
+function orderSvg(z){
+  const t=NT(), D=z.D, nO=D.o.length, nT=z.nT, L=34,R=10,Tp=40,B=50;
+  const slot=(VW-L-R)/nO, bwid=Math.min(40,slot*.62), Y=v=>VH-B-v*(VH-Tp-B)/nT, LC={R:"#dc2626",G:"#16a34a",Y:"#eab308"};
+  const okBy=D.o.map((_,i)=>z.teams.filter(tm=>tm.m[i]==="O").length);
+  const hard=z.idx.length ? z.idx.reduce((a,i)=>okBy[i]<okBy[a]?i:a,z.idx[0]) : -1;
+  let g=svgOpen();
+  for(let v=0;v<=nT;v++) g+=`<line x1="${L}" x2="${VW-R}" y1="${Y(v)}" y2="${Y(v)}" stroke="#1e293b"/>${v%(nT>4?2:1)===0?`<text x="${L-6}" y="${Y(v)+5}" text-anchor="end" font-size="13">${v}</text>`:""}`;
+  const parts=[["O","#22c55e"],["K","#a78bfa"],["Q","#f59e0b"],["X","rgba(239,68,68,.35)"]];
+  D.o.forEach((num,i)=>{
+    const cx=L+slot*(i+.5), x=cx-bwid/2, reached=z.idx.includes(i); let acc=0;
+    if(reached) parts.forEach(([c,col])=>{ const v=z.teams.filter(tm=>tm.m[i]===c).length; if(!v) return;
+      g+=`<rect x="${x}" y="${Y(acc+v)}" width="${bwid}" height="${Y(acc)-Y(acc+v)}" fill="${col}" stroke="#0b1020" stroke-width=".8"/>`; acc+=v; });
+    else g+=`<rect x="${x}" y="${Y(nT)}" width="${bwid}" height="${Y(0)-Y(nT)}" fill="none" stroke="#334155" stroke-dasharray="4 3"/>`;
+    if(i===hard) g+=`<text x="${cx}" y="${Y(nT)-6}" text-anchor="middle" font-size="16" style="fill:#fbbf24">★</text>`;
+    const code=(typeof CODES!=="undefined"&&CODES[num])||"", sq=Math.min(9,slot/4);
+    code.split("").forEach((ch,j)=>g+=`<rect x="${cx-1.5*sq+j*sq}" y="${VH-B+6}" width="${sq-1}" height="${sq-1}" rx="1.5" fill="${LC[ch]||"#64748b"}"/>`);
+    g+=`<text x="${cx}" y="${VH-B+32}" text-anchor="middle" font-size="12">#${num}</text>`;
+  });
+  const lg=[[t.good,"#22c55e"],[t.bad,"#a78bfa"],[t.unk,"#f59e0b"],[t.miss,"rgba(239,68,68,.6)"]]; let lx=L;
+  lg.forEach(([s,c])=>{ g+=`<rect x="${lx}" y="6" width="11" height="11" fill="${c}"/><text x="${lx+15}" y="16" font-size="12">${s}</text>`; lx+=28+s.length*6.5; });
+  if(hard>=0) g+=`<text x="${VW-R}" y="16" text-anchor="end" font-size="12" style="fill:#fbbf24">★ ${t.hard}: #${D.o[hard]}</text>`;
+  return g+`</svg>`;
+}
+function binSvg(z){
+  const t=NT(), n=z.n, nT=z.nT; if(!n) return svgMsg(t.none);
+  const L=34,R=12,Tp=44,B=34, p=z.pbar;
+  const obs=Array.from({length:n+1},(_,k)=>z.teams.filter(tm=>tm.okN===k).length);
+  const exp=obs.map((_,k)=>nT*choose(n,k)*p**k*(1-p)**(n-k));
+  const ymax=Math.max(1,...obs,...exp), step=Math.max(1,Math.ceil(ymax/4)), yTop=step*Math.ceil(ymax/step);
+  const slot=(VW-L-R)/(n+1), X=k=>L+slot*(k+.5), Y=v=>VH-B-v*(VH-Tp-B)/yTop;
+  let g=svgOpen();
+  for(let v=0;v<=yTop;v+=step) g+=`<line x1="${L}" x2="${VW-R}" y1="${Y(v)}" y2="${Y(v)}" stroke="#1e293b"/><text x="${L-6}" y="${Y(v)+5}" text-anchor="end" font-size="13">${v}</text>`;
+  obs.forEach((v,k)=>{ const w=Math.min(34,slot*.6);
+    if(v){ const who=z.teams.filter(tm=>tm.okN===k); let acc=0;
+      who.forEach(tm=>{ g+=`<rect x="${X(k)-w/2}" y="${Y(acc+1)}" width="${w}" height="${Y(acc)-Y(acc+1)}" fill="${tm.col}" stroke="#0b1020" stroke-width="1"/>`; acc++; }); }
+    g+=`<text x="${X(k)}" y="${VH-B+18}" text-anchor="middle" font-size="13">${k}</text>`; });
+  g+=`<path d="M${exp.map((v,k)=>`${X(k).toFixed(1)},${Y(v).toFixed(1)}`).join("L")}" fill="none" stroke="#fbbf24" stroke-width="2.5"/>`;
+  exp.forEach((v,k)=>g+=`<circle cx="${X(k)}" cy="${Y(v)}" r="3.5" fill="#fbbf24"/>`);
+  const okc=z.teams.map(tm=>tm.okN);
+  g+=`<text x="${L}" y="16" font-size="14" style="fill:#f8fafc;font-weight:700">p̄ = ${nf(p,2)} · s² = ${nf(sdev(okc)**2,2)} vs n·p̄·(1−p̄) = ${nf(n*p*(1-p),2)}</text>`;
+  if(Number.isFinite(z.pv)) g+=`<text x="${L}" y="34" font-size="13" style="fill:${z.pv<.05?"#4ade80":"#cbd5e1"}">χ² = ${nf(z.chi,2)} (${nT-1} ${t.dof}) · p = ${nf(z.pv,3)} → ${z.pv<.05?t.diff:t.same}</text>`;
+  g+=`<g font-size="12"><rect x="${VW-R-150}" y="${Tp-2}" width="10" height="10" fill="#94a3b8"/><text x="${VW-R-136}" y="${Tp+7}">${t.obs}</text>
+    <circle cx="${VW-R-145}" cy="${Tp+19}" r="4" fill="#fbbf24"/><text x="${VW-R-136}" y="${Tp+23}">${t.exp}</text></g>`;
+  return g+`</svg>`;
 }
 
 /* ---------------- live projector: fixed link on the PC, results pushed by the phone ---------------- */
