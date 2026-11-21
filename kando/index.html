@@ -54,7 +54,8 @@ input[type=number]{width:5.5em}
 #next{font-size:.85rem;color:var(--muted);display:flex;align-items:center;gap:6px}
 #next img{height:38px}
 #ctrl{display:flex;gap:6px}
-#ctrl button{padding:.45em .7em}
+#ctrl button{padding:.45em .6em}
+#ctrl{flex-wrap:wrap}
 .code{display:inline-flex;gap:3px}
 .code b{display:inline-block;min-width:1.15em;text-align:center;border-radius:5px;color:#fff;padding:0 .12em}
 .code b.R{background:var(--kR)} .code b.G{background:var(--kG)} .code b.Y{background:var(--kY);color:#111}
@@ -192,6 +193,12 @@ td.miss{color:var(--red)}
     <label style="flex:1"><span data-t="seq"></span>
      <input type="text" id="fSeq" style="width:100%" inputmode="numeric"></label>
    </div>
+   <div class="row" style="margin-top:8px">
+    <button id="rndBtn" data-t="rnd"></button>
+    <label><input type="checkbox" id="fDup"> <span data-t="dup"></span></label>
+    <button id="stdSeqBtn" data-t="stdSeq"></button>
+   </div>
+   <p class="muted small" id="seqLock"></p>
    <p class="muted small" id="timingInfo"></p>
   </div>
 
@@ -226,7 +233,7 @@ td.miss{color:var(--red)}
    <div id="countdown"></div></div>
   <div class="box" id="side">
    <div id="next"></div>
-   <div id="ctrl"><button id="goBtn" class="primary"></button><button id="pauseBtn"></button><button id="endBtn" data-t="end"></button><button id="fsBtn" title="Fullscreen">⛶</button></div>
+   <div id="ctrl"><button id="goBtn" class="primary"></button><button id="pauseBtn"></button><button id="endBtn" data-t="end"></button><button id="tickBtn" title="Bip 5 s"></button><button id="langBtn"></button><button id="fsBtn" title="Fullscreen">⛶</button></div>
   </div>
  </div>
  <div id="teams"></div>
@@ -344,8 +351,8 @@ const COLW = {it:{R:"rosso",G:"verde",Y:"giallo"},en:{R:"red",G:"green",Y:"yello
 const T = {
  it:{title:"KanDo – Segnapunti",help:"Istruzioni",resumeTxt:"Prova in corso:",resume:"Riprendi",discard:"Annulla prova",
   phase:"Fase",teams:"Squadre",timing:"Tempi (secondi)",first:"Primo ordine a",interval:"Un ordine ogni",window:"Finestra di consegna",
-  defaults:"Valori della fase",seq:"Sequenza degli ordini (numeri dei carrelli)",sound:"Suoni",voice:"Leggi l'ordine a voce",
-  tick:"Bip negli ultimi 5 s",test:"Prova suono",soundNote:"Alza il volume multimediale: i bip usano l'audio del browser. Lo schermo resta acceso durante la prova.",
+  defaults:"Valori della fase",seq:"Sequenza degli ordini (numeri dei carrelli)",rnd:"🎲 Sequenza casuale",dup:"ammetti doppioni",stdSeq:"Sequenza standard",seqLocked:"Fasi 4 e 5: si gioca con le carte d'ordine, quindi la sequenza è sempre quella standard.",sound:"Suoni",voice:"Leggi l'ordine a voce",
+  tick:"Bip negli ultimi 5 s",tickOn:"Bip degli ultimi 5 s attivi",tickOff:"Bip degli ultimi 5 s spenti",test:"Prova suono",soundNote:"Alza il volume multimediale: i bip usano l'audio del browser. Lo schermo resta acceso durante la prova.",
   warmup:"Riscaldamento (10 minuti)",warmStart:"Avvia / pausa",reset:"Azzera",start:"Inizia la fase",summary:"Risultati",
   end:"Fine",go:"Via",pause:"Pausa",cont:"Riprendi",backGame:"Torna al gioco",toSetup:"Impostazioni",
   save:"Salva nel Production Summary",csv:"Esporta CSV",prodSummary:"Production Summary",clearSum:"Svuota",
@@ -361,9 +368,9 @@ const T = {
   speak:(n,c)=>`Ordine numero ${n}. ${c}`,
   helpHtml:`<h2>Come si usa</h2>
 <ol>
-<li><b>Impostazioni</b>: scegli la fase (1–5) e il numero di squadre (2–6), scrivi i nomi. I tempi e la sequenza dei 10 ordini sono quelli dei report del docente; si possono cambiare.</li>
-<li><b>Inizia la fase</b>, poi <b>Via</b> quando dai il segnale ai ragazzi. Il cronometro parte e lo schermo resta acceso.</li>
-<li>All'<b>apertura</b> di ogni ordine (start) suonano due bip acuti e, se attiva, la voce legge la consegna (prima, seconda…), il numero del carrello e, dalla fase 2, i colori. In alto vedi l'ordine aperto con la <b>foto del carrello</b>, così sai già cosa deve arrivare.</li>
+<li><b>Impostazioni</b>: scegli la fase (1–5) e il numero di squadre (2–6), scrivi i nomi. I tempi e la sequenza dei 10 ordini sono quelli dei report del docente; si possono cambiare. Nelle fasi 1–3 <b>🎲 Sequenza casuale</b> rimescola gli ordini (con “ammetti doppioni” lo stesso carrello può uscire più volte); nelle fasi 4–5 si gioca con le carte, quindi la sequenza resta quella standard.</li>
+<li><b>Inizia la fase</b>, poi <b>Via</b> quando dai il segnale ai ragazzi. Il cronometro parte e lo schermo resta acceso. In alto a destra, durante il gioco, <b>🔔5s</b> accende o spegne i bip degli ultimi 5 secondi e <b>EN/IT</b> cambia la lingua (anche della voce).</li>
+<li>All'<b>apertura</b> di ogni ordine (start) suonano due bip acuti e, se attiva, la voce legge la consegna (prima, seconda…), dalla fase 2 i colori, poi il numero del carrello. In alto vedi l'ordine aperto con la <b>foto del carrello</b>, così sai già cosa deve arrivare.</li>
 <li>Alla <b>scadenza</b> (stop) suona un bip lungo e grave; negli ultimi 5 secondi un bip al secondo.</li>
 <li>Quando una squadra consegna in tempo, tocca il suo pulsante grande <b>CONSEGNATO</b>. Un secondo tocco, finché l'ordine è aperto, annulla.</li>
 <li><b>Controllo qualità dopo</b>: accanto a CONSEGNATO c'è il pulsante arancione <b>? da controllare</b> con la foto del <b>pezzo più vecchio consegnato e non ancora controllato</b>: compare appena la squadra consegna e resta lì finché non lo controlli (“+2” vuol dire altri due in coda). Quando hai tempo guarda il pezzo e toccalo: ogni tocco passa da <b>?</b> (da controllare, arancione) a <b>OK</b> (buono, verde) a <b>KO</b> (difettoso, viola) e di nuovo a <b>?</b>. Si può anche toccare il riquadro dell'ordine nella griglia sotto: stessi tre stati.</li>
@@ -379,8 +386,8 @@ const T = {
 <p class="muted">I dati restano sul telefono (anche se ricarichi la pagina). Per installarla: menu del browser → “Aggiungi a schermata Home”.</p>`},
  en:{title:"KanDo – Scoreboard",help:"Instructions",resumeTxt:"Run in progress:",resume:"Resume",discard:"Discard run",
   phase:"Phase",teams:"Teams",timing:"Timing (seconds)",first:"First order at",interval:"One order every",window:"Delivery window",
-  defaults:"Phase defaults",seq:"Order sequence (trolley numbers)",sound:"Sound",voice:"Read the order aloud",
-  tick:"Beep in the last 5 s",test:"Test sound",soundNote:"Turn up the media volume: beeps use the browser audio. The screen stays on during the run.",
+  defaults:"Phase defaults",seq:"Order sequence (trolley numbers)",rnd:"🎲 Random sequence",dup:"allow repeats",stdSeq:"Standard sequence",seqLocked:"Phases 4 and 5 are played with the order cards, so the sequence is always the standard one.",sound:"Sound",voice:"Read the order aloud",
+  tick:"Beep in the last 5 s",tickOn:"Last-5-second beeps on",tickOff:"Last-5-second beeps off",test:"Test sound",soundNote:"Turn up the media volume: beeps use the browser audio. The screen stays on during the run.",
   warmup:"Warm-up (10 minutes)",warmStart:"Start / pause",reset:"Reset",start:"Start the phase",summary:"Results",
   end:"End",go:"Go",pause:"Pause",cont:"Resume",backGame:"Back to the game",toSetup:"Settings",
   save:"Save to Production Summary",csv:"Export CSV",prodSummary:"Production Summary",clearSum:"Clear",
@@ -396,9 +403,9 @@ const T = {
   speak:(n,c)=>`Order number ${n}. ${c}`,
   helpHtml:`<h2>How to use it</h2>
 <ol>
-<li><b>Settings</b>: choose the phase (1–5) and the number of teams (2–6), type the names. Timing and the 10-order sequence come from the teacher's reports; they can be changed.</li>
-<li><b>Start the phase</b>, then <b>Go</b> when you give the signal. The clock starts and the screen stays on.</li>
-<li>When each order <b>opens</b> (start) two high beeps sound and, if enabled, a voice reads the delivery (first, second…), the trolley number and, from phase 2, the colours. At the top you see the open order with the <b>trolley picture</b>, so you already know what must arrive.</li>
+<li><b>Settings</b>: choose the phase (1–5) and the number of teams (2–6), type the names. Timing and the 10-order sequence come from the teacher's reports; they can be changed. In phases 1–3 <b>🎲 Random sequence</b> shuffles the orders (with “allow repeats” the same trolley can come up more than once); phases 4–5 are played with the cards, so the sequence stays the standard one.</li>
+<li><b>Start the phase</b>, then <b>Go</b> when you give the signal. The clock starts and the screen stays on. Top right, during the game, <b>🔔5s</b> turns the last-5-second beeps on or off and <b>EN/IT</b> switches the language (voice included).</li>
+<li>When each order <b>opens</b> (start) two high beeps sound and, if enabled, a voice reads the delivery (first, second…), from phase 2 the colours, then the trolley number. At the top you see the open order with the <b>trolley picture</b>, so you already know what must arrive.</li>
 <li>At the <b>deadline</b> (stop) a long low beep sounds; in the last 5 seconds one beep per second.</li>
 <li>When a team delivers on time, tap its big <b>DELIVERED</b> button. A second tap, while the order is open, undoes it.</li>
 <li><b>Quality check later</b>: next to DELIVERED there is the orange button <b>? to check</b> with the picture of the <b>oldest delivered trolley not yet checked</b>: it appears as soon as the team delivers and stays until you check it (“+2” means two more are waiting). When you have time, look at the trolley and tap it: each tap goes from <b>?</b> (to check, orange) to <b>OK</b> (good, green) to <b>KO</b> (defective, purple) and back to <b>?</b>. You can also tap the order tile in the grid below: same three states.</li>
@@ -442,10 +449,10 @@ const ORD = {it:["prima","seconda","terza","quarta","quinta","sesta","settima","
              en:["first","second","third","fourth","fifth","sixth","seventh","eighth","ninth","tenth","eleventh","twelfth","thirteenth","fourteenth","fifteenth","sixteenth","seventeenth","eighteenth","nineteenth","twentieth"]};
 function sayOrder(o,phase){
   const it=S.lang==="it", w=ORD[S.lang][o.i];
-  let txt = it ? (w ? `${w[0].toUpperCase()+w.slice(1)} consegna. Carrello numero ${o.n}.` : `Consegna numero ${o.i+1}. Carrello numero ${o.n}.`)
-               : (w ? `${w[0].toUpperCase()+w.slice(1)} delivery. Trolley number ${o.n}.` : `Delivery number ${o.i+1}. Trolley number ${o.n}.`);
+  let txt = it ? (w ? `${w[0].toUpperCase()+w.slice(1)} consegna.` : `Consegna numero ${o.i+1}.`)
+               : (w ? `${w[0].toUpperCase()+w.slice(1)} delivery.` : `Delivery number ${o.i+1}.`);
   if(phase>=2){ const c=codeWords(o.code); txt += " "+c[0].toUpperCase()+c.slice(1)+"."; }
-  return txt;
+  return txt + (it ? ` Numero ${o.n}.` : ` Number ${o.n}.`);
 }
 function speak(text){
   if(!S.voice||!("speechSynthesis" in window)) return;
@@ -482,6 +489,9 @@ function renderSetup(){
   $("nSeg").innerHTML=[2,3,4,5,6].map(n=>`<button data-n="${n}" class="${n===S.nTeams?"on":""}">${n}</button>`).join("");
   $("names").innerHTML=S.names.slice(0,S.nTeams).map((nm,i)=>`<input type="text" data-i="${i}" value="${nm.replace(/"/g,"&quot;")}" maxlength="20">`).join("");
   $("fFirst").value=S.timing.first; $("fInt").value=S.timing.interval; $("fWin").value=S.timing.window;
+  const locked=S.phase>=4; if(locked && S.seq.join(" ")!==DEF_SEQ.join(" ")) S.seq=DEF_SEQ.slice();
+  $("fSeq").disabled=locked; $("rndBtn").disabled=locked; $("fDup").disabled=locked; $("fDup").checked=!!S.dup;
+  $("seqLock").textContent=locked?L().seqLocked:"";
   $("fGame").value=S.gameName||""; $("fSeq").value=S.seq.join(" "); $("fVoice").checked=S.voice; $("fTick").checked=S.tick;
   const o=orders(S.timing,S.seq); $("timingInfo").textContent=o.length?L().timingInfo(o.length,fmt(o[0].start),fmt(o[o.length-1].stop)):"";
   const r=S.run; $("resumeCard").classList.toggle("hidden",!r);
@@ -493,6 +503,12 @@ $("nSeg").onclick=e=>{ const n=+e.target.dataset.n; if(n){ S.nTeams=n; save(); r
 $("names").oninput=e=>{ const i=+e.target.dataset.i; S.names[i]=e.target.value; save(); };
 ["fFirst","fInt","fWin"].forEach((id,k)=>$(id).onchange=e=>{ const key=["first","interval","window"][k]; const v=Math.max(0,parseInt(e.target.value)||0); S.timing[key]=v; save(); renderSetup(); });
 $("fSeq").onchange=e=>{ const v=e.target.value.split(/[^0-9]+/).map(Number).filter(n=>n>=1&&n<=12); if(v.length){ S.seq=v; save(); } renderSetup(); };
+$("rndBtn").onclick=()=>{ if(S.phase>=4) return; const n=S.seq.length||10;
+  if(S.dup) S.seq=Array.from({length:n},()=>1+Math.floor(Math.random()*12));
+  else { const a=[1,2,3,4,5,6,7,8,9,10,11,12]; for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } S.seq=a.slice(0,Math.min(n,12)); }
+  save(); renderSetup(); };
+$("fDup").onchange=e=>{ S.dup=e.target.checked; save(); };
+$("stdSeqBtn").onclick=()=>{ S.seq=DEF_SEQ.slice(); save(); renderSetup(); };
 $("defBtn").onclick=()=>{ S.timing={...PH[S.phase]}; S.seq=DEF_SEQ.slice(); save(); renderSetup(); };
 $("fVoice").onchange=e=>{ S.voice=e.target.checked; save(); };
 $("fTick").onchange=e=>{ S.tick=e.target.checked; save(); };
@@ -508,9 +524,14 @@ function warmLoop(){ const h=setInterval(()=>{ if(!warm.run){clearInterval(h);re
 $("warmReset").onclick=()=>{ warm={left:600,run:false,last:0}; $("warm").textContent="10:00" };
 
 /* ---------------- run ---------------- */
+// in-game switches: language and the beeps of the last 5 seconds
+function gameSwitches(){ $("langBtn").textContent=S.lang==="it"?"EN":"IT"; $("tickBtn").textContent=S.tick?"🔔5s":"🔕5s"; }
+$("langBtn").onclick=()=>{ S.lang=S.lang==="it"?"en":"it"; save(); applyLang(); $("phaseLbl").textContent=`${L().phase} ${S.run.phase}`; $("endBtn").textContent=L().end; gameSwitches(); frame(); };
+$("tickBtn").onclick=()=>{ S.tick=!S.tick; save(); gameSwitches(); toast(S.tick?L().tickOn:L().tickOff); };
 $("startBtn").onclick=()=>{
   if(S.run && !S.run.ended && S.run.startedAt && !confirm(L().confirmDiscard)) return;
   ac();
+  if(S.phase>=4) S.seq=DEF_SEQ.slice();
   const names=S.names.slice(0,S.nTeams).map((n,i)=>n.trim()||`${L().team} ${i+1}`);
   S.run={phase:S.phase,names,orders:orders(S.timing,S.seq),startedAt:null,pausedAt:null,paused:0,ended:false,lastT:-1,
     marks:names.map(()=>S.seq.map(()=>({d:null,ok:false})))};
@@ -535,7 +556,7 @@ function showGame(){
      ${r.orders.map(o=>`<div class="tile" data-t="${t}" data-i="${o.i}"><span class="tn">${o.i+1} · #${o.n}</span><span class="tc">${o.code}</span>${IMG[o.n]?`<img src="${IMG[o.n]}" alt="">`:""}<span class="tm"></span></div>`).join("")}
     </div></div>`).join("");
   $("phaseLbl").textContent=`${L().phase} ${r.phase}`;
-  $("endBtn").textContent=L().end; $("fsBtn").onclick=toggleFs;
+  $("endBtn").textContent=L().end; $("fsBtn").onclick=toggleFs; gameSwitches();
   if(r.startedAt && !r.ended) wake(true);
   r.lastT=elapsed(); // never replay old beeps after a reload
   frame();
